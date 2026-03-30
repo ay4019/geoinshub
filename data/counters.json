@@ -1,7 +1,7 @@
 {
   "visits": 21,
   "toolUses": 83,
-  "articleReads": 69,
+  "articleReads": 71,
   "toolBreakdown": {
     "gmax-from-vs": 2,
     "eoed-from-mv": 2,
@@ -57,7 +57,7 @@
   "articleBreakdown": {
     "route-planning-in-railway-projects": 18,
     "track-system-in-railway-engineering": 24,
-    "consolidation-settlement-in-geotechnical-engineering": 12,
+    "consolidation-settlement-in-geotechnical-engineering": 14,
     "bearing-capacity-in-layered-soils": 7
   }
 }
