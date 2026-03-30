@@ -1,0 +1,11 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" fill="none">
+  <rect width="1200" height="700" fill="#F3F6EA"/>
+  <rect x="80" y="80" width="1040" height="540" rx="24" fill="#FCFDF9" stroke="#D5DFBF"/>
+  <line x1="180" y1="520" x2="1000" y2="180" stroke="#4A6A2F" stroke-width="8"/>
+  <line x1="180" y1="520" x2="1000" y2="520" stroke="#4A6A2F" stroke-width="4"/>
+  <line x1="180" y1="520" x2="180" y2="180" stroke="#4A6A2F" stroke-width="4"/>
+  <circle cx="480" cy="390" r="16" fill="#4A6A2F"/>
+  <circle cx="660" cy="340" r="16" fill="#4A6A2F"/>
+  <text x="130" y="170" fill="#1F2937" font-size="44" font-family="Arial, sans-serif" font-weight="700">Atterberg Limits</text>
+  <text x="130" y="220" fill="#374151" font-size="28" font-family="Arial, sans-serif">Interpreting the plasticity chart</text>
+</svg>

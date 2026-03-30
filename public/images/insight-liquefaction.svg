@@ -1,0 +1,8 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" fill="none">
+  <rect width="1200" height="700" fill="#EAF3F3"/>
+  <rect x="80" y="80" width="1040" height="540" rx="24" fill="#F8FCFC" stroke="#C6DDDD"/>
+  <path d="M130 470C250 420 360 450 470 410C590 365 680 300 810 320C900 334 980 390 1060 420" stroke="#2F6A68" stroke-width="8"/>
+  <path d="M130 530C250 480 360 510 470 470C590 425 680 360 810 380C900 394 980 450 1060 480" stroke="#2F6A68" stroke-width="8" opacity="0.5"/>
+  <text x="130" y="170" fill="#1F2937" font-size="44" font-family="Arial, sans-serif" font-weight="700">Liquefaction Screening</text>
+  <text x="130" y="220" fill="#374151" font-size="28" font-family="Arial, sans-serif">Conservative early-stage workflow</text>
+</svg>

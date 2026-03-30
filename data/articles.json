@@ -1,0 +1,776 @@
+[
+  {
+    "slug": "route-planning-in-railway-projects",
+    "title": "Route Planning in Railway Projects",
+    "excerpt": "How corridor selection, geometry, expropriation, and institutional coordination shape railway projects long before construction begins.",
+    "date": "2026-03-28",
+    "tags": [
+      "Railway",
+      "Route Planning",
+      "Geotechnics"
+    ],
+    "thumbnail": "/images/blog-route-planning-cover.png",
+    "featured": true,
+    "readTimeMinutes": 8,
+    "content": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "Mega projects consist of many mechanisms that follow and influence each other from beginning to end. In long-distance projects such as highways and railways, construction is carried out on a very large area, passing through districts, cities and even regions. In this case, unlike a classical building approach, it requires evaluating very different disciplines multiple times at different locations. On this point, one of the most important stages of railway design is the determination of the route. Locating the route in the most effective corridor possible not only provides convenience during the construction phase but also ensures that the investment is served efficiently. Many academic studies have been conducted on how to determine routes for various transportation modes. Within this framework, the route is determined according to many factors in high-speed train projects but the region's topography, geological features and current situation stand out."
+      },
+      {
+        "type": "paragraph",
+        "text": "Before detailing the route, it is important to talk about how to bring \"railway investment\" to a region. The number of local and international passengers between the 2 points (cities) where the project will be built is analyzed and this analysis creates the passenger potential. Passenger potential is evaluated by looking at a city's population, development, transportation master plans, livelihood, business opportunity, statistics - and sometimes politics. In addition to passenger potential, the geological-geotechnical condition of the region, its topographic structure, the precence of an existing conventional line, the land value of the region, the sociocultural situation of the people, other habitats, the climate and nature that will affect the maintenance and repair costs of the railway after it becomes operational, and interaction with other transportation modes is important in bringing investment to a region. As a result of the feasibility report in which all these are evaluated, a decision is made on whether the new railway investment will be made. Following this stage, an Environmental Impact Assessment (EID) report is prepared, focusing on the habitats, wildlife, agricultural lands and cultural assets that the project will affect, and this report is expected to be approved by the relevant institutions. Afterwards, the process of determining the route can begin."
+      },
+      {
+        "type": "paragraph",
+        "text": "When we examine the subject in textbooks, it tells us that a \"guide\" route will be based on the \"zero polygon\" resulting from combining the contour lines between two points with the same slope. The route created with the help of the zero polygon is basically a route where there is no cutting or filling work, sounds like an optimum route but this is not a possible option in practice, and the route determination process is a little more complicated."
+      },
+      {
+        "type": "paragraph",
+        "text": "In the very beginning, considering the factors mentioned before, alternative corridors are created for the railway project, whose starting and ending points are almost determined, and these alternative corridors are evaluated among themselves. Some alternatives are eliminated before detailed analysis due to reasons such as excessive extension of the line, increasing number of structures, or passing through registered lands etc. As for other options, both techincal and cost-based criterias are examined and the route with the lowest bad score or the highest good score is tried to be obtained. So how are these candidate corridors created?"
+      },
+      {
+        "type": "paragraph",
+        "text": "During the route determination phase, candidate corridors are drawn on 1/25000 maps. Numerical models to be created by using data such as the length of the line, applicable railway cross-sections, number, length, and foundation types of art structures, amount of earthworks, type of soil where the tunnels will be constructed and mechanical equipment to be used, type of soil and whether improvement is required, superstructure productions to be made for electrification, signaling and safety measures are also effective in the selection of alternative routes over each other. Although one alternative seems better than the other, deeper perspectives are required to determine the most appropriate one. This is where design criteria come into play."
+      },
+      {
+        "type": "paragraph",
+        "text": "Like all engineering projects, railway projects are built within the framework of various geometric and technical features. The most important of these technical features are the type of train operation (passenger, freight, conventional or high-speed train), the train sets to be used, the desired minimum and maximum operating speed* and the minimum curve radius to be used depending on this speed. All these parameters are significantly interconnected, and as a result, this interaction directly affects the comfort of the line. While choosing a high radius curve in mountainous and rugged terrains increases the need for tunnels and viaducts, a lower curve radius may reduce the speed criterion, resulting in more disturbing but more economical results in terms of cost. Lets give an example, we can see that the train serving between Madrid and Seville slows down from 250 km/h to 200 km/h at one point (See figure below)."
+      },
+      {
+        "type": "note",
+        "text": "*In Turkiye, 200 km/h speed and over railway lines are constructed for only passenger trains."
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-route-planning.png",
+        "alt": "Figure from the original route planning document",
+        "caption": "Figure from the original document."
+      },
+      {
+        "type": "paragraph",
+        "text": "One of the reasons for this is that in order to reduce costs, it is preferred to reduce the operating speed and provide service at lower curve radii. If the speed of a line suddenly drops significantly, it can be interpreted that this is related to geometric features. Letâ€™s give a numerical example. According to HS2 data, the minimum curve radius on a line where a train will be operated at 200 km/h should be 1800 m, while a radius of 7200 m is required for operating a train at 400 km/h. As can be easily understood from here, the curve radius, which is proportional to the square of the speed, may pose various geometrical difficulties due to extending the distance. Although the standards used by each country use different radius limits for different speed values, it is clear that high speed requires high radius as an approach. When its come to make a choice, either you choose to keep comfort of the line high and accept increasing the cost or decrease not only the speed but also number of tunnels, viaducts etc. In another significant example, in the project I am currently working on, due to the route coincides with a 3rd Degree protected area, various alternatives were studied to how to find the best solution. Since the archaeological excavation procedure is long, and tunnel and viaduct alternatives increase the cost unexpectedly, the solution was found to be rehabilitating the existing railway line and operating on that line, and in turn reducing the speed. This stabilized to the route not only by reducing the speed but also by reducing the number of art structures. In summary, the geometric features of the line and the route determination significantly affect both the construction phase and the comfort of the line."
+      },
+      {
+        "type": "paragraph",
+        "text": "Another important point in determining the route is to get opinions from other institutions and organizations. It is necessary to work in an integrated manner with relevant institutions and organizations to confirm infrastructure constructions, planned investments for the future, historical findings from past civilizations and current constructions of the region, etc. During construction, many infrastructure works will need to be evacuated, especially at city crossings. Some of these infrastructure works may be of irreplaceable importance (oil lines) or long-term works. It is very important to discuss and determine these situations during the route determination phase. Ignoring this process may have negative consequences during the construction phase, both in terms of time and the cost of additional work to be done in the future. It will also assist in the process of adequacy of funds, obtaining necessary permits, and establishing good communication with local municipalities and institutions."
+      },
+      {
+        "type": "paragraph",
+        "text": "Last but not least, another issue is that after the corridor is determined and construction begins, the land cannot be used for its former purpose. This situation requires the expropriation of the right parcels - aforementioned issue will be examined in detail later. Whether the land is publicly or privately owned, different costs and time will arise during expropriation. Procedures are initiated after the optimum route is determined, but while the construction activities continue, the emergence of new parcels due to changes in the route for various reasons will cause the same procedure to be repeated again. This situation will both cause the previously expropriated lands to be wasted and will cause the newly expropriated areas to take time. In this respect, it is critical to determine the route before construction activities begin."
+      },
+      {
+        "type": "paragraph",
+        "text": "Although there will be changes for various reasons after the project starts, determining the route by evaluating all possible scenarios that may be encountered will be useful in preventing many unforeseen problems."
+      },
+      {
+        "type": "author",
+        "text": "Arifcan Yilmaz, MSc"
+      },
+      {
+        "type": "author",
+        "text": "Geotechnical Engineer"
+      },
+      {
+        "type": "heading",
+        "text": "Bibliography"
+      },
+      {
+        "type": "bibliography",
+        "items": [
+          "Route Selection in the New High-Speed Railway Lines & Design Criteria, TCDD",
+          "Railway Planning and Design Technical Principles, DLH"
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "track-system-in-railway-engineering",
+    "title": "Track System in Railway Engineering",
+    "excerpt": "A practical introduction to rails, sleepers, fastening systems, ballast layers, and why each component matters for track performance.",
+    "date": "2026-03-29",
+    "tags": [
+      "Railway",
+      "Track System",
+      "Superstructure"
+    ],
+    "thumbnail": "/images/blog-track-system.png",
+    "featured": true,
+    "readTimeMinutes": 8,
+    "content": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "The first topic of the Railway Engineering 101 course should undoubtedly be the track system. Knowing what components the railway line consists of, their purposes, interactions with each other, and types deeply affect everything from how to design to how to implement, so today I want to explain the railway track system in general."
+      },
+      {
+        "type": "paragraph",
+        "text": "The traditional railway track system is divided into two as superstructure and substructure. The cross-section is formed by the rails, rail fastening elements, sleepers, ballast, sub-ballast and subgrade layer, from top to bottom (See Figure below)."
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-track-system.png",
+        "alt": "Rail track system figure from the original document"
+      },
+      {
+        "type": "note",
+        "text": "Figure 1. Rail Track System"
+      },
+      {
+        "type": "paragraph",
+        "text": "The main purpose of the entire railway track system is to create a comfortable and safe driving environment by safely transmitting the train loads coming from the superstructure to the infrastructure. So what is the role of each component in this mission?"
+      },
+      {
+        "type": "heading",
+        "text": "Rails"
+      },
+      {
+        "type": "paragraph",
+        "text": "Rails, one of the most important elements of the railway superstructure, are the first elements that come into contact with the wheel. The main functions of the rails are to hold, guide and carry the weight of the trains on the line. Considering the weight of heavy-duty trains up to 35 tons and the speed of high-speed trains up to 350 km/h, the importance of rail design increases. In addition to the design weight and speed, the forces that the train will apply to the rails on the curves, the internal forces resulting from the extension under high temperatures and contraction under low temperatures in the rails, and the forces that will be transferred to the rails due to the acceleration and braking movements of the trains are important factors in the evaluation of rails. Since rails are expected to be resistant to abrasion and have high strength, they are manufactured from high-carbon steel. Rails are brought to the site in different lengths according to the codes in the countries and the requirements of the project and are welded on-site at various distances. Rails with different characteristics are used in light rail systems such as metro and tram, conventional and high-speed trains, switch areas and level crossings. I plan to talk about the types of rails, production procedures, testing procedures and features requested in the specifications in detail in another article, so we can just touch on the surface for now and move on."
+      },
+      {
+        "type": "heading",
+        "text": "Sleepers"
+      },
+      {
+        "type": "paragraph",
+        "text": "Sleepers -designed in different sizes from different materials such as wood, reinforced concrete, and steel- absorb the vertical, horizontal, and longitudinal forces coming from the rail sets and transfer them to the ballast layer. Moreover, they play a key role in the continuity of the line by keeping the gauge between the rails constant. In addition, sleepers partially dampen the noise and vibrations that occur after the wheel-rail interaction and reduce the positive impact on the environment."
+      },
+      {
+        "type": "paragraph",
+        "text": "When the historical development of the railway is examined, it is seen that sleepers were first manufactured from wood. Since the wood material is affected too much by natural environmental conditions and external effects and this situation requires maintenance, there was a transition to steel and concrete sleepers. The use of trains with high axle loads has led to the need to make sleepers more rigid. Concrete sleepers are used in most of the train lines built today. However, the type of sleeper to be used within the scope of the project, sleeper dimensions and spacing are determined by considering the types of trains that will pass on the line, the traffic density of the line and the environmental conditions. I also plan to talk about the types of sleepers, production procedures, testing procedures and features requested in the specifications in detail in another article."
+      },
+      {
+        "type": "heading",
+        "text": "Rail Fastening Elements"
+      },
+      {
+        "type": "paragraph",
+        "text": "When I talked about rails, it was mentioned that one of their most important tasks is to transfer the axle loads coming from the superstructure to the sleepers. In the railway track system, this load transfer is carried out by rail fastening elements consisting of components such as tension clamps, insulation parts, and intermediate baseplates. The first component that receives and transfers not only the axle loads but also the internal forces occurring within the rails is the rail fastening material. In addition, it has important effects in keeping the tension constant and increasing the elasticity of the line."
+      },
+      {
+        "type": "paragraph",
+        "text": "Although rail fastening materials play a very important role in the track system, there are not yet sufficient approaches for their design and analysis. More often, the qualification tests of the components that make up the fastening material are carried out."
+      },
+      {
+        "type": "heading",
+        "text": "Ballast and Sub-ballast Layer"
+      },
+      {
+        "type": "paragraph",
+        "text": "The ballast and sub-ballast layer, called the granular layer, absorbs the loads coming from the railway superstructure and transmits them to the subgrade layer by damping them in a way that does not cause any deformation in here. This layer, in which the sleepers \"float\", has the functions of ensuring the drainage and elasticity of the line, keeping the sleepers fixed in all directions and protecting the platform."
+      },
+      {
+        "type": "paragraph",
+        "text": "The physical properties and minimum requirements of the materials forming the ballast and sub-ballast layer are different from each other. The main differences are their grain diameter, gradation, resistance to various physical conditions, and implementation procedure. Various methods have been developed in different regulations for the calculation of the granular layer thickness. I will give a detailed explanation about these methods, the properties of the materials forming the granular layer, the experiments carried out, the laying methods, and maintenance works in another article."
+      },
+      {
+        "type": "heading",
+        "text": "Ballastless Track"
+      },
+      {
+        "type": "paragraph",
+        "text": "When it comes to railway track systems, ballasted cross-section comes to mind directly, but ballastless track or slab track stands out as a very frequently used method. So what are the benefits of this method? Although the initial cost is high, the fact that the maintenance frequency is rare and the maintenance cost is low provides a great advantage over the ballasted line. In addition, if a new project is being carried out, slab track can be preferred because it allows higher superelevation and lower curve radii. Although it is a low criterion in terms of being taken into consideration, the fact that there is no risk of ballast pieces flying out during train passage is also a positive effect for slab track."
+      },
+      {
+        "type": "paragraph",
+        "text": "During train passages on ballasted lines, rising sleepers fall on the ballasts and cause mechanical breakage and deterioration. In addition, due to the need for correction of ballasts over time (tamping), the inability to easily use the machines that will perform this correction in bridges and tunnels, and the fact that ballast, which is a special material, cannot be easily obtained, many sections have switched to the slab track method."
+      },
+      {
+        "type": "paragraph",
+        "text": "Slab track design is a completely different component according to the test procedures and specification rules that must be followed. I will explain this in detail in another article."
+      },
+      {
+        "type": "paragraph",
+        "text": "The basic components that consist the railway track system have been described above at a 101 level. Of course, each component has very detailed technical specifications, construction methods, testing procedures, and application areas. All of these will be explained specifically in other articles. However, the point I want to emphasize here is that the main purpose of the railway track system is to protect the integrity of the line by transmitting repetitive and dynamically effective train loads to a sub-component in a safe and comfortable way. Each component should be checked periodically and deformations that will disrupt this task should be prevented. Each component of this system, which works in harmony, closely affects the other. For example, the bending moments that will occur in the sleeper vary depending on the degree of compression and quality of the ballast layer. Or the elasticity of the rail connection material changes the effects on the sleeper. It is important to understand the track system by considering these effects."
+      },
+      {
+        "type": "author",
+        "text": "Arifcan Yilmaz, MSc"
+      },
+      {
+        "type": "author",
+        "text": "Civil Engineer"
+      },
+      {
+        "type": "heading",
+        "text": "Bibliography"
+      },
+      {
+        "type": "bibliography",
+        "items": [
+          "Track Compendium, Dr. Bernhard Lichtberger",
+          "New Advances in Analysis and Design of Railway Track System, J. Sadehgi"
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "consolidation-settlement-in-geotechnical-engineering",
+    "title": "Consolidation Settlement in Geotechnical Engineering",
+    "excerpt": "A practical overview of consolidation settlement, key parameters, stress increase, and how engineers estimate both magnitude and time.",
+    "date": "2026-03-29",
+    "tags": [
+      "Settlement",
+      "Consolidation",
+      "Geotechnics"
+    ],
+    "thumbnail": "/images/blog-consolidation-cover.png",
+    "featured": true,
+    "readTimeMinutes": 10,
+    "content": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "In geotechnical engineering, one of the challenges encountered regarding soil behavior is settlement. In this article, I will first explain the fundamentals of the settlement concept, and then I will highlight the critical points that must be considered in design and analysis. Rather than a lecture-like explanation or a simple example solution, I will point out the main logic, and demonstrate the solution to a real-world example step-by-step, and I will also solve the same example using Settle3D, a software commonly used for settlement calculations. Let's begin!"
+      },
+      {
+        "type": "heading",
+        "text": "What is settlement?"
+      },
+      {
+        "type": "paragraph",
+        "text": "First and foremost, it is crucial to understand what the settlement is and its concept correctly. Settlement is described as the reduction in void ratio and the increase in relative density of the soil under various influences. The most significant of these influences include engineering embankments built on the soil, structures foundations, and changes in the groundwater level within the soil. Under these influences, the compacted particles gradually expel the water in the voids and move downward over time. One of the key aspects of this point is that the size of the particles does not change - at least that's how it's accepted - the placement of the particles changes instead."
+      },
+      {
+        "type": "paragraph",
+        "text": "Settlements are analyzed under two main categories: immediate settlement and time-dependent consolidation settlement. Theoretically, immediate settlement stands out in coarse-grained soils. Consolidation settlement, on the other hand, is more prominent in fine-grained clay soils. But what about a vice-versa situation? Although time-dependent settlement can also occur in coarse-grained soils, water easily escapes from the voids between the particles at the time of loading, and the majority of settlement in these soils happens quickly. In clay soils, although immediate settlement may be observed at the time of loading, the main concern is consolidation settlement, as the expulsion of water from cohesive soils takes time. In this article, I will focus primarily on consolidation settlement."
+      },
+      {
+        "type": "heading",
+        "text": "About consolidation settlement"
+      },
+      {
+        "type": "paragraph",
+        "text": "Consolidation settlement in cohesive soils occurs due to the long-term expulsion of water from the voids caused by additional vertical stress. The mechanism of consolidation settlement is illustrated in Figure 1 below by the U.S. Department of Transportation. I strongly suggest reading this document to deeply understand the spring-piston model."
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-consolidation-1.png",
+        "alt": "Consolidation mechanism in fine-grained soil"
+      },
+      {
+        "type": "note",
+        "text": "Figure 1. Consolidation mechanism in fine-grained soil (Department of Transport, 2006)"
+      },
+      {
+        "type": "paragraph",
+        "text": "I don't want to skip this part without mentioning it briefly because understanding the consolidation mechanism is really important. When any load is applied to a stable saturated soil, at t = 0, no stress occurs in the soil grains, but the pore water between the grains carries the load and this creates an additional pore water pressure. This water, whose stress increases, tends to leave the soil over time and transfers the stress to the soil. At t = infinity, the additional pore water pressure in the soil becomes zero and the applied load is completely carried by the soil grains. This mechanism symbolizes the behavior of a loaded soil over time."
+      },
+      {
+        "type": "paragraph",
+        "text": "As I mentioned before, the primary concern here is the increase in effective stress in the soil. Effective stress increases can occur under loading as well as changes in the groundwater level. The construction of an embankment or the foundation of a structure is a major cause of these stress increases. An important point to note is that clay soils have a load memory. If excavation is to be done for the foundation of the structure, the effect of the excavated soil must be deducted from the load memory at the relevant depth. Solely accounting for the load from the superstructure will yield incorrect results. However, the same is not true for fills, as no excavation occurs during their construction."
+      },
+      {
+        "type": "paragraph",
+        "text": "If the effective stress at point A of a clay soil is the highest effective stress that point has ever seen, in other words, if it has not previously encountered a higher effective stress, these clays are called Normally Consolidated (NC) clays. Contrarily, if a soil is subjected to a stress greater than the effective stress at point A and this stress has decreased for some reason, such clays are called Over-Consolidated (OC) clays. Why is this difference important? If the soil is in a normal consolidated state, it will undergo rapid consolidation under increased effective stress compared to OC clays. If it is in an over-consolidated state, it will first consolidate more slowly to the over-consolidation point, while its consolidation will accelerate after this point. Knowing the loading status of the soil to be analyzed is critical in this respect. There are various approaches in the literature for the calculation of this over-consolidation point, but I will not touch on them here. In summary, the history of the clay soils to be analyzed for consolidation and the procedures to be implemented must be thoroughly examined."
+      },
+      {
+        "type": "paragraph",
+        "text": "For the calculation of consolidation settlement, we will use the equation suggested by Bowles and given below in Equation 1."
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 1)",
+        "lines": [
+          "S<sub>c</sub> = m<sub>v</sub> H &Delta;&sigma;&prime;"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Here:"
+      },
+      {
+        "type": "paragraph",
+        "text": "S_c is the total amount of consolidation settlement for the layer being calculated,"
+      },
+      {
+        "type": "paragraph",
+        "text": "m_v is the coefficient of volume compressibility of the clay soil,"
+      },
+      {
+        "type": "paragraph",
+        "text": "Delta sigma prime is the total vertical stress increase at the midpoint of the layer being calculated,"
+      },
+      {
+        "type": "paragraph",
+        "text": "H is the thickness of the layer that can be consolidated."
+      },
+      {
+        "type": "heading",
+        "text": "How to obtain parameters?"
+      },
+      {
+        "type": "paragraph",
+        "text": "In consolidation calculations, it is necessary to determine the volumetric compressibility coefficients (m_v) of clays. Various experimental and empirical approaches exist for this purpose. The first of these are laboratory experiments conducted on samples obtained from the soil and this test is called the Oedometer test. In this test, undisturbed and saturated samples obtained from various depths of the soil are subjected to various loads, and their void ratio changes are examined. With the help of different equations, volumetric compressibility coefficient and consolidation coefficient values are obtained according to certain effective stress ranges as a result of the test. The coefficient of compressibility is the ratio of unit volume reduction to unit stress increase. This is determined by the changes in the initial void ratio and volume of the test sample under loading. According to the approach presented by Craig in 2004, the m_v value can be obtained using Equation 2 below. In addition to laboratory experiments, the m_v value can also be obtained using SPT data. This approach, introduced by Stroud in 1974, is given in Equation 3. The f2 value found in this equation can be obtained from the graph in Figure 2."
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 2)",
+        "lines": [
+          "m<sub>v</sub> = 1/(1 + e<sub>0</sub>) * ((e<sub>0</sub> - e<sub>1</sub>) / (&sigma;&prime;<sub>1</sub> - &sigma;&prime;<sub>2</sub>))"
+        ]
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 3)",
+        "lines": [
+          "m<sub>v</sub> = 1/(f<sub>2</sub> * N<sub>60</sub>)"
+        ]
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-consolidation-3-graph.svg",
+        "alt": "Plasticity index and f2 value correlation graph"
+      },
+      {
+        "type": "note",
+        "text": "Figure 2. Plasticity index and f2 value correlation (Stroud, 1974)"
+      },
+      {
+        "type": "paragraph",
+        "text": "In analyses, while laboratory results obtained from actual samples are primarily considered, there are times when reliable data cannot be obtained, or laboratory measurements produce results that contradict engineering understanding. At these times, the importance of empirical approaches increases. Using the average of both data types obtained in the analyses can also be a reasonable approach."
+      },
+      {
+        "type": "paragraph",
+        "text": "Once the coefficient of volumetric compressibility is determined using these methods, the compressible layer thickness (H) value can be obtained from the soil profile."
+      },
+      {
+        "type": "paragraph",
+        "text": "The final value in the equation is Delta sigma prime, which represents the increase in stress. It is important to understand the term \"stress increase\" correctly. The stress increase value is not the effective stress value. The current effective stress at a specific point is important for determining the coefficient of volumetric compressibility, and the value of stress increase is quite different from this. Stress increase occurs due to the load from the superstructure or changes in the groundwater level. It can also be referred to as a new load that will cause settlement. As I mentioned before, if a foundation for a structure is being constructed, the weight of the excavation should be deducted, and if it is a fill, the direct load of the fill should be taken. One critical aspect to consider here is the distribution of stress. That is, the stress beneath the foundation or fill decreases with depth in the soil and reaches a different value at a certain point of the clay being analyzed for settlement. Various approaches such as Boussinesq's method, Westergaard's method, and the 2:1 method exist in the literature for stress distribution. I will not explain these approaches in detail, but let me give bite-sized information. The 2:1 method provides a more general approach and often yields results that are more distant from reality. In the Boussinesq approach, the soil is considered as a homogeneous layer for stress distribution, whereas in the Westergaard method, soils with different moduli of elasticity provide the stress distribution. Conducting detailed research on these methods will be useful for understanding the calculations. A common point of confusion usually concerns whether loads such as train and truck loads are considered in the consolidation settlement calculations. As I have mentioned before, consolidation settlement is a time-dependent settlement that occurs in compressible soils due to an increase in stress. The primary concern is with loads that are spread over time and are permanent. Instantaneous loads applied by vehicles, which do not affect pore water pressure, are not considered in consolidation settlement calculations. Such loadings can be considered under the category of immediate loading."
+      },
+      {
+        "type": "heading",
+        "text": "Final calculations"
+      },
+      {
+        "type": "paragraph",
+        "text": "In conclusion, we have obtained all the data needed to calculate consolidation settlement. Subsequently, the total settlement is determined using Equation 1. Yes, we can obtain the total settlement but what is the limit value for this settlement and how can we assess what we got? In our codes, the limit value for total settlement is set at 5 cm in railway projects - of course, you have to make sure that the 5 cm seating is completed before the train is put into service - and any settlement values above this limit are considered for alternative solutions. These solutions include replacing with rock fill, compaction, and for more significant settlements, advanced methods like deep soil mixing (DSM) and stone columns. I will discuss these methods in detail in another article. In my research, although there is no consensus, the Federal Highway Administration document requires that the settlement under the fill be limited to 2 inches (51 mm) when giving an example about DSM. I would appreciate it if you could share what limit your specifications set for this matter."
+      },
+      {
+        "type": "paragraph",
+        "text": "Once the consolidation settlement has been determined, it is necessary to ascertain how long it will take for the soil to complete this settlement. This determination is made using the experimentally determined consolidation coefficient, the length of the drainage path, and time by using Equation 4. The time required for consolidation to complete is obtained from the value derived from the graph of the percentage settlement with the dimensionless time factor."
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 4)",
+        "lines": [
+          "T<sub>v</sub> = (c<sub>v</sub> * t) / H<sub>dr</sub><sup>2</sup>"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Here,"
+      },
+      {
+        "type": "paragraph",
+        "text": "T_v is the time factor,"
+      },
+      {
+        "type": "paragraph",
+        "text": "c_v is the coefficient of consolidation,"
+      },
+      {
+        "type": "paragraph",
+        "text": "t is the time measurement,"
+      },
+      {
+        "type": "paragraph",
+        "text": "H_dr is the drainage path."
+      },
+      {
+        "type": "paragraph",
+        "text": "I will not go into detail about the calculation of the consolidation coefficient obtained with the consolidation percentage and T_v time factor tables. The c_v value is a concept that does not affect the amount of consolidation and only provides information about the percentage of consolidation completion over time."
+      },
+      {
+        "type": "heading",
+        "text": "To prevent the problem"
+      },
+      {
+        "type": "paragraph",
+        "text": "Railway projects are long-term and complex, and progress depends on various factors. Phases such as design processes, expropriation time, and prioritization of critical constructions are considered. In this context, if a settlement issue is encountered in the location through which the route passes and there is sufficient time, you need to find a solution."
+      },
+      {
+        "type": "paragraph",
+        "text": "One of these solutions is preloading. A fill is constructed over the route to create the necessary conditions for consolidation settlement, and the soil is expected to settle under this load. Using the c_v values we obtained before, it is analyzed what percentage of consolidation has been completed in periods such as 3 months, 6 months, and 12 months. After reaching the desired limits, this fill is removed, and the real road fill and railway superstructure are laid according to the standards specified in the specifications using the appropriate methods and materials. Again, I want to underline that although this method may seem mandatory on paper, attention must be paid to criteria such as the condition of the construction area, the time schedule, critical constructions, and the conditions for bringing fill material to the area. Sometimes you may be doing modernization on an existing railway and you need to close one of the two operating lines and do work there. In such a case, it may not be possible to bring in fill material and do preliminary consolidation."
+      },
+      {
+        "type": "paragraph",
+        "text": "Another method to prevent consolidation settlement is to install sand drains. Sand drains are a method that facilitates the rapid removal of excessive pore water pressure within the soil, thereby accelerating the consolidation process. Although it is assumed in consolidation calculations that water drains in one direction, lateral drainage is actually an existing situation. When we consider this, it is necessary to make sand drains at certain intervals so that the water reaches a channel where it can drain easily and accelerate the consolidation process. As we will remember from Equation 4, the drainage path is a parameter that plays a very critical role in terms of time - and its square is taken. Reducing the drainage path in half means shortening the time by 1/4. However, the construction of these drains is a long and costly process. It would be good to evaluate it on a project basis."
+      },
+      {
+        "type": "paragraph",
+        "text": "Last but not least, sometimes we have encountered examples where there is not much difference between the settlement that occurs in 3 months and 6 months depending on the consolidation coefficient of the soil. In these cases where deep improvement alternatives are still needed, waiting 3 months longer may not be very efficient in terms of the economy and duration of the work. Again, such situations should be evaluated on a project and region basis."
+      },
+      {
+        "type": "heading",
+        "text": "Recap"
+      },
+      {
+        "type": "paragraph",
+        "text": "I have tried to explain the mechanism of consolidation settlement as clearly as possible above. Below, I would like to share an application and calculation step by step. Thank you for reading this far. Please share your views and suggestions with me, and your own experiences. See you in the next article."
+      },
+      {
+        "type": "author",
+        "text": "Arifcan Yilmaz, MSc"
+      },
+      {
+        "type": "author",
+        "text": "Civil Engineer"
+      }
+    ]
+  },
+  {
+    "slug": "bearing-capacity-in-layered-soils",
+    "title": "Bearing Capacity in Layered Soils",
+    "excerpt": "An accessible review of rigid-base effects, layered bearing capacity equations, and how foundation response changes across stratified ground.",
+    "date": "2026-03-28",
+    "tags": [
+      "Bearing Capacity",
+      "Layered Soils",
+      "Foundations"
+    ],
+    "thumbnail": "/images/blog-bearing-layered-cover.png",
+    "featured": true,
+    "readTimeMinutes": 11,
+    "content": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "One of the foundational pillars of safe design in geotechnical engineering is the bearing capacity. Put simply, bearing capacity is the determination of whether soil can safely support the loads applied to it without experiencing shear failure or excessive settlement. This capacity varies depending on the type of soil, loading conditions, and the geometry of the foundation. Traditional theories of bearing capacity, developed by researchers like Terzaghi, Meyerhof, and Vesic, are based on the mechanisms of soil failure under the foundation. However, in this article, I will focus not on these traditional methods but on the more complex issue of bearing capacity in layered soils and how it is calculated. Instead of delving into all the details found in the literature, I aim to present the essence of the topic and share a few practical tips gleaned from experience."
+      },
+      {
+        "type": "heading",
+        "text": "Understanding the problem"
+      },
+      {
+        "type": "paragraph",
+        "text": "Classic bearing capacity theories often rely on the assumption that the soil beneath a foundation is homogenous and extends deeply uniformly. However, as an engineer who designs in different types of soil and different structures, I can say that the reality is way different from this assumption. Often, different soil types are encountered even at the beginning and end of a structure. Therefore, understanding the logic of layered bearing capacity calculation is very critical."
+      },
+      {
+        "type": "paragraph",
+        "text": "As you might recall from classical soil mechanics, a foundation under vertical load develops a failure surface, as depicted in Figure 1. It is assumed that this failure surface extends as wide as the foundation's width (B)."
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-bearing-layered-1.png",
+        "alt": "Failure surface beneath a shallow foundation in soil",
+        "caption": "Figure 1. Idealized failure mechanism beneath a shallow foundation under vertical loading."
+      },
+      {
+        "type": "paragraph",
+        "text": "If the critical shear surface lies within a layer, the safety of a foundation under vertical load is determined using the classical soil mechanics bearing capacity formulas. Equation 1 below can be used to determine whether the foundation can safely support the applied loads."
+      },
+      {
+        "type": "equation",
+        "label": "(1)",
+        "lines": [
+          "q<sub>u</sub> = c N<sub>c</sub> + q N<sub>q</sub> + 1/2 B &gamma; N<sub>&gamma;</sub>"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Here, q_u is the ultimate bearing capacity, c is the cohesion of soil, N_c, N_q, and N_gamma are bearing capacity factors, q is the surcharge load, B is the width of the strip footing, and gamma is the unit weight of soil."
+      },
+      {
+        "type": "note",
+        "text": "P.S.: Additionally, shape factors, depth factors, and inclination factors are employed in various approaches to enhance the accuracy of predictions."
+      },
+      {
+        "type": "paragraph",
+        "text": "The real challenge arises when the thickness of the soil layer beneath the foundation is less than the depth B (refer to Figure 2)."
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-bearing-layered-3.png",
+        "alt": "Layer thickness relative to footing width in shallow foundation design",
+        "caption": "Figure 2. Potential shear surface extending from the upper crust into an underlying softer layer."
+      },
+      {
+        "type": "paragraph",
+        "text": "Firstly, it's important to highlight two scenarios in the situation above. The first scenario involves a foundation supported by soil with a rigid base at a shallow depth. The second scenario, which we will explore under various conditions, focuses on layered soil. Long story short, the presence or absence of a rigid base is a key factor. Let's first examine the scenario where there is a rigid base."
+      },
+      {
+        "type": "heading",
+        "text": "Foundation Supported by a Soil with a Rigid Base"
+      },
+      {
+        "type": "paragraph",
+        "text": "In this scenario, the bearing capacity calculated using the classical soil mechanics formula (Eq. 1). However, the factors in this formula (N_c, N_q, N_gamma) are replaced with modified factors derived from the D/B ratio versus soil internal friction angle graph, depending on whether the supporting soil is cohesive or granular."
+      },
+      {
+        "type": "equation",
+        "label": "(2)",
+        "lines": [
+          "q<sub>u</sub> = c N<sub>c</sub><sup>*</sup> + q N<sub>q</sub><sup>*</sup> + 1/2 B &gamma; N<sub>&gamma;</sub><sup>*</sup>"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "If the foundation is underlain by granular soil (c = 0) and is a rectangular foundation, modified shape factors are found as shown in Eq. 3, and if it is a soil in undrained condition (phi = 0), it is found as shown in Eq. 4. An example graph is given in Figure 3."
+      },
+      {
+        "type": "equation",
+        "label": "(3)-(4)",
+        "lines": [
+          "q<sub>u</sub> = q N<sub>q</sub><sup>*</sup> F<sub>qs</sub><sup>*</sup> + 1/2 B &gamma; N<sub>&gamma;</sub><sup>*</sup> F<sub>&gamma;s</sub><sup>*</sup>",
+          "q<sub>u</sub> = c N<sub>c</sub><sup>*</sup> + q"
+        ]
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-bearing-layered-6-clean.png",
+        "alt": "Example graph for rigid-base bearing capacity modification",
+        "caption": "Figure 3. Mendel and Salencon's bearing capacity factors N_c*."
+      },
+      {
+        "type": "note",
+        "text": "P.S.: For detailed calculations regarding the factors Fqs and F_gamma_s, please refer to Reference 2. While I won't delve into the computations here, those interested can access both numerical examples and all relevant graphs through this reference."
+      },
+      {
+        "type": "heading",
+        "text": "What about layered soil? Literature Review!"
+      },
+      {
+        "type": "paragraph",
+        "text": "We're now turning our attention to situations where the foundation's underlying soil isn't supported by a rigid base but instead varies in soil type. The study of bearing capacity in such layered soils was first introduced by Button in 1953, who concentrated specifically on fully saturated clay (phi = 0). This initial study, however, was later critiqued by Brown and Meyerhof in 1969 for being too optimistic and yielding unconservative results. Building on this, Vesic in 1975 reviewed the earlier test results and proposed his solution, aiming to rectify the inadequacies found in previous analyses."
+      },
+      {
+        "type": "paragraph",
+        "text": "Vesic's approach considered both types of soil within each layer, including clay as well as cohesionless (c = 0) soils. Nevertheless, no definitive validation of Vesic's analysis and similar studies has been established. Meyerhof (1974) investigated a two-layer system consisting of dense sand over soft clay and loose sand over stiff clay, supporting his analysis with model tests. Subsequently, Meyerhof and Hanna (1978) extended Meyerhof's earlier work to include cohesionless soils (c = 0), validating their findings through additional model tests. This section provides a concise overview of the analyses conducted by Meyerhof (1974) and Meyerhof and Hanna (1978)."
+      },
+      {
+        "type": "heading",
+        "text": "Bearing Capacity of Layered Soils"
+      },
+      {
+        "type": "paragraph",
+        "text": "To summarize the topics discussed up to this point, classical soil mechanics for bearing capacity calculations have traditionally been based on the assumption that the soil beneath the foundation is homogenous and of sufficient depth. However, in reality, this condition can vary significantly. In the previous section, we explored the impact of having a rigid base beneath the supporting soil on the bearing capacity. Now, we will shift our focus to scenarios where the foundation rests on soil that is not a rigid base, examining the bearing capacity's response under three different key conditions."
+      },
+      {
+        "type": "paragraph",
+        "text": "1. Footing on layered clays (all phi = 0)"
+      },
+      {
+        "type": "paragraph",
+        "text": "a. Top layer weaker than lower layer (c1 < c2)"
+      },
+      {
+        "type": "paragraph",
+        "text": "b. Top layer stronger than lower layer (c1 > c2)"
+      },
+      {
+        "type": "paragraph",
+        "text": "2. Footing on layered phi-c soils"
+      },
+      {
+        "type": "paragraph",
+        "text": "3. Footing on layered sand and clay soils"
+      },
+      {
+        "type": "paragraph",
+        "text": "a. Sand overlying clay"
+      },
+      {
+        "type": "paragraph",
+        "text": "b. Clay overlying sand"
+      },
+      {
+        "type": "paragraph",
+        "text": "In the context of bearing capacity in layered soils, the findings by Meyerhof and Hanna (1978) and Meyerhof (1974) provide a foundation for understanding how the bearing capacity can be calculated for soils with varying unit weights, internal friction angles, and cohesion values. This calculation is demonstrated in Equation 5, as follows:"
+      },
+      {
+        "type": "equation",
+        "label": "(5)",
+        "lines": [
+          "q<sub>u</sub> = q<sub>b</sub> + (1 + B/L) (2 c<sub>a</sub> H / B) + &gamma;<sub>1</sub> H<sup>2</sup> (1 + B/L) (1 + 2 D<sub>f</sub>/H) (K<sub>s</sub> tan &phi;<sub>1</sub> / B) - &gamma;<sub>1</sub> H &le; q<sub>t</sub>"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Where"
+      },
+      {
+        "type": "equation",
+        "label": "(6)-(7)",
+        "lines": [
+          "q<sub>b</sub> = c<sub>2</sub> N<sub>c(2)</sub> F<sub>cs(2)</sub> + &gamma;<sub>1</sub> (D<sub>f</sub> + H) N<sub>q(2)</sub> F<sub>qs(2)</sub> + 1/2 &gamma;<sub>2</sub> B N<sub>&gamma;(2)</sub> F<sub>&gamma;s(2)</sub>",
+          "q<sub>t</sub> = c<sub>1</sub> N<sub>c(1)</sub> F<sub>cs(1)</sub> + &gamma;<sub>1</sub> D<sub>f</sub> N<sub>q(1)</sub> F<sub>qs(1)</sub> + 1/2 &gamma;<sub>1</sub> B N<sub>&gamma;(1)</sub> F<sub>&gamma;s(1)</sub>"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "q_b represents the individual bearing capacity of the lower soil layer, while q_t signifies the individual bearing capacity of the upper soil layer. C_a is the adhesive force, and K_s is the punching shear coefficient. For detailed calculations, please see Reference 2. The coefficients C_a and K_s are derived using the ca/c1-ratio of individual bearing capacities of layers and internal friction angle versus ratio of individual bearing capacities of layers graphs, respectively. These graphs are provided in Figure 4 below, with the left figure for C_a and the right figure for K_s."
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-bearing-layered-9-clean.png",
+        "alt": "Charts for determining adhesive force and punching shear coefficient",
+        "caption": "Figure 4. Charts for determining c_a and K_s."
+      },
+      {
+        "type": "heading",
+        "text": "Special Cases"
+      },
+      {
+        "type": "paragraph",
+        "text": "I would also like to discuss some of the scenarios characterized by the equation given in Eq. 5. Since the special situations that I will mention here are encountered in most designs, more concise and understandable equations are used instead of the long and complex equation given in Equation 5."
+      },
+      {
+        "type": "heading",
+        "text": "Strong sand underlain by saturated soft clay (phi_2 = 0)"
+      },
+      {
+        "type": "equation",
+        "label": "(8)",
+        "lines": [
+          "q<sub>u</sub> = (1 + 0.2 B/L) 5.14 c<sub>2</sub> + &gamma;<sub>1</sub> H<sup>2</sup> (1 + B/L) (1 + 2 D<sub>f</sub>/H) (K<sub>s</sub> tan &phi;<sub>1</sub> / B) + &gamma;<sub>1</sub> D<sub>f</sub>",
+          "&le; q<sub>t</sub> = &gamma;<sub>1</sub> D<sub>f</sub> N<sub>q(1)</sub> F<sub>qs(1)</sub> + 1/2 &gamma;<sub>1</sub> B N<sub>&gamma;(1)</sub> F<sub>&gamma;s(1)</sub>"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Determination of K_s will be from:"
+      },
+      {
+        "type": "equation",
+        "lines": [
+          "q<sub>2</sub>/q<sub>1</sub> = (c<sub>2</sub> N<sub>c(2)</sub>) / (1/2 &gamma;<sub>1</sub> B N<sub>&gamma;(1)</sub>) = (5.14 c<sub>2</sub>) / (0.5 &gamma;<sub>1</sub> B N<sub>&gamma;(1)</sub>)"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Stronger sand underlain by weaker sand (c1 = c2 = 0)"
+      },
+      {
+        "type": "equation",
+        "label": "(9)",
+        "lines": [
+          "q<sub>u</sub> = [&gamma;<sub>1</sub> (D<sub>f</sub> + H) N<sub>q(2)</sub> F<sub>qs(2)</sub> + 1/2 &gamma;<sub>2</sub> B N<sub>&gamma;(2)</sub> F<sub>&gamma;s(2)</sub>] + &gamma;<sub>1</sub> H<sup>2</sup> (1 + B/L) (1 + 2 D<sub>f</sub>/H) (K<sub>s</sub> tan &phi;<sub>1</sub> / B) - &gamma;<sub>1</sub> H &le; q<sub>t</sub>"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Where"
+      },
+      {
+        "type": "equation",
+        "label": "(10)",
+        "lines": [
+          "q<sub>t</sub> = [&gamma;<sub>1</sub> D<sub>f</sub> N<sub>q(1)</sub> F<sub>qs(1)</sub> + 1/2 &gamma;<sub>1</sub> B N<sub>&gamma;(1)</sub> F<sub>&gamma;s(1)</sub>]"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Determination of K_s will be from:"
+      },
+      {
+        "type": "equation",
+        "lines": [
+          "q<sub>2</sub>/q<sub>1</sub> = (1/2 &gamma;<sub>2</sub> B N<sub>&gamma;(2)</sub>) / (1/2 &gamma;<sub>1</sub> B N<sub>&gamma;(1)</sub>) = (&gamma;<sub>2</sub> N<sub>&gamma;(2)</sub>) / (&gamma;<sub>1</sub> N<sub>&gamma;(1)</sub>)"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Stronger clay underlain by weaker clay (phi_1 = phi_2 = 0)"
+      },
+      {
+        "type": "equation",
+        "label": "(11)",
+        "lines": [
+          "q<sub>u</sub> = (1 + 0.2 B/L) 5.14 c<sub>2</sub> + (1 + B/L) (2 c<sub>a</sub> H / B) + &gamma;<sub>1</sub> D<sub>f</sub> &le; q<sub>t</sub>"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Where"
+      },
+      {
+        "type": "equation",
+        "label": "(12)",
+        "lines": [
+          "q<sub>t</sub> = (1 + 0.2 B/L) 5.14 c<sub>1</sub> + &gamma;<sub>1</sub> D<sub>f</sub>"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Determination of c_a will be from:"
+      },
+      {
+        "type": "equation",
+        "lines": [
+          "q<sub>2</sub>/q<sub>1</sub> = (5.14 c<sub>2</sub>) / (5.14 c<sub>1</sub>) = c<sub>2</sub> / c<sub>1</sub>"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Weaker layer underlain by a stronger layer"
+      },
+      {
+        "type": "paragraph",
+        "text": "When a foundation rests on a weaker layer underlain by a stronger layer, the ratio q2/q1 will be greater than one. If the H/B ratio is relatively small, the failure surface at ultimate load will extend through both soil layers. However, as the H/B ratio increases, the failure surface will be confined entirely within the upper, weaker soil layer."
+      },
+      {
+        "type": "image",
+        "src": "/images/blog-bearing-layered-18-clean.png",
+        "alt": "Failure mechanism when a weaker layer overlies a stronger layer",
+        "caption": "Figure 5. Foundation on weaker soil layer underlain by stronger sand layer."
+      },
+      {
+        "type": "equation",
+        "label": "(13)",
+        "lines": [
+          "q<sub>u</sub> = q<sub>t</sub> + (q<sub>b</sub> - q<sub>t</sub>) (H/D)<sup>2</sup> &ge; q<sub>t</sub>"
+        ]
+      },
+      {
+        "type": "heading",
+        "text": "Recap"
+      },
+      {
+        "type": "paragraph",
+        "text": "In geotechnical design, if the effective depth of the foundation impacts two or more soil layers, a detailed calculation of layered bearing capacity should be conducted. This approach has been explained in detail above, and I would like to offer a few hints to aid in understanding."
+      },
+      {
+        "type": "paragraph",
+        "text": "If the foundation is built on soil supported by a rigid base, it is calculated with the classical formula with the help of corrected factors. One of the important notes here is that since the rigid base is so strong that it will not fail, its support for any bearing capacity to the upper layer should not be taken into account. In case the two layers are stronger or weaker than each other, the effect of both layers on each other is taken into account."
+      },
+      {
+        "type": "paragraph",
+        "text": "If the characteristic soil properties of the layers - c, phi, and gamma values - differ significantly, using the lowest value in the designs may not be preferred, as it would be a very conservative approach. In these cases, the layered soil approach should be taken into account and a criticism should be made according to the results. However, if there are no major differences between the values, a homogeneous layer assumption can be made by taking the weighted average of the layer thicknesses and soil parameters. According to this weighted average, a new c, phi, and gamma value is determined, and the design is made."
+      },
+      {
+        "type": "paragraph",
+        "text": "It should also be taken into account that if there is a sandy base on the clay soil, it will create a punching effect on the weak soil below, instead of relying on the high bearing capacity of the solid layer above."
+      },
+      {
+        "type": "paragraph",
+        "text": "If the ground under the foundation is weak and there is a solid layer under it, in this case, depending on the thickness of the weak layer, all layers can be designed according to the weak soil parameters, or with the prediction that this weak soil will cause problems in the bearing capacity, the rock filling improvement method can be used and the bearing capacity for the second layer can be checked. This is an improvement method, and the engineering interpretation can be made according to the layer thickness under the foundation, and the complete removal of the relatively weaker layer can be evaluated. In this case, rock filling is placed instead, and the foundation is ensured to settle on a stronger base. Further, a comparison is made between the bearing capacity of the rock fill and the load on the foundation. In soils with settlement and bearing capacity problems, rock filling displacement is a widely used method."
+      },
+      {
+        "type": "paragraph",
+        "text": "In case of construction of important structures such as bridges and viaducts on a wavy ground profile, it is important to place the footings on the same type of ground in order to prevent different settlements. In this context, if there is a relatively weaker layer under one of the foundations, even if bearing capacity is sufficient, removing this layer and performing rock improvement there can also be considered as an alternative. All of these alternatives are solutions that should be evaluated on a project and ground basis."
+      },
+      {
+        "type": "paragraph",
+        "text": "I kindly request you to share your opinions, suggestions, and examples of your designs and applications on layered grounds."
+      },
+      {
+        "type": "heading",
+        "text": "Bibliography"
+      },
+      {
+        "type": "bibliography",
+        "items": [
+          "[1] Anonymous. Ultimate Bearing Capacity of Shallow Foundations: Special Cases",
+          "[2] Das, B. (2011) Principles of Foundation Engineering. Seventh Edition",
+          "[3] GeoStru. (2017) Ultimate bearing capacity of footings resting on stratified deposits of soil, Meyerhof and Hanna 1978. Available at: https://www.geostru.eu/es/blog/2017/10/12/ultimate-bearing-capacity-of-footings-resting-on-stratified-deposits-of-soil-meyerhof-and-hanna-1978/ (Accessed: 16 March 2025).",
+          "[4] Meyerhof, G.G. & Hanna, A.M. (1978). Ultimate Bearing Capacity of Foundations on Layered Soils under Inclined Load.",
+          "[5] NPTEL. (2013) Advanced Foundation Engineering. Available at: https://archive.nptel.ac.in/courses/105/108/105108069/# (Accessed: 16 March 2025).",
+          "[6] Uncuoglu, E. (2020) Tabakali Zeminlerde Tasima Gucu."
+        ]
+      }
+    ]
+  }
+]

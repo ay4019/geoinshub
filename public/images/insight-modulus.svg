@@ -1,0 +1,9 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" fill="none">
+  <rect width="1200" height="700" fill="#E9F1F8"/>
+  <rect x="80" y="80" width="1040" height="540" rx="24" fill="#F8FBFE" stroke="#C9DAEA"/>
+  <path d="M130 520C250 460 300 340 420 300C520 266 620 290 700 248C790 200 860 120 1030 140" stroke="#365B7A" stroke-width="8"/>
+  <circle cx="420" cy="300" r="14" fill="#365B7A"/>
+  <circle cx="700" cy="248" r="14" fill="#365B7A"/>
+  <text x="130" y="170" fill="#1E293B" font-size="44" font-family="Arial, sans-serif" font-weight="700">Modulus Selection</text>
+  <text x="130" y="220" fill="#334155" font-size="28" font-family="Arial, sans-serif">Preliminary settlement analysis</text>
+</svg>

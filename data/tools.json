@@ -1,0 +1,421 @@
+[
+  {
+    "slug": "unit-weight-converter",
+    "title": "Unit Weight and Moisture Converter",
+    "category": "Soil Parameters",
+    "shortDescription": "Convert moist unit weight to dry unit weight and common imperial metric units.",
+    "tags": ["unit weight", "moisture content", "gamma"],
+    "keywords": ["dry unit weight", "water content", "pcf", "kN/m3"],
+    "featured": true,
+    "inputs": [
+      {
+        "name": "gammaMoist",
+        "label": "Moist unit weight",
+        "type": "number",
+        "unit": "kN/m3",
+        "placeholder": "e.g., 18.5",
+        "min": 1,
+        "step": 0.1,
+        "defaultValue": 18.5
+      },
+      {
+        "name": "waterContent",
+        "label": "Water content",
+        "type": "number",
+        "unit": "%",
+        "placeholder": "e.g., 12",
+        "min": 0,
+        "step": 0.1,
+        "defaultValue": 12
+      }
+    ],
+    "information": {
+      "overview": "This helper applies basic phase relationship equations for quick conversions between moist and dry unit weights.",
+      "assumptions": [
+        "Water content is entered as gravimetric water content in percent.",
+        "Soil sample is representative and unit consistency is maintained.",
+        "No correction is applied for entrapped air or sampling disturbance."
+      ],
+      "equations": [
+        "gamma_d = gamma_m / (1 + w)",
+        "1 kN/m3 = 6.3659 pcf"
+      ],
+      "citations": [
+        "[Placeholder] Das, B.M. Principles of Geotechnical Engineering.",
+        "[Placeholder] Coduto, D. Geotechnical Engineering: Principles and Practices."
+      ],
+      "disclaimer": "Indicative values only. Do not use as the sole basis for design or safety-critical decisions."
+    }
+  },
+  {
+    "slug": "void-ratio-porosity-helper",
+    "title": "Void Ratio and Porosity Helper",
+    "category": "Soil Parameters",
+    "shortDescription": "Estimate void ratio, porosity, and saturation estimate from dry unit weight.",
+    "tags": ["void ratio", "porosity", "specific gravity"],
+    "keywords": ["Gs", "gamma_d", "phase relationships", "saturation"],
+    "featured": false,
+    "inputs": [
+      {
+        "name": "specificGravity",
+        "label": "Specific gravity of solids (Gs)",
+        "type": "number",
+        "placeholder": "e.g., 2.68",
+        "min": 1.5,
+        "max": 3.5,
+        "step": 0.01,
+        "defaultValue": 2.68
+      },
+      {
+        "name": "gammaDry",
+        "label": "Dry unit weight",
+        "type": "number",
+        "unit": "kN/m3",
+        "placeholder": "e.g., 16.2",
+        "min": 1,
+        "step": 0.1,
+        "defaultValue": 16.2
+      },
+      {
+        "name": "waterContent",
+        "label": "Water content",
+        "type": "number",
+        "unit": "%",
+        "placeholder": "optional for Sr estimate",
+        "min": 0,
+        "step": 0.1,
+        "defaultValue": 10
+      }
+    ],
+    "information": {
+      "overview": "This helper estimates basic phase-relationship parameters often used in preliminary checks.",
+      "assumptions": [
+        "Unit weight of water is taken as 9.81 kN/m3.",
+        "Input dry unit weight represents in-situ condition under consideration.",
+        "Saturation estimate assumes reliable water content measurement."
+      ],
+      "equations": [
+        "e = (Gs * gamma_w / gamma_d) - 1",
+        "n = e / (1 + e)",
+        "S_r = (w * Gs) / e"
+      ],
+      "citations": [
+        "[Placeholder] Lambe and Whitman, Soil Mechanics.",
+        "[Placeholder] Holtz and Kovacs, An Introduction to Geotechnical Engineering."
+      ],
+      "disclaimer": "For educational/preliminary use only. Confirm with laboratory and field testing."
+    }
+  },
+  {
+    "slug": "shallow-foundation-bearing-capacity",
+    "title": "Shallow Foundation Bearing Capacity (Simplified)",
+    "category": "Bearing Capacity",
+    "shortDescription": "Estimate ultimate and allowable bearing capacity using simplified Terzaghi/Vesic-style factors.",
+    "tags": ["bearing capacity", "foundation", "Terzaghi"],
+    "keywords": ["Nc", "Nq", "Ngamma", "allowable pressure"],
+    "featured": true,
+    "inputs": [
+      {
+        "name": "foundationShape",
+        "label": "Foundation shape",
+        "type": "select",
+        "defaultValue": "strip",
+        "options": [
+          { "label": "Strip", "value": "strip" },
+          { "label": "Square", "value": "square" },
+          { "label": "Circular", "value": "circular" }
+        ]
+      },
+      {
+        "name": "cohesion",
+        "label": "Effective cohesion, c'",
+        "type": "number",
+        "unit": "kPa",
+        "placeholder": "e.g., 15",
+        "min": 0,
+        "step": 0.1,
+        "defaultValue": 15
+      },
+      {
+        "name": "frictionAngle",
+        "label": "Effective friction angle, phi'",
+        "type": "number",
+        "unit": "deg",
+        "placeholder": "e.g., 30",
+        "min": 0,
+        "max": 50,
+        "step": 0.1,
+        "defaultValue": 30
+      },
+      {
+        "name": "unitWeight",
+        "label": "Soil unit weight",
+        "type": "number",
+        "unit": "kN/m3",
+        "placeholder": "e.g., 18",
+        "min": 1,
+        "step": 0.1,
+        "defaultValue": 18
+      },
+      {
+        "name": "width",
+        "label": "Foundation width (B)",
+        "type": "number",
+        "unit": "m",
+        "placeholder": "e.g., 2",
+        "min": 0.1,
+        "step": 0.01,
+        "defaultValue": 2
+      },
+      {
+        "name": "embedment",
+        "label": "Embedment depth (Df)",
+        "type": "number",
+        "unit": "m",
+        "placeholder": "e.g., 1.2",
+        "min": 0,
+        "step": 0.01,
+        "defaultValue": 1.2
+      },
+      {
+        "name": "factorOfSafety",
+        "label": "Factor of safety",
+        "type": "number",
+        "placeholder": "e.g., 3",
+        "min": 1,
+        "step": 0.1,
+        "defaultValue": 3
+      }
+    ],
+    "information": {
+      "overview": "Uses a simplified general shear expression with common shape factors for conceptual checks.",
+      "assumptions": [
+        "Drained condition and effective stress parameters are assumed.",
+        "Groundwater and inclination/depth factors are not fully modeled.",
+        "Not calibrated to any specific national code."
+      ],
+      "equations": [
+        "q_ult = c'Ncsc + gamma Df Nq sq + 0.5 gamma B Ngamma sgamma",
+        "q_allow = q_ult / FS"
+      ],
+      "citations": [
+        "[Placeholder] Terzaghi, Theoretical Soil Mechanics.",
+        "[Placeholder] Vesic bearing capacity factors references."
+      ],
+      "disclaimer": "Preliminary estimate only. Detailed design must include code-compliant checks and site-specific investigation."
+    }
+  },
+  {
+    "slug": "one-dimensional-consolidation-settlement",
+    "title": "1D Consolidation Settlement (Simplified)",
+    "category": "Settlement",
+    "shortDescription": "Estimate primary consolidation settlement in a normally consolidated layer.",
+    "tags": ["settlement", "consolidation", "compression index"],
+    "keywords": ["Cc", "effective stress", "primary settlement"],
+    "featured": true,
+    "inputs": [
+      {
+        "name": "compressionIndex",
+        "label": "Compression index (Cc)",
+        "type": "number",
+        "placeholder": "e.g., 0.28",
+        "min": 0.01,
+        "step": 0.01,
+        "defaultValue": 0.28
+      },
+      {
+        "name": "initialVoidRatio",
+        "label": "Initial void ratio (e0)",
+        "type": "number",
+        "placeholder": "e.g., 0.9",
+        "min": 0.1,
+        "step": 0.01,
+        "defaultValue": 0.9
+      },
+      {
+        "name": "layerThickness",
+        "label": "Compressible layer thickness (H)",
+        "type": "number",
+        "unit": "m",
+        "placeholder": "e.g., 4",
+        "min": 0.1,
+        "step": 0.01,
+        "defaultValue": 4
+      },
+      {
+        "name": "initialEffectiveStress",
+        "label": "Initial effective stress (sigma0')",
+        "type": "number",
+        "unit": "kPa",
+        "placeholder": "e.g., 80",
+        "min": 1,
+        "step": 0.1,
+        "defaultValue": 80
+      },
+      {
+        "name": "stressIncrease",
+        "label": "Stress increase (delta sigma')",
+        "type": "number",
+        "unit": "kPa",
+        "placeholder": "e.g., 40",
+        "min": 0.1,
+        "step": 0.1,
+        "defaultValue": 40
+      }
+    ],
+    "information": {
+      "overview": "Computes settlement using the classical log-stress relationship for normally consolidated soils.",
+      "assumptions": [
+        "Normally consolidated behavior is assumed.",
+        "Layer properties are homogeneous.",
+        "Secondary compression and time-rate effects are excluded."
+      ],
+      "equations": [
+        "S = H * (Cc / (1 + e0)) * log10((sigma0' + delta sigma') / sigma0')"
+      ],
+      "citations": [
+        "[Placeholder] Terzaghi, Peck, and Mesri.",
+        "[Placeholder] NAVFAC settlement guidance."
+      ],
+      "disclaimer": "Screening-level result only. Use project-specific lab data and layered stress analysis for design."
+    }
+  },
+  {
+    "slug": "elastic-immediate-settlement",
+    "title": "Elastic Immediate Settlement (Simplified)",
+    "category": "Settlement",
+    "shortDescription": "Estimate immediate settlement from elastic theory with an influence factor.",
+    "tags": ["immediate settlement", "elastic", "modulus"],
+    "keywords": ["Es", "Poisson ratio", "influence factor"],
+    "featured": false,
+    "inputs": [
+      {
+        "name": "appliedPressure",
+        "label": "Applied net pressure (q)",
+        "type": "number",
+        "unit": "kPa",
+        "placeholder": "e.g., 150",
+        "min": 0.1,
+        "step": 0.1,
+        "defaultValue": 150
+      },
+      {
+        "name": "width",
+        "label": "Foundation width (B)",
+        "type": "number",
+        "unit": "m",
+        "placeholder": "e.g., 2",
+        "min": 0.1,
+        "step": 0.01,
+        "defaultValue": 2
+      },
+      {
+        "name": "elasticModulus",
+        "label": "Elastic modulus (Es)",
+        "type": "number",
+        "unit": "kPa",
+        "placeholder": "e.g., 25000",
+        "min": 100,
+        "step": 10,
+        "defaultValue": 25000
+      },
+      {
+        "name": "poissonRatio",
+        "label": "Poisson ratio (nu)",
+        "type": "number",
+        "placeholder": "e.g., 0.3",
+        "min": 0,
+        "max": 0.49,
+        "step": 0.01,
+        "defaultValue": 0.3
+      },
+      {
+        "name": "influenceFactor",
+        "label": "Influence factor (If)",
+        "type": "number",
+        "placeholder": "e.g., 1.0",
+        "min": 0.4,
+        "max": 1.5,
+        "step": 0.01,
+        "defaultValue": 1
+      }
+    ],
+    "information": {
+      "overview": "Applies a classic elastic expression often used for preliminary immediate settlement checks.",
+      "assumptions": [
+        "Soil treated as linear elastic, homogeneous, isotropic medium.",
+        "Influence factor selected by user from reference charts.",
+        "No strain-dependent modulus degradation included."
+      ],
+      "equations": [
+        "S_i = q * B * (1 - nu^2) * If / Es"
+      ],
+      "citations": [
+        "[Placeholder] Bowles Foundation Analysis and Design.",
+        "[Placeholder] Elastic settlement chart references."
+      ],
+      "disclaimer": "Use with caution. Immediate settlement predictions should be calibrated with local experience and testing."
+    }
+  },
+  {
+    "slug": "uscs-plasticity-helper",
+    "title": "USCS Plasticity Chart Helper (Simplified)",
+    "category": "Soil Classification",
+    "shortDescription": "Classify fine-grained soils with LL and PL against the A-line using a simplified rule set.",
+    "tags": ["USCS", "Atterberg limits", "classification"],
+    "keywords": ["liquid limit", "plastic limit", "plasticity index", "A-line"],
+    "featured": true,
+    "inputs": [
+      {
+        "name": "liquidLimit",
+        "label": "Liquid limit (LL)",
+        "type": "number",
+        "unit": "%",
+        "placeholder": "e.g., 52",
+        "min": 0,
+        "max": 120,
+        "step": 0.1,
+        "defaultValue": 52
+      },
+      {
+        "name": "plasticLimit",
+        "label": "Plastic limit (PL)",
+        "type": "number",
+        "unit": "%",
+        "placeholder": "e.g., 24",
+        "min": 0,
+        "max": 120,
+        "step": 0.1,
+        "defaultValue": 24
+      },
+      {
+        "name": "percentPassing200",
+        "label": "Percent passing No. 200 sieve",
+        "type": "number",
+        "unit": "%",
+        "placeholder": "e.g., 70",
+        "min": 0,
+        "max": 100,
+        "step": 0.1,
+        "defaultValue": 70
+      }
+    ],
+    "information": {
+      "overview": "Provides a quick plasticity-chart interpretation for educational and preliminary use.",
+      "assumptions": [
+        "Applies only to fines-dominant soils when passing No. 200 is high.",
+        "Borderline classes are simplified.",
+        "Organic soils and coarse fraction effects are not fully represented."
+      ],
+      "equations": [
+        "PI = LL - PL",
+        "A-line PI_A = 0.73 * (LL - 20)"
+      ],
+      "citations": [
+        "[Placeholder] ASTM D2487 USCS.",
+        "[Placeholder] Casagrande plasticity chart references."
+      ],
+      "disclaimer": "Classification is approximate and not a substitute for full laboratory classification protocols."
+    }
+  }
+]
