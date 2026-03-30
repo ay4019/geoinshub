@@ -39,19 +39,19 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   const blocks = article.blocks ?? article.content.map((paragraph) => ({ type: "paragraph" as const, text: paragraph }));
 
   return (
-    <article className="space-y-6">
+    <article className="mx-auto max-w-5xl space-y-6">
       <ArticleReadTracker slug={article.slug} />
 
-      <Link href="/blog" className="inline-flex text-sm font-medium text-slate-700 transition-colors hover:text-slate-900">
+      <Link href="/blog" className="inline-flex text-base font-medium text-slate-700 transition-colors hover:text-slate-900 sm:text-lg">
         {"<-"} Back to blog
       </Link>
 
-      <header className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-3xl leading-tight font-semibold text-slate-900">{article.title}</h1>
+      <header className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm sm:px-8 sm:py-6">
+        <h1 className="text-2xl leading-tight font-semibold text-slate-900 sm:text-3xl">{article.title}</h1>
       </header>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="space-y-5 text-base leading-8 text-slate-700">
+      <section className="rounded-xl border border-slate-200 bg-white px-6 py-6 shadow-sm sm:px-8 sm:py-8">
+        <div className="space-y-6 text-[15px] leading-8 text-slate-700 sm:text-[16px]">
           {blocks.map((block, index) => {
             if (block.type === "paragraph") {
               return <p key={`${block.type}-${index}`}>{block.text}</p>;
@@ -67,7 +67,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
 
             if (block.type === "image") {
               return (
-                <figure key={`${block.type}-${index}`} className="space-y-3">
+                <figure key={`${block.type}-${index}`} className="mx-auto max-w-4xl space-y-3">
                   <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                     <Image
                       src={block.src}
@@ -84,7 +84,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
 
             if (block.type === "equation") {
               return (
-                <div key={`${block.type}-${index}`} className="space-y-2">
+                <div key={`${block.type}-${index}`} className="mx-auto max-w-4xl space-y-2">
                   <div className="overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
                     <div className="flex min-w-max items-start justify-between gap-6">
                       <div className="space-y-3 font-serif text-lg leading-relaxed tracking-tight text-slate-900 [&_sub]:text-[0.72em] [&_sub]:align-[-0.25em] [&_sup]:text-[0.72em] [&_sup]:align-[0.45em]">
@@ -105,7 +105,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
 
             if (block.type === "heading") {
               return (
-                <h2 key={`${block.type}-${index}`} className="pt-3 text-xl font-semibold text-slate-900">
+                <h2 key={`${block.type}-${index}`} className="pt-3 text-xl font-semibold text-slate-900 sm:text-2xl">
                   {block.text}
                 </h2>
               );

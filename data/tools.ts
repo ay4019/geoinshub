@@ -229,8 +229,8 @@ const soilParameterTools: ToolDefinition[] = [
     featured: false,
     inputs: [
       select("densityInputMode", "Density input mode", "unit-weight", [
-        { label: "Use unit weight, gamma", value: "unit-weight" },
-        { label: "Use mass density, rho", value: "mass-density" },
+        { label: "Use unit weight, γ", value: "unit-weight" },
+        { label: "Use mass density, ρ", value: "mass-density" },
       ]),
       num("unitWeight", "Unit weight, gamma", 18.5, "kN/m3", { min: 1, step: 0.1 }),
       num("density", "Mass density, rho", 1900, "kg/m3", { min: 100, step: 1 }),

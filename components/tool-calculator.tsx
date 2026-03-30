@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { incrementToolUseAction } from "@/app/actions/analytics";
 import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
 import { EngineeringText } from "@/components/engineering-text";
+import { GmaxProfileTab } from "@/components/gmax-profile-tab";
 import { LiquefactionProfileTab } from "@/components/liquefaction-profile-tab";
 import { LiquefactionScreeningVisual } from "@/components/liquefaction-screening-visual";
 import { ModulusFromCuProfileTab } from "@/components/modulus-from-cu-profile-tab";
@@ -295,6 +296,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const showStressDistributionVisual = tool.slug === "stress-distribution-21";
   const isModulusFromCu = tool.slug === "modulus-from-cu";
   const isSptCorrections = tool.slug === "spt-corrections";
+  const isGmaxFromVs = tool.slug === "gmax-from-vs";
   const isLiquefactionScreening = tool.slug === "seed-idriss-liquefaction-screening";
   const isPostLiquefactionSettlement = tool.slug === "post-liquefaction-settlement";
   const liquefactionMethod =
@@ -436,6 +438,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           { id: "calculation", label: "Calculation" },
           ...(isModulusFromCu ? [{ id: "profile", label: "Soil Profile Pilot" }] : []),
           ...(isSptCorrections ? [{ id: "profile", label: "Soil Profile Pilot" }] : []),
+          ...(isGmaxFromVs ? [{ id: "profile", label: "Soil Profile Pilot" }] : []),
           ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Pilot" }] : []),
           ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Pilot" }] : []),
           { id: "information", label: "Information" },
@@ -454,6 +457,10 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                 {tool.inputs.map((input) => {
                   const id = `input-${input.name}`;
                   const isAutoRatioField = isModulusFromCu && input.name === "ratio" && isAutoRatioMode;
+                  const isInactiveGmaxField =
+                    isGmaxFromVs &&
+                    ((formValues.densityInputMode === "unit-weight" && input.name === "density") ||
+                      (formValues.densityInputMode === "mass-density" && input.name === "unitWeight"));
                   const displayLabel =
                     isLiquefactionScreening && input.name === "peakGroundAcceleration"
                       ? liquefactionMethod === "tbdy-2018"
@@ -513,7 +520,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                           step={input.step ?? "any"}
                           placeholder={input.placeholder}
                           value={isAutoRatioField ? recommendedModulusFromCuRatio : (formValues[input.name] ?? "")}
-                          disabled={isAutoRatioField}
+                          disabled={isAutoRatioField || isInactiveGmaxField}
                           onChange={(event) =>
                             setFormValues((current) => ({
                               ...current,
@@ -521,7 +528,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                             }))
                           }
                           className={`w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 placeholder:text-slate-400 ${
-                            isAutoRatioField
+                            isAutoRatioField || isInactiveGmaxField
                               ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500"
                               : "border-slate-300 bg-white focus:border-slate-500"
                           }`}
@@ -531,6 +538,11 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                       {isAutoRatioField ? (
                         <p className="mt-1 text-xs text-slate-500">
                           Auto-filled from the selected soil class. Switch to manual override to edit.
+                        </p>
+                      ) : null}
+                      {isInactiveGmaxField ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Disabled because the other density input mode is currently selected.
                         </p>
                       ) : null}
                     </div>
@@ -664,6 +676,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <ModulusFromCuProfileTab unitSystem={unitSystem} />
       ) : activeTab === "profile" && isSptCorrections ? (
         <SptProfileTab unitSystem={unitSystem} />
+      ) : activeTab === "profile" && isGmaxFromVs ? (
+        <GmaxProfileTab unitSystem={unitSystem} />
       ) : activeTab === "profile" && isLiquefactionScreening ? (
         <LiquefactionProfileTab unitSystem={unitSystem} initialMethod={liquefactionMethod} />
       ) : activeTab === "profile" && isPostLiquefactionSettlement ? (

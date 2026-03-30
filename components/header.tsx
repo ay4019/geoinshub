@@ -25,9 +25,9 @@ export function Header() {
       <div className="mx-auto flex h-28 w-full max-w-[1600px] items-center justify-between pl-2 pr-4 sm:pl-3 sm:pr-6">
         <Link href="/" className="flex shrink-0 items-center leading-none" aria-label="Geotechnical Insights Hub home">
           <img
-            src="/images/logo.png"
+            src="/images/logo-kahve-header.png"
             alt="Geotechnical Insights Hub"
-            style={{ height: "92px", minWidth: "320px" }}
+            style={{ height: "86px", minWidth: "470px" }}
             className="block w-auto object-contain object-left"
           />
         </Link>

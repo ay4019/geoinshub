@@ -1,7 +1,7 @@
 {
-  "visits": 16,
-  "toolUses": 82,
-  "articleReads": 47,
+  "visits": 21,
+  "toolUses": 83,
+  "articleReads": 69,
   "toolBreakdown": {
     "gmax-from-vs": 2,
     "eoed-from-mv": 2,
@@ -12,7 +12,7 @@
     "schmertmann-settlement": 1,
     "secondary-compression-settlement": 0,
     "layered-settlement": 0,
-    "stress-distribution-21": 3,
+    "stress-distribution-21": 4,
     "seed-idriss-liquefaction-screening": 19,
     "post-liquefaction-settlement": 4,
     "spt-corrections": 0,
@@ -55,9 +55,9 @@
     "uscs-plasticity-helper": 4
   },
   "articleBreakdown": {
-    "route-planning-in-railway-projects": 12,
-    "track-system-in-railway-engineering": 12,
-    "consolidation-settlement-in-geotechnical-engineering": 8,
+    "route-planning-in-railway-projects": 18,
+    "track-system-in-railway-engineering": 24,
+    "consolidation-settlement-in-geotechnical-engineering": 12,
     "bearing-capacity-in-layered-soils": 7
   }
 }
