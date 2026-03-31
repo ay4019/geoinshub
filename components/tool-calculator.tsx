@@ -18,7 +18,6 @@ import { useToolUnitSystem } from "@/components/tool-unit-provider";
 import { calculateBySlug } from "@/lib/tool-calculations";
 import { getEquationDescriptions } from "@/lib/tool-equation-descriptions";
 import { getEquationParameters } from "@/lib/tool-equation-parameters";
-import { getEquationReferences } from "@/lib/tool-equation-references";
 import type { CalculationResult, ToolDefinition, ToolInformation } from "@/lib/types";
 import {
   convertInputToMetric,
@@ -317,15 +316,6 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         effectiveInformation.equations.length,
       ),
     [effectiveInformation.equations.length, isLiquefactionScreening, liquefactionMethod, tool.slug],
-  );
-  const equationReferences = useMemo(
-    () =>
-      getEquationReferences(
-        isLiquefactionScreening ? `${tool.slug}:${liquefactionMethod}` : tool.slug,
-        effectiveInformation.equations.length,
-        effectiveInformation.references,
-      ),
-    [effectiveInformation.equations.length, effectiveInformation.references, isLiquefactionScreening, liquefactionMethod, tool.slug],
   );
   const visibleWarnings = useMemo(
     () => displayResult?.warnings.filter((warning) => !genericWarningMessages.has(warning)) ?? [],
@@ -773,19 +763,6 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                             -
                           </span>
                           <EngineeringText text={parameter} />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="mt-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Source</p>
-                    <ul className="mt-2 space-y-1 text-sm text-slate-600">
-                      {equationReferences[index].map((reference, refIndex) => (
-                        <li key={`${tool.slug}-${index}-${refIndex}`} className="flex gap-2">
-                          <span aria-hidden="true" className="text-slate-400">
-                            -
-                          </span>
-                          <EngineeringText text={reference} />
                         </li>
                       ))}
                     </ul>

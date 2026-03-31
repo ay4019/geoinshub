@@ -35,7 +35,7 @@ export default async function HomePage() {
             href="/tools"
             className="btn-base btn-lg"
           >
-            Explore Tools
+              Explore Tools
           </Link>
           <Link
             href="/blog"

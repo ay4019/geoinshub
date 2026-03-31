@@ -221,6 +221,9 @@
   "cu-vs-depth": [
     "This linear profile adds a depth-dependent strength increase to the surface undrained shear strength.",
   ],
+  "cu-from-pi-and-spt": [
+    "This Stroud (1974) relationship shows how the chart-selected factor f1 would later be used with corrected SPT resistance; in this tool, only f1 is interpreted from PI.",
+  ],
   "friction-angle-from-spt": [
     "This empirical relationship, commonly cited after Peck, Hanson, and Thornburn (1974), gives an approximate effective friction angle for granular soils from corrected SPT resistance.",
   ],

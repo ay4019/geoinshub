@@ -78,6 +78,39 @@ function baseWarnings(): string[] {
   ];
 }
 
+function interpolateStroudF1(pi: number): { f1: number; band: string; anchorText: string } {
+  if (pi <= 15) {
+    return { f1: 6.5, band: "PI <= 15", anchorText: "Anchored at PI = 15 -> f1 = 6.5" };
+  }
+
+  if (pi <= 20) {
+    const f1 = 6.5 + ((5.5 - 6.5) * (pi - 15)) / 5;
+    return { f1, band: "15 < PI <= 20", anchorText: "Interpolated between PI = 15 (f1 = 6.5) and PI = 20 (f1 = 5.5)" };
+  }
+
+  if (pi <= 25) {
+    const f1 = 5.5 + ((5.0 - 5.5) * (pi - 20)) / 5;
+    return { f1, band: "20 < PI <= 25", anchorText: "Interpolated between PI = 20 (f1 = 5.5) and PI = 25 (f1 = 5.0)" };
+  }
+
+  if (pi <= 30) {
+    const f1 = 5.0 + ((4.8 - 5.0) * (pi - 25)) / 5;
+    return { f1, band: "25 < PI <= 30", anchorText: "Interpolated between PI = 25 (f1 = 5.0) and PI = 30 (f1 = 4.8)" };
+  }
+
+  if (pi <= 35) {
+    const f1 = 4.8 + ((4.5 - 4.8) * (pi - 30)) / 5;
+    return { f1, band: "30 < PI <= 35", anchorText: "Interpolated between PI = 30 (f1 = 4.8) and PI = 35 (f1 = 4.5)" };
+  }
+
+  if (pi <= 40) {
+    const f1 = 4.5 + ((4.4 - 4.5) * (pi - 35)) / 5;
+    return { f1, band: "35 < PI <= 40", anchorText: "Interpolated between PI = 35 (f1 = 4.5) and PI = 40 (f1 = 4.4)" };
+  }
+
+  return { f1: 4.4, band: "PI > 40", anchorText: "Anchored at PI >= 40 -> f1 = 4.4" };
+}
+
 function bearingCapacityCore(
   method: "terzaghi" | "meyerhof" | "hansen" | "vesic",
   values: FormValues,
@@ -1129,6 +1162,25 @@ const calculators: Record<string, Calculator> = {
       title: "Undrained Strength Profile",
       items: [{ label: "Estimated cu at depth", value: round(cu, 2), unit: "kPa" }],
       notes: ["A linear profile is only a first-pass representation of strength gain with depth."],
+      warnings: baseWarnings(),
+    };
+  },
+  "cu-from-pi-and-spt": (values) => {
+    const pi = Math.max(0, parseNumber(values.plasticityIndex, "Plasticity Index"));
+    const interpretation = interpolateStroudF1(pi);
+
+    return {
+      title: "Stroud f1 Interpretation",
+      summary: `Interpolated Stroud (1974) screening interpretation using the ${interpretation.band} segment of the chart.`,
+      items: [
+        { label: "Selected PI segment", value: interpretation.band },
+        { label: "Interpolated f1", value: round(interpretation.f1, 2) },
+      ],
+      notes: [
+        interpretation.anchorText,
+        "This tool interprets only the Stroud chart factor f1 from PI.",
+        "If cu is required later, combine the selected f1 with a corrected N60 value in a separate step.",
+      ],
       warnings: baseWarnings(),
     };
   },

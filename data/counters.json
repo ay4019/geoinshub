@@ -1,12 +1,12 @@
 {
-  "visits": 21,
-  "toolUses": 83,
-  "articleReads": 71,
+  "visits": 25,
+  "toolUses": 96,
+  "articleReads": 73,
   "toolBreakdown": {
     "gmax-from-vs": 2,
     "eoed-from-mv": 2,
     "ocr-calculator": 1,
-    "traditional-bearing-capacity-methods": 5,
+    "traditional-bearing-capacity-methods": 6,
     "eurocode-7-bearing-resistance": 1,
     "bearing-capacity-eccentricity-correction": 5,
     "schmertmann-settlement": 1,
@@ -17,9 +17,10 @@
     "post-liquefaction-settlement": 4,
     "spt-corrections": 0,
     "cu-vs-depth": 2,
+    "cu-from-pi-and-spt": 9,
     "friction-angle-from-spt": 2,
-    "modulus-from-cu": 4,
-    "resilient-modulus-from-cbr": 1,
+    "modulus-from-cu": 6,
+    "resilient-modulus-from-cbr": 2,
     "gmax-vs-correlation": 2,
     "degree-of-saturation": 1,
     "water-content": 0,
@@ -56,7 +57,7 @@
   },
   "articleBreakdown": {
     "route-planning-in-railway-projects": 18,
-    "track-system-in-railway-engineering": 24,
+    "track-system-in-railway-engineering": 26,
     "consolidation-settlement-in-geotechnical-engineering": 14,
     "bearing-capacity-in-layered-soils": 7
   }

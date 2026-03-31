@@ -553,6 +553,11 @@ const equationParameterMap: Record<string, string[]> = {
     "k = strength gradient with depth",
     "z = depth",
   ],
+  "c<sub>u</sub> = f<sub>1</sub>N<sub>60</sub>": [
+    "c_u = undrained shear strength",
+    "f1 = Stroud plasticity-index factor selected from the PI band",
+    "N_60 = corrected SPT resistance",
+  ],
   "&phi;' &asymp; 27.1 + 0.3N<sub>60</sub> - 0.00054N<sub>60</sub><sup>2</sup>": [
     "phi' = approximate effective friction angle",
     "N_60 = corrected SPT resistance",

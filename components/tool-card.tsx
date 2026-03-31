@@ -14,7 +14,10 @@ export function ToolCard({ tool }: ToolCardProps) {
       <h3 className="mt-2 text-lg font-semibold text-slate-900">
         <EngineeringText text={tool.title} />
       </h3>
-      <Link href={`/tools/${tool.slug}`} className="btn-base btn-md mt-5 w-fit">
+      <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
+        <EngineeringText text={tool.shortDescription} />
+      </p>
+      <Link href={`/tools/${tool.slug}`} className="btn-base btn-md mt-4 w-fit">
         Open Tool
       </Link>
     </article>

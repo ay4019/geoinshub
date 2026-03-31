@@ -220,10 +220,10 @@ const soilParameterTools: ToolDefinition[] = [
   {
     slug: "gmax-from-vs",
     status: "active",
-    title: "Gmax from Vs",
+    title: "Small-Strain Shear Modulus (Gmax) from Shear Wave Velocity (Vs)",
     category: "Soil Parameters",
     shortDescription:
-      "Estimate small-strain shear modulus from shear wave velocity using either unit weight or mass density input.",
+      "Small-strain shear modulus is obtained from the standard elastic wave relationship using shear wave velocity and either mass density or unit weight.",
     tags: ["small strain", "Vs"],
     keywords: ["Gmax", "shear wave velocity", "dynamic modulus", "density", "unit weight"],
     featured: false,
@@ -258,9 +258,10 @@ const soilParameterTools: ToolDefinition[] = [
   {
     slug: "eoed-from-mv",
     status: "active",
-    title: "Oedometer Modulus from m_v",
+    title: "Oedometer Constrained Modulus (Eoed) from Coefficient of Volume Compressibility (mv)",
     category: "Soil Parameters",
-    shortDescription: "Convert coefficient of volume compressibility to one-dimensional constrained modulus.",
+    shortDescription:
+      "Oedometer constrained modulus is obtained from the standard one-dimensional compressibility relationship used in classical settlement interpretation.",
     tags: ["compressibility", "oedometer"],
     keywords: ["mv", "Eoed", "M"],
     featured: false,
@@ -283,10 +284,10 @@ const soilParameterTools: ToolDefinition[] = [
   {
     slug: "ocr-calculator",
     status: "active",
-    title: "OCR Calculator",
+    title: "Overconsolidation Ratio (OCR) Calculator",
     category: "Soil Parameters",
     shortDescription:
-      "Calculate overconsolidation ratio from preconsolidation stress and current effective stress.",
+      "Overconsolidation ratio is obtained from the classical stress-history definition using preconsolidation stress and present effective overburden stress.",
     tags: ["stress history", "OCR"],
     keywords: ["preconsolidation", "sigma p", "overconsolidated"],
     featured: false,
@@ -1054,7 +1055,7 @@ const liquefactionTools: ToolDefinition[] = [
     title: "Liquefaction Potential",
     category: "Liquefaction",
     shortDescription:
-      "Screen liquefaction triggering with either the TBDY 2018 procedure, in force since 1 January 2019, or an Idriss and Boulanger (2008) SPT-based route.",
+      "Compare liquefaction-triggering screening using either the TBDY 2018 procedure or the Idriss and Boulanger (2008) SPT-based method.",
     tags: ["liquefaction", "TBDY", "Idriss-Boulanger", "SPT"],
     keywords: ["CSR", "CRR", "FS", "SDS", "amax", "N1,60", "fines content"],
     featured: true,
@@ -1432,9 +1433,10 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "spt-corrections",
     status: "active",
-    title: "SPT Corrections (N60 and N1,60)",
+    title: "Standard Penetration Test (SPT) Corrections for N60 and (N1)60",
     category: "Soil Parameters",
-    shortDescription: "Correct field SPT blow count to N60 and overburden-corrected N1,60.",
+    shortDescription:
+      "Corrected SPT resistance is obtained through the standard energy and equipment correction sequence, followed by the selected overburden method after Peck et al. (1974) or Liao and Whitman (1986).",
     tags: ["SPT", "N60"],
     keywords: ["energy correction", "CN", "overburden"],
     featured: true,
@@ -1606,9 +1608,10 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "cu-vs-depth",
     status: "active",
-    title: "c_u vs Depth",
+    title: "Undrained Shear Strength (cu) versus Depth",
     category: "Soil Parameters",
-    shortDescription: "Estimate undrained shear strength at depth using a linear gradient.",
+    shortDescription:
+      "Undrained shear strength is estimated with a linear strength-increase profile commonly used for preliminary screening of cohesive soils.",
     tags: ["strength profile", "soft clay"],
     keywords: ["cu", "gradient", "depth"],
     featured: false,
@@ -1630,12 +1633,58 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     }),
   },
   {
-    slug: "friction-angle-from-spt",
+    slug: "cu-from-pi-and-spt",
     status: "active",
-    title: "Friction Angle from SPT",
+    title: "Stroud Factor (f1) from Plasticity Index (PI)",
     category: "Soil Parameters",
     shortDescription:
-      "Estimate effective friction angle from corrected SPT resistance using a simple empirical fit.",
+      "The Stroud (1974) chart is interpreted to select a representative f1 factor from plasticity index for cohesive-soil screening.",
+    tags: ["undrained strength", "plasticity index", "Stroud"],
+    keywords: ["f1", "PI", "Stroud 1974", "cohesive soil", "chart interpretation"],
+    featured: false,
+    inputs: [
+      num("plasticityIndex", "Plasticity Index, PI", 25, "%", { min: 0, max: 100, step: 0.1 }),
+    ],
+    information: info({
+      methodology:
+        "Interprets the Stroud (1974) f1-versus-PI chart to select a representative factor for cohesive soils. The chart is used here only to obtain f1; a separate corrected SPT resistance value would still be required later if cu is to be estimated.",
+      assumptions: [
+        "The soil is cohesive and the Stroud chart is considered applicable to the deposit being screened.",
+        "The plotted Stroud trend is interpreted using representative PI bands rather than a continuous fitted curve.",
+      ],
+      limitations: [
+        "This tool does not calculate cu directly because N60 is not entered here.",
+        "The chart interpretation is approximate and should not replace laboratory strength testing or project-specific correlation work.",
+      ],
+      equations: ["c<sub>u</sub> = f<sub>1</sub>N<sub>60</sub>"],
+      tables: [
+        {
+          title: "Stroud (1974) PI Anchor Points Used In This Tool",
+          columns: ["Plasticity Index, PI", "Interpreted f1 value", "How the tool uses it"],
+          rows: [
+            ["15", "6.5", "Lower-plasticity anchor"],
+            ["20", "5.5", "Interpolated with adjacent points"],
+            ["25", "5.0", "Interpolated with adjacent points"],
+            ["30", "4.8", "Interpolated with adjacent points"],
+            ["35", "4.5", "Interpolated with adjacent points"],
+            ["40", "4.4", "Upper-plasticity anchor"],
+          ],
+          note: "The tool linearly interpolates between these interpreted chart anchor points, so f1 changes smoothly with PI instead of remaining constant inside a broad band.",
+        },
+      ],
+      references: [
+        "Stroud, M.A. (1974). The Standard Penetration Test in Insensitive Clays and Soft Rocks. Proceedings of the European Symposium on Penetration Testing, Stockholm.",
+        "Subsequent summaries commonly report Stroud's recommendation as cu (kPa) = f1 N60 with f1 varying with PI.",
+      ],
+    }),
+  },
+  {
+    slug: "friction-angle-from-spt",
+    status: "active",
+    title: "Effective Friction Angle (φ′) from Standard Penetration Test Resistance (N60)",
+    category: "Soil Parameters",
+    shortDescription:
+      "Effective friction angle is estimated from corrected SPT resistance using the empirical correlation cited by Peck, Hanson, and Thornburn (1974).",
     tags: ["SPT", "friction angle"],
     keywords: ["phi", "N60", "sand correlation"],
     featured: false,
@@ -1658,9 +1707,10 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "modulus-from-cu",
     status: "active",
-    title: "Elastic Modulus from c_u",
+    title: "Elastic Young's Modulus (Eu) from Undrained Shear Strength (cu)",
     category: "Soil Parameters",
-    shortDescription: "Estimate Young's modulus from undrained shear strength using a soil-type-based E/cu range or an optional manual override.",
+    shortDescription:
+      "Elastic Young's modulus is estimated from undrained shear strength using consistency-based Eu/cu screening ratios, with optional manual override where project data exists.",
     tags: ["modulus correlation", "undrained strength"],
     keywords: ["E/cu", "stiffness", "clay"],
     featured: false,
@@ -1707,9 +1757,10 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "resilient-modulus-from-cbr",
     status: "active",
-    title: "Resilient Modulus from CBR",
+    title: "Resilient Modulus (Mr) from California Bearing Ratio (CBR)",
     category: "Soil Parameters",
-    shortDescription: "Estimate resilient modulus from CBR using a common pavement-style correlation.",
+    shortDescription:
+      "Resilient modulus is estimated from CBR using a common pavement-engineering screening correlation.",
     tags: ["CBR", "resilient modulus"],
     keywords: ["Mr", "subgrade", "pavement"],
     featured: false,
