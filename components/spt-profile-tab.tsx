@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import type { UnitSystem } from "@/lib/types";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 
@@ -13,6 +14,7 @@ interface SptProfileTabProps {
 interface SptProfileRow {
   id: number;
   topDepth: string;
+  boreholeId: string;
   bottomDepth: string;
   nField: string;
   energyRatio: string;
@@ -24,9 +26,10 @@ interface SptProfileRow {
 
 const initialRows: SptProfileRow[] = [
   {
-    id: 1,
-    topDepth: "1.5",
-    bottomDepth: "3.0",
+      id: 1,
+      topDepth: "1.5",
+      boreholeId: "",
+      bottomDepth: "3.0",
     nField: "12",
     energyRatio: "70",
     boreholeFactor: "1.00",
@@ -35,9 +38,10 @@ const initialRows: SptProfileRow[] = [
     effectiveStress: "45",
   },
   {
-    id: 2,
-    topDepth: "3.0",
-    bottomDepth: "5.0",
+      id: 2,
+      topDepth: "3.0",
+      boreholeId: "",
+      bottomDepth: "5.0",
     nField: "18",
     energyRatio: "70",
     boreholeFactor: "1.00",
@@ -116,10 +120,11 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
       const nextId = Math.max(...current.map((row) => row.id), 0) + 1;
       return [
         ...current,
-        {
-          id: nextId,
-          topDepth: lastBottom,
-          bottomDepth: String(parse(lastBottom) + 1.5),
+          {
+            id: nextId,
+            topDepth: lastBottom,
+            boreholeId: "",
+            bottomDepth: String(parse(lastBottom) + 1.5),
           nField: "15",
           energyRatio: "70",
           boreholeFactor: "1.00",
@@ -140,7 +145,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Soil Profile Pilot</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Apply the same SPT correction workflow to multiple sample intervals using one selected overburden correction method.
             </p>
@@ -166,10 +171,11 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
           </div>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
           <table className="w-full table-fixed border-collapse text-[11px] xl:text-[12px]">
             <colgroup>
               <col className="w-[7%]" />
+              <col className="w-[8%]" />
               <col className="w-[7%]" />
               <col className="w-[7%]" />
               <col className="w-[8%]" />
@@ -185,6 +191,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Borehole ID" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Top" unit={depthUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Bottom" unit={depthUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="N" /></th>
@@ -193,7 +200,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="C_r" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="C_s" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="C_E" /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>σ′<sub>v0</sub></span>} unit={stressUnit} /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Ïƒâ€²<sub>v0</sub></span>} unit={stressUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="N60" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="C_N" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>(N<sub>1</sub>)<sub>60</sub></span>} /></th>
@@ -211,6 +218,9 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                    <td className="px-2 py-3">
+                      <BoreholeIdSelector value={row.boreholeId} availableIds={rows.map((item) => item.boreholeId)} onChange={(value) => updateRow(row.id, { boreholeId: value })} />
+                    </td>
                     <td className="px-2 py-3">
                       <input type="number" step="0.1" min="0" value={row.topDepth} onChange={(event) => updateRow(row.id, { topDepth: event.target.value })} className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500" />
                     </td>
@@ -252,7 +262,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
         </div>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Pilot note</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             This profile sheet applies one selected overburden correction method across all samples, while keeping the
             energy and equipment factors explicit for each interval. Use it as a rapid profile-level normalisation tool,
@@ -263,3 +273,5 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
     </section>
   );
 }
+
+

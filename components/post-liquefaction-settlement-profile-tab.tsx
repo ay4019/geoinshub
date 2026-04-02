@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import { computePostLiquefactionSettlement } from "@/lib/post-liquefaction-settlement";
 import type { UnitSystem } from "@/lib/types";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
@@ -14,14 +15,15 @@ interface PostLiquefactionSettlementProfileTabProps {
 interface SettlementProfileRow {
   id: number;
   topDepth: string;
+  boreholeId: string;
   bottomDepth: string;
   correctedSptResistance: string;
   factorOfSafety: string;
 }
 
 const initialRows: SettlementProfileRow[] = [
-  { id: 1, topDepth: "2", bottomDepth: "4", correctedSptResistance: "12", factorOfSafety: "0.85" },
-  { id: 2, topDepth: "4", bottomDepth: "7", correctedSptResistance: "18", factorOfSafety: "1.10" },
+  { id: 1, topDepth: "2", boreholeId: "", bottomDepth: "4", correctedSptResistance: "12", factorOfSafety: "0.85" },
+  { id: 2, topDepth: "4", boreholeId: "", bottomDepth: "7", correctedSptResistance: "18", factorOfSafety: "1.10" },
 ];
 
 function parse(value: string): number {
@@ -84,11 +86,12 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
       const nextId = Math.max(...current.map((row) => row.id), 0) + 1;
       return [
         ...current,
-        {
-          id: nextId,
-          topDepth: lastBottom,
-          bottomDepth: String(parse(lastBottom) + 2),
-          correctedSptResistance: "15",
+          {
+            id: nextId,
+            topDepth: lastBottom,
+            boreholeId: "",
+            bottomDepth: String(parse(lastBottom) + 2),
+            correctedSptResistance: "15",
           factorOfSafety: "1.00",
         },
       ];
@@ -104,7 +107,7 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Layered Samples Pilot</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Layered Samples Plot</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Build a layer-by-layer post-liquefaction settlement sheet using corrected SPT resistance and triggering
               factor of safety as the main screening inputs.
@@ -115,10 +118,11 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
           </button>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
           <table className="w-full table-fixed border-collapse text-[11px] xl:text-[12px]">
             <colgroup>
               <col className="w-[8%]" />
+              <col className="w-[10%]" />
               <col className="w-[8%]" />
               <col className="w-[8%]" />
               <col className="w-[9%]" />
@@ -133,16 +137,17 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Borehole ID" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Top" unit={depthUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Bottom" unit={depthUnit} /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>ΔH</span>} unit={depthUnit} /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Î”H</span>} unit={depthUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>(N<sub>1</sub>)<sub>60</sub></span>} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="FS" /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>γ<sub>lim</sub></span>} unit="%" /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Î³<sub>lim</sub></span>} unit="%" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>D<sub>r</sub></span>} /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>F<sub>α</sub></span>} /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>γ<sub>max</sub></span>} unit="%" /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>ε<sub>v</sub></span>} unit="%" /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>F<sub>Î±</sub></span>} /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Î³<sub>max</sub></span>} unit="%" /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Îµ<sub>v</sub></span>} unit="%" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Settlement" unit={settlementUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">Action</span></th>
               </tr>
@@ -164,6 +169,13 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                    <td className="px-2 py-3">
+                      <BoreholeIdSelector
+                        value={row.boreholeId}
+                        availableIds={rows.map((item) => item.boreholeId)}
+                        onChange={(value) => updateRow(row.id, { boreholeId: value })}
+                      />
+                    </td>
                     <td className="px-2 py-3">
                       <input
                         type="number"
@@ -246,13 +258,13 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
         </div>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Pilot note</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             This layered sheet infers <span className="font-medium text-slate-700">D<sub>r</sub></span> from corrected
-            SPT resistance, then calculates <span className="font-medium text-slate-700">γ<sub>lim</sub></span> from the
+            SPT resistance, then calculates <span className="font-medium text-slate-700">Î³<sub>lim</sub></span> from the
             Idriss and Boulanger style relative-density expression. Maximum shear strain{" "}
-            <span className="font-medium text-slate-700">γ<sub>max</sub></span>, volumetric strain{" "}
-            <span className="font-medium text-slate-700">ε<sub>v</sub></span>, and settlement are then computed automatically
+            <span className="font-medium text-slate-700">Î³<sub>max</sub></span>, volumetric strain{" "}
+            <span className="font-medium text-slate-700">Îµ<sub>v</sub></span>, and settlement are then computed automatically
             for each layer.
           </p>
         </div>
@@ -260,3 +272,5 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
     </section>
   );
 }
+
+

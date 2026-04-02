@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { incrementToolUseAction } from "@/app/actions/analytics";
 import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
 import { EngineeringText } from "@/components/engineering-text";
+import { EoedProfileTab } from "@/components/eoed-profile-tab";
 import { GmaxProfileTab } from "@/components/gmax-profile-tab";
 import { LiquefactionProfileTab } from "@/components/liquefaction-profile-tab";
 import { LiquefactionScreeningVisual } from "@/components/liquefaction-screening-visual";
@@ -69,7 +70,7 @@ function buildLiquefactionInformation(
       [
         "Sample midpoint depth > 20 m",
         "Outside sample depth range",
-        "The simplified layered pilot is intentionally limited to the upper 20 m profile interval.",
+        "The simplified layered Plot is intentionally limited to the upper 20 m profile interval.",
       ],
       [
         "Sample midpoint depth <= groundwater depth",
@@ -92,7 +93,7 @@ function buildLiquefactionInformation(
         "The method-specific stress, resistance, and factor-of-safety sequence is carried out for that sample.",
       ],
     ],
-    note: "The layered pilot first checks whether the sample should be screened out before it spends effort on the selected liquefaction procedure.",
+    note: "The layered Plot first checks whether the sample should be screened out before it spends effort on the selected liquefaction procedure.",
   };
 
   if (method === "idriss-boulanger-2008") {
@@ -296,6 +297,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const isModulusFromCu = tool.slug === "modulus-from-cu";
   const isSptCorrections = tool.slug === "spt-corrections";
   const isGmaxFromVs = tool.slug === "gmax-from-vs";
+  const isEoedFromMv = tool.slug === "eoed-from-mv";
   const isLiquefactionScreening = tool.slug === "seed-idriss-liquefaction-screening";
   const isPostLiquefactionSettlement = tool.slug === "post-liquefaction-settlement";
   const liquefactionMethod =
@@ -426,11 +428,12 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
       <Tabs
         tabs={[
           { id: "calculation", label: "Calculation" },
-          ...(isModulusFromCu ? [{ id: "profile", label: "Soil Profile Pilot" }] : []),
-          ...(isSptCorrections ? [{ id: "profile", label: "Soil Profile Pilot" }] : []),
-          ...(isGmaxFromVs ? [{ id: "profile", label: "Soil Profile Pilot" }] : []),
-          ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Pilot" }] : []),
-          ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Pilot" }] : []),
+          ...(isModulusFromCu ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isSptCorrections ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isGmaxFromVs ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isEoedFromMv ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
+          ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           { id: "information", label: "Information" },
         ]}
         activeTab={activeTab}
@@ -668,6 +671,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <SptProfileTab unitSystem={unitSystem} />
       ) : activeTab === "profile" && isGmaxFromVs ? (
         <GmaxProfileTab unitSystem={unitSystem} />
+      ) : activeTab === "profile" && isEoedFromMv ? (
+        <EoedProfileTab unitSystem={unitSystem} />
       ) : activeTab === "profile" && isLiquefactionScreening ? (
         <LiquefactionProfileTab unitSystem={unitSystem} initialMethod={liquefactionMethod} />
       ) : activeTab === "profile" && isPostLiquefactionSettlement ? (
@@ -849,3 +854,5 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     </div>
   );
 }
+
+

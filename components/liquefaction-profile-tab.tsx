@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import { computeLiquefactionScreening, type LiquefactionMethod } from "@/lib/liquefaction-screening";
 import type { UnitSystem } from "@/lib/types";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
@@ -15,6 +16,7 @@ interface LiquefactionProfileTabProps {
 interface LiquefactionProfileRow {
   id: number;
   topDepth: string;
+  boreholeId: string;
   bottomDepth: string;
   unitWeight: string;
   finesContent: string;
@@ -22,8 +24,8 @@ interface LiquefactionProfileRow {
 }
 
 const initialRows: LiquefactionProfileRow[] = [
-  { id: 1, topDepth: "2", bottomDepth: "4", unitWeight: "18", finesContent: "10", n160: "12" },
-  { id: 2, topDepth: "4", bottomDepth: "7", unitWeight: "18.5", finesContent: "18", n160: "18" },
+  { id: 1, topDepth: "2", boreholeId: "", bottomDepth: "4", unitWeight: "18", finesContent: "10", n160: "12" },
+  { id: 2, topDepth: "4", boreholeId: "", bottomDepth: "7", unitWeight: "18.5", finesContent: "18", n160: "18" },
 ];
 
 function parse(value: string): number {
@@ -88,6 +90,7 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
         {
           id: nextId,
           topDepth: lastBottom,
+          boreholeId: "",
           bottomDepth: String(parse(lastBottom) + 2),
           unitWeight: "18",
           finesContent: "15",
@@ -106,7 +109,7 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Layered Samples Pilot</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Layered Samples Plot</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Define the site earthquake inputs once, then screen multiple sample intervals with the selected
               liquefaction method.
@@ -147,10 +150,11 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
           </div>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
           <table className="w-full table-fixed border-collapse text-[11px] xl:text-[12px]">
             <thead className="bg-slate-100 text-slate-600">
               <tr>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Borehole ID" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Top" unit={depthUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Bottom" unit={depthUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Unit wt." unit={unitWeightUnit} /></th>
@@ -233,6 +237,7 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                    <td className="px-2 py-3"><BoreholeIdSelector value={row.boreholeId} availableIds={rows.map((item) => item.boreholeId)} onChange={(value) => updateRow(row.id, { boreholeId: value })} /></td>
                     <td className="px-2 py-3"><input type="number" step="0.1" min="0" value={row.topDepth} onChange={(event) => updateRow(row.id, { topDepth: event.target.value })} className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500" /></td>
                     <td className="px-2 py-3">
                       <input type="number" step="0.1" min="0" value={row.bottomDepth} onChange={(event) => updateRow(row.id, { bottomDepth: event.target.value })} className={`w-full rounded-lg border px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 ${hasDepthIssue ? "border-red-300 bg-red-50 focus:border-red-400" : "border-slate-300 focus:border-slate-500"}`} />
@@ -296,7 +301,7 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
         </p>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Pilot note</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             This tab uses one shared PGA input to screen multiple sample intervals. The check column only advances to <strong>Analysis</strong> when the depth, groundwater, and SPT resistance conditions remain within the simplified screening range for the selected method.
           </p>
@@ -305,3 +310,5 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
     </section>
   );
 }
+
+

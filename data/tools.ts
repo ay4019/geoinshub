@@ -229,8 +229,8 @@ const soilParameterTools: ToolDefinition[] = [
     featured: false,
     inputs: [
       select("densityInputMode", "Density input mode", "unit-weight", [
-        { label: "Use unit weight, γ", value: "unit-weight" },
-        { label: "Use mass density, ρ", value: "mass-density" },
+        { label: "Use unit weight, ?", value: "unit-weight" },
+        { label: "Use mass density, ?", value: "mass-density" },
       ]),
       num("unitWeight", "Unit weight, gamma", 18.5, "kN/m3", { min: 1, step: 0.1 }),
       num("density", "Mass density, rho", 1900, "kg/m3", { min: 100, step: 1 }),
@@ -1103,12 +1103,12 @@ const liquefactionTools: ToolDefinition[] = [
           title: "Layered Screening Criteria",
           columns: ["Condition", "Layered tab outcome", "Reason"],
           rows: [
-            ["Sample depth > 20 m", "Outside sample depth range", "The layered pilot excludes deeper samples from the simplified screening workflow."],
+            ["Sample depth > 20 m", "Outside sample depth range", "The layered Plot excludes deeper samples from the simplified screening workflow."],
             ["Sample depth <= groundwater depth", "Above GWT", "Samples above the groundwater table are screened out in this quick liquefaction check."],
-            ["(N1)60 > 30", "(N1)60 > 30", "The layered pilot flags dense or high-resistance samples instead of continuing with the simplified triggering check."],
+            ["(N1)60 > 30", "(N1)60 > 30", "The layered Plot flags dense or high-resistance samples instead of continuing with the simplified triggering check."],
             ["None of the above", "Analysis", "The tool continues with the selected method-specific demand, resistance, and factor-of-safety sequence."],
           ],
-          note: "These layered-tab criteria are screening rules built into the pilot workflow so the user can see whether the selected simplified triggering calculation is being advanced or intentionally held back.",
+          note: "These layered-tab criteria are screening rules built into the Plot workflow so the user can see whether the selected simplified triggering calculation is being advanced or intentionally held back.",
         },
       ],
       references: [
@@ -1151,12 +1151,12 @@ const liquefactionTools: ToolDefinition[] = [
           title: "Layered Screening Criteria",
           columns: ["Condition", "Layered tab outcome", "Reason"],
           rows: [
-            ["Sample depth > 20 m", "Outside sample depth range", "The layered pilot excludes deeper samples from the simplified screening workflow."],
+            ["Sample depth > 20 m", "Outside sample depth range", "The layered Plot excludes deeper samples from the simplified screening workflow."],
             ["Sample depth <= groundwater depth", "Above GWT", "Samples above the groundwater table are screened out in this quick liquefaction check."],
-            ["(N1)60 > 30", "(N1)60 > 30", "The layered pilot flags dense or high-resistance samples instead of continuing with the simplified triggering check."],
+            ["(N1)60 > 30", "(N1)60 > 30", "The layered Plot flags dense or high-resistance samples instead of continuing with the simplified triggering check."],
             ["None of the above", "Analyse", "The tool continues to C_M, CRR_7.5, r_d, tau_R, tau_eq, and FS."],
           ],
-          note: "These layered-tab criteria are screening rules built into the pilot workflow so the user can see whether the simplified triggering calculation is being advanced or intentionally held back.",
+          note: "These layered-tab criteria are screening rules built into the Plot workflow so the user can see whether the simplified triggering calculation is being advanced or intentionally held back.",
         },
       ],
       references: liquefactionRefs,
@@ -1191,12 +1191,12 @@ const liquefactionTools: ToolDefinition[] = [
           title: "Layered Screening Criteria",
           columns: ["Condition", "Layered tab outcome", "Reason"],
           rows: [
-            ["Sample depth > 20 m", "Outside sample depth range", "The layered pilot excludes deeper samples from the simplified screening workflow."],
+            ["Sample depth > 20 m", "Outside sample depth range", "The layered Plot excludes deeper samples from the simplified screening workflow."],
             ["Sample depth <= groundwater depth", "Above GWT", "Samples above the groundwater table are screened out in this quick liquefaction check."],
-            ["(N1)60 > 30", "(N1)60 > 30", "The layered pilot flags dense or high-resistance samples instead of continuing with the simplified triggering check."],
+            ["(N1)60 > 30", "(N1)60 > 30", "The layered Plot flags dense or high-resistance samples instead of continuing with the simplified triggering check."],
             ["None of the above", "Analyse", "The tool continues to C_M, CRR_7.5, r_d, tau_R, tau_eq, and FS."],
           ],
-          note: "These layered-tab criteria are screening rules built into the pilot workflow so the user can see whether the simplified triggering calculation is being advanced or intentionally held back.",
+          note: "These layered-tab criteria are screening rules built into the Plot workflow so the user can see whether the simplified triggering calculation is being advanced or intentionally held back.",
         },
       ],
       references: liquefactionRefs,
@@ -1233,12 +1233,12 @@ const liquefactionTools: ToolDefinition[] = [
           title: "Layered Screening Criteria",
           columns: ["Condition", "Layered tab outcome", "Reason"],
           rows: [
-            ["Sample depth > 20 m", "Outside sample depth range", "The layered pilot excludes deeper samples from the simplified screening workflow."],
+            ["Sample depth > 20 m", "Outside sample depth range", "The layered Plot excludes deeper samples from the simplified screening workflow."],
             ["Sample depth <= groundwater depth", "Above GWT", "Samples above the groundwater table are screened out in this quick liquefaction check."],
-            ["(N1)60 > 30", "(N1)60 > 30", "The layered pilot flags dense or high-resistance samples instead of continuing with the simplified triggering check."],
+            ["(N1)60 > 30", "(N1)60 > 30", "The layered Plot flags dense or high-resistance samples instead of continuing with the simplified triggering check."],
             ["None of the above", "Analyse", "The tool continues to C_M, CRR_7.5, r_d, tau_R, tau_eq, and FS."],
           ],
-          note: "These layered-tab criteria are screening rules built into the pilot workflow so the user can see whether the simplified triggering calculation is being advanced or intentionally held back.",
+          note: "These layered-tab criteria are screening rules built into the Plot workflow so the user can see whether the simplified triggering calculation is being advanced or intentionally held back.",
         },
       ],
       references: liquefactionRefs,
@@ -1270,7 +1270,7 @@ const liquefactionTools: ToolDefinition[] = [
     ],
     information: info({
       methodology:
-        "This pilot post-liquefaction settlement tool follows a Youd-style consequence-screening logic using corrected SPT resistance and liquefaction triggering factor of safety as the main inputs. Relative density is estimated from corrected SPT resistance, limiting shear strain is then calculated from relative density using an Idriss and Boulanger style expression, a threshold parameter is formed from relative density, maximum shear strain is estimated with the calculated limiting shear strain as the cap, volumetric strain is then estimated from relative density and maximum shear strain, and settlement is obtained from volumetric strain times layer thickness.",
+        "This Plot post-liquefaction settlement tool follows a Youd-style consequence-screening logic using corrected SPT resistance and liquefaction triggering factor of safety as the main inputs. Relative density is estimated from corrected SPT resistance, limiting shear strain is then calculated from relative density using an Idriss and Boulanger style expression, a threshold parameter is formed from relative density, maximum shear strain is estimated with the calculated limiting shear strain as the cap, volumetric strain is then estimated from relative density and maximum shear strain, and settlement is obtained from volumetric strain times layer thickness.",
       assumptions: [
         "The corrected SPT resistance is representative of the liquefiable layer being assessed.",
         "The simplified D_r correlation from corrected SPT resistance is acceptable for this screening-level workflow.",
@@ -1681,7 +1681,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "friction-angle-from-spt",
     status: "active",
-    title: "Effective Friction Angle (φ′) from Standard Penetration Test Resistance (N60)",
+    title: "Effective Friction Angle (?') from Standard Penetration Test Resistance (N60)",
     category: "Soil Parameters",
     shortDescription:
       "Effective friction angle is estimated from corrected SPT resistance using the empirical correlation cited by Peck, Hanson, and Thornburn (1974).",
@@ -1792,4 +1792,6 @@ export const tools: ToolDefinition[] = [
   ...railwayTools,
   ...fieldAndEmpiricalTools,
 ];
+
+
 

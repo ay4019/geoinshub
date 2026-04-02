@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 
+import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import { EngineeringText } from "@/components/engineering-text";
 import type { UnitSystem } from "@/lib/types";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
@@ -16,6 +17,7 @@ type RatioMode = "auto" | "manual";
 interface ProfileRow {
   id: number;
   topDepth: string;
+  boreholeId: string;
   bottomDepth: string;
   ratioBasis: RatioBasis;
   ratioMode: RatioMode;
@@ -33,6 +35,7 @@ const initialRows: ProfileRow[] = [
   {
     id: 1,
     topDepth: "0",
+    boreholeId: "",
     bottomDepth: "2",
     ratioBasis: "soft-clay",
     ratioMode: "auto",
@@ -42,6 +45,7 @@ const initialRows: ProfileRow[] = [
   {
     id: 2,
     topDepth: "2",
+    boreholeId: "",
     bottomDepth: "6",
     ratioBasis: "medium-clay",
     ratioMode: "auto",
@@ -114,6 +118,7 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
         {
           id: nextId,
           topDepth: lastBottom,
+          boreholeId: "",
           bottomDepth: String(parse(lastBottom) + 2),
           ratioBasis: "medium-clay",
           ratioMode: "auto",
@@ -133,7 +138,7 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Soil Profile Pilot</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Enter sample intervals and undrained strengths to build a quick profile-based
               <EngineeringText text=" E_u " />
@@ -147,10 +152,11 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
           </button>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
           <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
             <thead className="bg-slate-100 text-slate-600">
               <tr>
+                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Borehole ID</th>
                 <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Top ({depthUnit})</th>
                 <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Bottom ({depthUnit})</th>
                 <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Suggested basis</th>
@@ -172,6 +178,13 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                    <td className="px-2 py-3">
+                      <BoreholeIdSelector
+                        value={row.boreholeId}
+                        availableIds={rows.map((item) => item.boreholeId)}
+                        onChange={(value) => updateRow(row.id, { boreholeId: value })}
+                      />
+                    </td>
                     <td className="px-2 py-3">
                       <input
                         type="number"
@@ -270,9 +283,9 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
         </div>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Pilot note</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            This pilot is intended for cohesive soils only. The suggested <EngineeringText text="E/c_u" /> basis remains
+            This Plot is intended for cohesive soils only. The suggested <EngineeringText text="E/c_u" /> basis remains
             consistency-based, and manual override should be used only when project-specific stiffness data or back-analysis
             supports a different ratio.
           </p>
@@ -280,14 +293,16 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
       </div>
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="font-semibold">Pilot disclaimer</p>
+        <p className="font-semibold">Plot disclaimer</p>
         <p className="mt-1">
-          This profile-based view is a pilot workflow for screening only. It does not replace project-specific stiffness
+          This profile-based view is a Plot workflow for screening only. It does not replace project-specific stiffness
           testing, strain-level selection, or professional engineering judgement.
         </p>
       </div>
     </section>
   );
 }
+
+
 
 

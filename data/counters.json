@@ -1,10 +1,10 @@
 {
-  "visits": 25,
-  "toolUses": 96,
+  "visits": 26,
+  "toolUses": 98,
   "articleReads": 73,
   "toolBreakdown": {
-    "gmax-from-vs": 2,
-    "eoed-from-mv": 2,
+    "gmax-from-vs": 3,
+    "eoed-from-mv": 3,
     "ocr-calculator": 1,
     "traditional-bearing-capacity-methods": 6,
     "eurocode-7-bearing-resistance": 1,
