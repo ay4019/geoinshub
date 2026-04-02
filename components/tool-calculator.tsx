@@ -502,7 +502,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
                         >
                           {(input.options ?? []).map((option) => (
-                            <option key={option.value} value={option.value}>
+                            <option key={`${option.value}-${option.label}`} value={option.value}>
                               {option.label}
                             </option>
                           ))}

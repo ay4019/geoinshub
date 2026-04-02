@@ -205,7 +205,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
             >
               {HAMMER_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option key={`${option.value}-${option.label}`} value={option.value}>
                   {option.label}
                 </option>
               ))}
@@ -223,7 +223,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
             >
               {ENERGY_RATIO_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option key={`${option.value}-${option.label}`} value={option.value}>
                   {option.label}
                 </option>
               ))}
@@ -241,7 +241,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
             >
               {BOREHOLE_DIAMETER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option key={`${option.value}-${option.label}`} value={option.value}>
                   {option.label}
                 </option>
               ))}
@@ -259,7 +259,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
             >
               {ROD_LENGTH_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option key={`${option.value}-${option.label}`} value={option.value}>
                   {option.label}
                 </option>
               ))}
@@ -277,7 +277,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
             >
               {SAMPLER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option key={`${option.value}-${option.label}`} value={option.value}>
                   {option.label}
                 </option>
               ))}
