@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { ContactForm } from "@/components/contact-form";
 import { NewsletterForm } from "@/components/newsletter-form";
@@ -36,15 +35,6 @@ function LocationIcon() {
         strokeLinejoin="round"
       />
       <circle cx="12" cy="9.5" r="2.5" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function MailIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 7.5L12 13L20 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   );
 }
@@ -117,21 +107,6 @@ export default function ContactPage() {
               <div className="space-y-1">
                 <p className="font-medium text-slate-500">Address</p>
                 <p className="text-base font-semibold text-slate-900">Edinburgh, UK</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="mt-0.5 text-slate-500">
-                <MailIcon />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-slate-500">CV</p>
-                <Link
-                  href="/cv.pdf"
-                  className="inline-flex text-base font-semibold text-slate-900 transition-colors hover:text-slate-700"
-                >
-                  Download CV
-                </Link>
               </div>
             </div>
 
