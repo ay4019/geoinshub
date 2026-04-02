@@ -50,6 +50,13 @@ const equationParameterMap: Record<string, string[]> = {
     "sigma'_p = preconsolidation stress",
     "sigma'_v0 = current vertical effective stress",
   ],
+  "&sigma;'<sub>v0</sub> = &gamma;z - &gamma;<sub>w</sub> max(z - z<sub>GWT</sub>, 0)": [
+    "sigma'_v0 = current vertical effective stress at sample depth",
+    "gamma = bulk unit weight (BHA)",
+    "z = sample depth",
+    "gamma_w = unit weight of water",
+    "z_GWT = groundwater table depth",
+  ],
   "GI = (F - 35)[0.2 + 0.005(LL - 40)] + 0.01(F - 15)(PI - 10)": [
     "GI = group index",
     "F = percent passing No. 200 sieve",
@@ -502,15 +509,11 @@ const equationParameterMap: Record<string, string[]> = {
     "C_E = energy correction factor",
     "ER = measured hammer energy ratio in percent",
   ],
-  "C<sub>N,Peck</sub> = 0.77 log<sub>10</sub>(2000 / &sigma;'<sub>v0</sub>)": [
-    "C_N,Peck = overburden correction factor using Peck et al. (1974)",
-    "sigma'_v0 = effective vertical overburden stress in kPa",
-    "2000 = reference stress in kPa used in the Peck expression",
-  ],
-  "C<sub>N,Liao</sub> = (100 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>": [
-    "C_N,Liao = overburden correction factor using Liao and Whitman (1986)",
-    "sigma'_v0 = effective vertical overburden stress in kPa",
-    "100 = reference stress in kPa used in the Liao and Whitman expression",
+  "C<sub>N</sub> = 9.78(1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70": [
+    "C_N = overburden correction factor",
+    "sigma'_v0 = effective vertical overburden stress in kPa (kN/m2)",
+    "9.78 = coefficient used in the Idriss and Boulanger (2008) screening expression",
+    "C_N is bounded between 0.40 and 1.70 in this tool",
   ],
   "(N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub>N<sub>60</sub> &le; 2N<sub>60</sub>": [
     "(N1)_60 = overburden-corrected standardized blow count",

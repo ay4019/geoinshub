@@ -11,6 +11,7 @@ import { GmaxProfileTab } from "@/components/gmax-profile-tab";
 import { LiquefactionProfileTab } from "@/components/liquefaction-profile-tab";
 import { LiquefactionScreeningVisual } from "@/components/liquefaction-screening-visual";
 import { ModulusFromCuProfileTab } from "@/components/modulus-from-cu-profile-tab";
+import { OcrProfileTab } from "@/components/ocr-profile-tab";
 import { PostLiquefactionSettlementProfileTab } from "@/components/post-liquefaction-settlement-profile-tab";
 import { SptProfileTab } from "@/components/spt-profile-tab";
 import { StressDistributionVisual } from "@/components/stress-distribution-visual";
@@ -298,6 +299,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const isSptCorrections = tool.slug === "spt-corrections";
   const isGmaxFromVs = tool.slug === "gmax-from-vs";
   const isEoedFromMv = tool.slug === "eoed-from-mv";
+  const isOcrCalculator = tool.slug === "ocr-calculator";
   const isLiquefactionScreening = tool.slug === "seed-idriss-liquefaction-screening";
   const isPostLiquefactionSettlement = tool.slug === "post-liquefaction-settlement";
   const liquefactionMethod =
@@ -432,6 +434,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           ...(isSptCorrections ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isGmaxFromVs ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isEoedFromMv ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isOcrCalculator ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           { id: "information", label: "Information" },
@@ -673,6 +676,12 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <GmaxProfileTab unitSystem={unitSystem} />
       ) : activeTab === "profile" && isEoedFromMv ? (
         <EoedProfileTab unitSystem={unitSystem} />
+      ) : activeTab === "profile" && isOcrCalculator ? (
+        <OcrProfileTab
+          unitSystem={unitSystem}
+          globalGroundwaterDepth={formValues.groundwaterDepth ?? ""}
+          globalUnitWeight={formValues.unitWeight ?? ""}
+        />
       ) : activeTab === "profile" && isLiquefactionScreening ? (
         <LiquefactionProfileTab unitSystem={unitSystem} initialMethod={liquefactionMethod} />
       ) : activeTab === "profile" && isPostLiquefactionSettlement ? (

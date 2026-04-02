@@ -282,14 +282,6 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
           </table>
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            This Plot is intended for cohesive soils only. The suggested <EngineeringText text="E/c_u" /> basis remains
-            consistency-based, and manual override should be used only when project-specific stiffness data or back-analysis
-            supports a different ratio.
-          </p>
-        </div>
       </div>
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -297,6 +289,15 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
         <p className="mt-1">
           This profile-based view is a Plot workflow for screening only. It does not replace project-specific stiffness
           testing, strain-level selection, or professional engineering judgement.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          This Plot is intended for cohesive soils only. The suggested <EngineeringText text="E/c_u" /> basis remains
+          consistency-based, and manual override should be used only when project-specific stiffness data or back-analysis
+          supports a different ratio.
         </p>
       </div>
     </section>

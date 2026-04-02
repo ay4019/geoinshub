@@ -14,72 +14,54 @@ const phaseRefs = [
 const classificationRefs = [
   "ASTM D2487. Standard Practice for Classification of Soils for Engineering Purposes (Unified Soil Classification System).",
   "AASHTO M 145. Standard Specification for Classification of Soils and Soil-Aggregate Mixtures for Highway Construction Purposes.",
-  "Casagrande, A. (1948). Classification and identification of soils. Transactions, ASCE.",
 ];
 
 const bearingRefs = [
   "Terzaghi, K. (1943). Theoretical Soil Mechanics. John Wiley & Sons.",
-  "Meyerhof, G.G. (1963). Some recent research on the bearing capacity of foundations. Canadian Geotechnical Journal, 1(1), 16-26.",
-  "Hansen, J.B. (1970). A revised and extended formula for bearing capacity. Danish Geotechnical Institute Bulletin 28.",
-  "Vesic, A.S. (1973). Analysis of ultimate loads of shallow foundations. Journal of the Soil Mechanics and Foundations Division, ASCE, 99(SM1), 45-73.",
-  "USACE EM 1110-1-1905. Bearing Capacity of Soils.",
+  "EN 1997-1 (Eurocode 7): Geotechnical design - Part 1: General rules.",
 ];
 
 const settlementRefs = [
   "Schmertmann, J.H. (1970). Static cone to compute static settlement over sand. Journal of the Soil Mechanics and Foundations Division, ASCE, 96(SM3), 1011-1043.",
-  "Schmertmann, J.H., Hartman, J.P., and Brown, P.R. (1978). Improved strain influence factor diagrams. Journal of the Geotechnical Engineering Division, ASCE, 104(GT8), 1131-1135.",
   "NAVFAC DM 7.1 and DM 7.2. Soil Mechanics, Foundations, and Earth Structures.",
-  "Mesri, G. and Godlewski, P.M. (1977). Time- and stress-compressibility interrelationship. Journal of the Geotechnical Engineering Division, ASCE, 103(GT5), 417-430.",
-  "Boussinesq, J. (1885). Application des potentiels a l'etude de l'equilibre et du mouvement des solides elastiques.",
 ];
 
 const retainingRefs = [
   "Rankine, W.J.M. (1857). On the stability of loose earth. Philosophical Transactions of the Royal Society.",
-  "Coulomb, C.A. (1776). Essai sur une application des regles de maximis et minimis a quelques problemes de statique relatifs a l'architecture.",
   "Jaky, J. (1944). The coefficient of earth pressure at rest. Journal of the Society of Hungarian Architects and Engineers.",
 ];
 
 const pileRefs = [
   "FHWA NHI-16-009. Design and Construction of Driven Pile Foundations, Volume I.",
-  "FHWA NHI-18-024. Drilled Shafts: Construction Procedures and LRFD Design Methods.",
   "Tomlinson, M. and Woodward, J. (2014). Pile Design and Construction Practice. CRC Press.",
-  "Reese, L.C. and O'Neill, M.W. (1988). Drilled Shafts: Construction Procedures and Design Methods. FHWA.",
 ];
 
 const improvementRefs = [
   "Barron, R.A. (1948). Consolidation of fine-grained soils by drain wells. Transactions, ASCE, 113, 718-742.",
-  "Hansbo, S. (1981). Consolidation of fine-grained soils by prefabricated drains. Proceedings of the 10th ICSMFE.",
   "Priebe, H.J. (1995). The design of vibro replacement. Ground Engineering, 28(10), 31-37.",
 ];
 
 const liquefactionRefs = [
-  "Seed, H.B. and Idriss, I.M. (1971). Simplified procedure for evaluating soil liquefaction potential. Journal of the Soil Mechanics and Foundations Division, ASCE, 97(SM9), 1249-1273.",
+  "Idriss, I.M. and Boulanger, R.W. (2008). Soil Liquefaction During Earthquakes. Earthquake Engineering Research Institute (EERI).",
   "Youd, T.L. et al. (2001). Liquefaction resistance of soils: Summary report from the 1996 NCEER and 1998 NCEER/NSF workshops. Journal of Geotechnical and Geoenvironmental Engineering, ASCE, 127(10), 817-833.",
-  "Boulanger, R.W. and Idriss, I.M. (2014). CPT and SPT Based Liquefaction Triggering Procedures. Center for Geotechnical Modeling, UC Davis.",
-  "FHWA NHI-11-032 and FHWA NHI-11-033. Geotechnical Earthquake Engineering for Highways Manual.",
 ];
 
 const railwayRefs = [
   "Selig, E.T. and Waters, J.M. (1994). Track Geotechnology and Substructure Management. Thomas Telford.",
-  "Li, D. and Selig, E.T. (1998). Method for railroad track foundation design. I: Development. Journal of Geotechnical and Geoenvironmental Engineering, ASCE, 124(4), 316-322.",
   "AREMA. Manual for Railway Engineering.",
-  "UIC guidance on track support stiffness and trackbed evaluation.",
 ];
 
 const fieldRefs = [
   "ASTM D1586. Standard Test Method for Standard Penetration Test (SPT) and Split-Barrel Sampling of Soils.",
-  "ASTM D5778. Standard Test Method for Electronic Friction Cone and Piezocone Penetration Testing of Soils.",
-  "ASTM E2583. Standard Test Method for Measuring Deflections with a Light Weight Deflectometer (LWD).",
-  "ASTM D1194 and ASTM D1196. Plate load testing procedures for soils and flexible pavement components.",
-  "FHWA subsurface investigation and in-situ testing manuals.",
+  "FHWA NHI-01-031 and NHI-01-034. Subsurface Investigations and In-Situ Testing manuals.",
 ];
 
 const empiricalRefs = [
-  "Kulhawy, F.H. and Mayne, P.W. (1990). Manual on Estimating Soil Properties for Foundation Design. Electric Power Research Institute (EPRI EL-6800).",
   "Peck, R.B., Hanson, W.E., and Thornburn, T.H. (1974). Foundation Engineering, 2nd ed. John Wiley & Sons.",
-  "NAVFAC DM 7.1. Soil Mechanics.",
-  "Use local calibration wherever possible when applying empirical correlations.",
+  "Kulhawy, F.H. and Mayne, P.W. (1990). Manual on Estimating Soil Properties for Foundation Design. Electric Power Research Institute (EPRI EL-6800).",
 ];
+
+const gmaxRefs = ["Kramer, S.L. (1996). Geotechnical Earthquake Engineering. Prentice Hall."];
 
 function info(config: Omit<ToolInformation, "disclaimer"> & { disclaimer?: string }): ToolInformation {
   return {
@@ -229,8 +211,8 @@ const soilParameterTools: ToolDefinition[] = [
     featured: false,
     inputs: [
       select("densityInputMode", "Density input mode", "unit-weight", [
-        { label: "Use unit weight, ?", value: "unit-weight" },
-        { label: "Use mass density, ?", value: "mass-density" },
+        { label: "Use unit weight (kN/m3)", value: "unit-weight" },
+        { label: "Use mass density (kg/m3)", value: "mass-density" },
       ]),
       num("unitWeight", "Unit weight, gamma", 18.5, "kN/m3", { min: 1, step: 0.1 }),
       num("density", "Mass density, rho", 1900, "kg/m3", { min: 100, step: 1 }),
@@ -252,7 +234,7 @@ const soilParameterTools: ToolDefinition[] = [
         "G<sub>max</sub> = &rho;V<sub>s</sub><sup>2</sup>",
         "G<sub>max</sub> = (&gamma; / g)V<sub>s</sub><sup>2</sup>",
       ],
-      references: [...phaseRefs, ...empiricalRefs],
+      references: gmaxRefs,
     }),
   },
   {
@@ -278,7 +260,11 @@ const soilParameterTools: ToolDefinition[] = [
         "Do not extrapolate a single oedometer modulus too broadly.",
       ],
       equations: ["E<sub>oed</sub> = 1 / m<sub>v</sub>"],
-      references: settlementRefs,
+      references: [
+        "Das, B.M. and Sobhan, K. (2021). Principles of Geotechnical Engineering, 10th ed. Cengage Learning.",
+        "Tomlinson, M.J. (2001). Foundation Design and Construction, 7th ed. Pearson Education.",
+        "Bowles, J.E. (1996). Foundation Analysis and Design, 5th ed. McGraw-Hill.",
+      ],
     }),
   },
   {
@@ -287,27 +273,31 @@ const soilParameterTools: ToolDefinition[] = [
     title: "Overconsolidation Ratio (OCR) Calculator",
     category: "Soil Parameters",
     shortDescription:
-      "Overconsolidation ratio is obtained from the classical stress-history definition using preconsolidation stress and present effective overburden stress.",
+      "OCR is computed from preconsolidation stress and automatically calculated current vertical effective stress at sample depth.",
     tags: ["stress history", "OCR"],
     keywords: ["preconsolidation", "sigma p", "overconsolidated"],
     featured: false,
     inputs: [
-      num("preconsolidationStress", "Preconsolidation stress, sigma'p", 150, "kPa", { min: 0.1, step: 0.1 }),
-      num("effectiveOverburden", "Current vertical effective stress, sigma'v0", 75, "kPa", {
+      num("preconsolidationStress", "Preconsolidation stress, sigma'_p", 150, "kPa", { min: 0.1, step: 0.1 }),
+      num("sampleDepth", "Sample depth, z", 4, "m", { min: 0, step: 0.1 }),
+      num("groundwaterDepth", "Groundwater table depth, z_GWT", 1.5, "m", { min: 0, step: 0.1 }),
+      num("unitWeight", "Bulk unit weight (BHA), gamma", 18.5, "kN/m3", {
         min: 0.1,
         step: 0.1,
       }),
     ],
     information: info({
       methodology:
-        "Computes stress history through the ratio of preconsolidation stress to present vertical effective stress.",
+        "Computes OCR by first deriving present vertical effective stress from sample depth, groundwater depth, and bulk unit weight.",
       assumptions: ["Preconsolidation stress has been interpreted correctly from laboratory or field data."],
       limitations: [
         "OCR alone does not define stiffness, strength, or creep behaviour.",
         "Sampling disturbance can strongly affect sigma'p interpretation.",
       ],
       equations: ["OCR = &sigma;'<sub>p</sub> / &sigma;'<sub>v0</sub>"],
-      references: settlementRefs,
+      references: [
+        "Terzaghi, K., Peck, R.B. and Mesri, G. (1996). Soil Mechanics in Engineering Practice. 3rd edn. Wiley.",
+      ],
     }),
   },
 ];
@@ -399,7 +389,7 @@ const classificationTools: ToolDefinition[] = [
         "Mineralogy, ageing, stress state, and fabric are not captured.",
       ],
       equations: ["Screening is rule-based using PI, LL, and fines content thresholds."],
-      references: [...classificationRefs, ...liquefactionRefs],
+      references: [classificationRefs[0], liquefactionRefs[0]],
       disclaimer: liquefactionDisclaimer,
     }),
   },
@@ -1114,7 +1104,6 @@ const liquefactionTools: ToolDefinition[] = [
       references: [
         "AFAD (2018). Turkiye Bina Deprem Yonetmeligi (TBDY 2018). Official regulation published in 2018 and in force since 1 January 2019.",
         "Idriss, I.M. and Boulanger, R.W. (2008). Soil Liquefaction During Earthquakes. Earthquake Engineering Research Institute (EERI).",
-        ...liquefactionRefs,
       ],
       disclaimer: liquefactionDisclaimer,
     }),
@@ -1436,25 +1425,54 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     title: "Standard Penetration Test (SPT) Corrections for N60 and (N1)60",
     category: "Soil Parameters",
     shortDescription:
-      "Corrected SPT resistance is obtained through the standard energy and equipment correction sequence, followed by the selected overburden method after Peck et al. (1974) or Liao and Whitman (1986).",
+      "Corrected SPT resistance is obtained through standard energy and equipment corrections, while vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight.",
     tags: ["SPT", "N60"],
     keywords: ["energy correction", "CN", "overburden"],
     featured: true,
     inputs: [
-      select("cnMethod", "Overburden correction method, C_N", "peck-1974", [
-        { label: "Peck et al. (1974)", value: "peck-1974" },
-        { label: "Liao & Whitman (1986)", value: "liao-whitman-1986" },
+      select("hammerType", "Hammer type", "safety", [
+        { label: "Safety hammer", value: "safety" },
+        { label: "Donut hammer", value: "donut" },
+        { label: "Automatic trip hammer", value: "automatic" },
+      ]),
+      select("boreholeDiameterFactor", "Borehole diameter", "1.00", [
+        { label: "65-115 mm (Cb = 1.00)", value: "1.00" },
+        { label: "150 mm (Cb = 1.05)", value: "1.05" },
+        { label: "200 mm (Cb = 1.15)", value: "1.15" },
+      ]),
+      select("energyRatio", "Hammer efficiency, ER (%)", "70", [
+        { label: "45%", value: "45" },
+        { label: "60%", value: "60" },
+        { label: "70%", value: "70" },
+        { label: "80%", value: "80" },
+        { label: "90%", value: "90" },
+        { label: "100%", value: "100" },
+        { label: "117%", value: "117" },
+        { label: "130%", value: "130" },
+        { label: "160%", value: "160" },
+      ]),
+      select("rodLengthFactor", "Rod length", "0.95", [
+        { label: "< 3 m (Cr = 0.75)", value: "0.75" },
+        { label: "3-4 m (Cr = 0.75)", value: "0.75" },
+        { label: "4-6 m (Cr = 0.85)", value: "0.85" },
+        { label: "6-10 m (Cr = 0.95)", value: "0.95" },
+        { label: "10-30 m (Cr = 1.00)", value: "1.00" },
+        { label: "> 30 m (screening Cr = 1.00)", value: "1.00" },
+      ]),
+      select("samplerFactor", "Sampler type", "1.00", [
+        { label: "Standard sampler with liner (Cs = 1.00)", value: "1.00" },
+        { label: "Sampler without liner (Cs = 1.10)", value: "1.10" },
+        { label: "Sampler without liner (Cs = 1.20)", value: "1.20" },
+        { label: "Sampler without liner (Cs = 1.30)", value: "1.30" },
       ]),
       num("nField", "Recorded SPT N", 18, undefined, { min: 1, step: 1 }),
-      num("energyRatio", "Hammer energy ratio, ER", 70, "%", { min: 1, step: 0.1 }),
-      num("boreholeFactor", "Borehole diameter factor, Cb", 1.0, undefined, { min: 0.5, step: 0.01 }),
-      num("rodFactor", "Rod length factor, Cr", 0.95, undefined, { min: 0.5, step: 0.01 }),
-      num("samplerFactor", "Sampler factor, Cs", 1.0, undefined, { min: 0.5, step: 0.01 }),
-      num("effectiveStress", "Vertical effective stress, sigma'v0", 100, "kPa", { min: 1, step: 0.1 }),
+      num("sampleDepth", "Sample depth, z", 6, "m", { min: 0, step: 0.1 }),
+      num("groundwaterDepth", "Groundwater depth, z_GWT", 1.5, "m", { min: 0, step: 0.1 }),
+      num("unitWeight", "Bulk unit weight (BHA), gamma", 18.5, "kN/m3", { min: 0.1, step: 0.1 }),
     ],
     information: info({
       methodology:
-        "Applies energy and equipment corrections to produce N60, then applies a selected overburden correction method to obtain (N1)60. The tool supports both a Peck et al. (1974) style overburden correction and the Liao and Whitman (1986) expression.",
+        "Applies energy and equipment corrections to produce N60, computes current vertical effective stress from sample depth, groundwater depth, and bulk unit weight, then applies the Idriss and Boulanger (2008) overburden correction expression to obtain (N1)60.",
       assumptions: [
         "The chosen equipment factors are appropriate for the test setup.",
         "An atmospheric pressure of 100 kPa is used.",
@@ -1466,8 +1484,8 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
       equations: [
         "N<sub>60</sub> = N C<sub>E</sub>C<sub>b</sub>C<sub>r</sub>C<sub>s</sub>",
         "C<sub>E</sub> = ER / 60",
-        "C<sub>N,Peck</sub> = 0.77 log<sub>10</sub>(2000 / &sigma;'<sub>v0</sub>)",
-        "C<sub>N,Liao</sub> = (100 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>",
+        "&sigma;'<sub>v0</sub> = &gamma;z - &gamma;<sub>w</sub> max(z - z<sub>GWT</sub>, 0)",
+        "C<sub>N</sub> = 9.78(1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70",
         "(N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub>N<sub>60</sub> &le; 2N<sub>60</sub>",
       ],
       tables: [
@@ -1479,38 +1497,34 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
             ["Borehole diameter correction", "C_b selected from borehole size", "Skempton (1986)"],
             ["Rod length correction", "C_r selected from rod length", "Skempton (1986)"],
             ["Sampler correction", "C_s selected from sampler configuration", "ASTM D1586/D1586M; Youd et al. (2001)"],
-            ["Overburden correction", "C_N selected from Peck (1974) or Liao & Whitman (1986)", "Peck et al. (1974); Liao & Whitman (1986)"],
+            ["Overburden correction", "C_N = 9.78(1/sigma'v0)^0.5, capped at 1.7", "Idriss & Boulanger (2008)"],
           ],
-          note: "The tool keeps the equipment factors explicit so you can either type project-specific values directly or choose them from the reference tables below.",
+          note: "The tool uses global selections for borehole diameter, hammer efficiency, and rod length, then applies them consistently in the correction sequence.",
         },
         {
           title: "Typical Screening Values For Equipment Factors",
           columns: ["Factor", "Typical selection", "Reference basis"],
           rows: [
-            ["C_b", "1.00 for 65-115 mm; 1.05 for 150 mm; 1.15 for 200 mm borehole diameter", "Skempton (1986)"],
-            ["C_r", "0.75 for < 3 m; 0.80 for 3-4 m; 0.85 for 4-6 m; 0.95 for 6-10 m; 1.00 for 10-30 m", "Skempton (1986)"],
-            ["C_s", "1.00 for standard sampler with liners; higher values may be used for sampler configurations without liners", "ASTM D1586/D1586M; Youd et al. (2001)"],
+            ["C_r", "< 3 m: 0.75; 3-4 m: 0.75; 4-6 m: 0.85; 6-10 m: 0.95; 10-30 m: 1.00; > 30 m: project-specific (< 1.00 may be used)", "Provided correction table"],
+            ["C_s", "Standard sampler with liner: 1.00; sampler without liner: 1.10-1.30", "Provided correction table"],
+            ["C_b", "65-115 mm: 1.00; 150 mm: 1.05; 200 mm: 1.15", "Provided correction table"],
+            ["C_E", "Safety hammer: 0.60-1.17; donut hammer: 0.45-1.00; automatic trip hammer: 0.90-1.60", "Provided correction table"],
           ],
           note: "These are common screening values used in practice. Project-specific procedures, hardware, and local standards should govern the final selection.",
         },
         {
-          title: "Overburden Correction Method Options",
+          title: "Overburden Correction Used In This Tool",
           columns: ["Method", "Equation used in this tool", "Notes"],
           rows: [
-            ["Peck et al. (1974)", "C_N = 0.77 log10(2000 / sigma'v0)", "sigma'v0 in kPa; screening bounds are applied to avoid unrealistic values."],
-            ["Liao & Whitman (1986)", "C_N = (100 / sigma'v0)^0.5", "sigma'v0 in kPa; the result is capped in the screening workflow."],
+            ["Idriss & Boulanger (2008)", "C_N = 9.78(1 / sigma'v0)^0.5, 0.40 <= C_N <= 1.70", "sigma'v0 in kPa (kN/m2)."],
           ],
           note: "After C_N is calculated, the tool enforces (N1)60 <= 2N60 as a practical screening cap.",
         },
       ],
       references: [
-        "ASTM D1586/D1586M. Standard Test Method for Standard Penetration Test (SPT) and Split-Barrel Sampling of Soils.",
-        "ASTM D4633. Standard Test Methods for Energy Measurement for Dynamic Penetrometers.",
-        "ASTM D6066-11. Standard Practice for Determining the Normalized Penetration Resistance of Sands for Evaluation of Liquefaction Potential.",
+        "Idriss, I.M. and Boulanger, R.W. (2008). Soil liquefaction during earthquakes. Oakland, CA: Earthquake Engineering Research Institute.",
         "Skempton, A.W. (1986). Standard penetration test procedures and the effects in sands of overburden pressure, relative density, particle size, ageing and overconsolidation. Geotechnique, 36(3), 425-447.",
-        "Peck, R.B., Hanson, W.E., and Thornburn, T.H. (1974). Foundation Engineering, 2nd ed. John Wiley & Sons.",
-        "Liao, S.S.C. and Whitman, R.V. (1986). Overburden Correction Factors for SPT in Sand. Journal of Geotechnical Engineering, 112(3), 373-377.",
-        "Youd, T.L. et al. (2001). Liquefaction resistance of soils: Summary report from the 1996 NCEER and 1998 NCEER/NSF workshops. Journal of Geotechnical and Geoenvironmental Engineering, ASCE, 127(10), 817-833.",
+        "ASTM D1586/D1586M. Standard Test Method for Standard Penetration Test (SPT) and Split-Barrel Sampling of Soils.",
       ],
     }),
   },
@@ -1674,14 +1688,14 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
       ],
       references: [
         "Stroud, M.A. (1974). The Standard Penetration Test in Insensitive Clays and Soft Rocks. Proceedings of the European Symposium on Penetration Testing, Stockholm.",
-        "Subsequent summaries commonly report Stroud's recommendation as cu (kPa) = f1 N60 with f1 varying with PI.",
+        "Look, B.G. (2007). Handbook of Geotechnical Investigation and Design Tables. Taylor & Francis.",
       ],
     }),
   },
   {
     slug: "friction-angle-from-spt",
     status: "active",
-    title: "Effective Friction Angle (?') from Standard Penetration Test Resistance (N60)",
+    title: "Effective Friction Angle (phi') from Standard Penetration Test Resistance (N60)",
     category: "Soil Parameters",
     shortDescription:
       "Effective friction angle is estimated from corrected SPT resistance using the empirical correlation cited by Peck, Hanson, and Thornburn (1974).",

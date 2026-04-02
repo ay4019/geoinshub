@@ -1,11 +1,11 @@
 {
   "visits": 26,
-  "toolUses": 98,
+  "toolUses": 100,
   "articleReads": 73,
   "toolBreakdown": {
     "gmax-from-vs": 3,
     "eoed-from-mv": 3,
-    "ocr-calculator": 1,
+    "ocr-calculator": 2,
     "traditional-bearing-capacity-methods": 6,
     "eurocode-7-bearing-resistance": 1,
     "bearing-capacity-eccentricity-correction": 5,
@@ -15,7 +15,7 @@
     "stress-distribution-21": 4,
     "seed-idriss-liquefaction-screening": 19,
     "post-liquefaction-settlement": 4,
-    "spt-corrections": 0,
+    "spt-corrections": 1,
     "cu-vs-depth": 2,
     "cu-from-pi-and-spt": 9,
     "friction-angle-from-spt": 2,

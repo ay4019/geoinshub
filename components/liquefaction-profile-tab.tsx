@@ -300,12 +300,15 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
           <sup>1</sup> See the Information tab for the layered screening criteria and method-specific check conditions.
         </p>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            This tab uses one shared PGA input to screen multiple sample intervals. The check column only advances to <strong>Analysis</strong> when the depth, groundwater, and SPT resistance conditions remain within the simplified screening range for the selected method.
-          </p>
-        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          This tab uses one shared PGA input to screen multiple sample intervals. The check column only advances to{" "}
+          <strong>Analysis</strong> when the depth, groundwater, and SPT resistance conditions remain within the
+          simplified screening range for the selected method.
+        </p>
       </div>
     </section>
   );

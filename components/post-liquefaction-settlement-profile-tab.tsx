@@ -257,17 +257,18 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
           </table>
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            This layered sheet infers <span className="font-medium text-slate-700">D<sub>r</sub></span> from corrected
-            SPT resistance, then calculates <span className="font-medium text-slate-700">Î³<sub>lim</sub></span> from the
-            Idriss and Boulanger style relative-density expression. Maximum shear strain{" "}
-            <span className="font-medium text-slate-700">Î³<sub>max</sub></span>, volumetric strain{" "}
-            <span className="font-medium text-slate-700">Îµ<sub>v</sub></span>, and settlement are then computed automatically
-            for each layer.
-          </p>
-        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          This layered sheet infers <span className="font-medium text-slate-700">D<sub>r</sub></span> from corrected SPT
+          resistance, then calculates <span className="font-medium text-slate-700">Î³<sub>lim</sub></span> from the Idriss
+          and Boulanger style relative-density expression. Maximum shear strain{" "}
+          <span className="font-medium text-slate-700">Î³<sub>max</sub></span>, volumetric strain{" "}
+          <span className="font-medium text-slate-700">Îµ<sub>v</sub></span>, and settlement are then computed
+          automatically for each layer.
+        </p>
       </div>
     </section>
   );

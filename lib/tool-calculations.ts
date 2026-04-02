@@ -24,6 +24,13 @@ function ensurePositive(value: number, fieldLabel: string): number {
   return value;
 }
 
+function ensureNonNegative(value: number, fieldLabel: string): number {
+  if (value < 0) {
+    throw new Error(`${fieldLabel} must be zero or greater.`);
+  }
+  return value;
+}
+
 function degToRad(value: number): number {
   return (value * Math.PI) / 180;
 }
@@ -337,12 +344,21 @@ const calculators: Record<string, Calculator> = {
   },
   "ocr-calculator": (values) => {
     const sigmaP = ensurePositive(parseNumber(values.preconsolidationStress, "Preconsolidation stress"), "Preconsolidation stress");
-    const sigmaV = ensurePositive(parseNumber(values.effectiveOverburden, "Effective overburden"), "Effective overburden");
+    const sampleDepth = ensureNonNegative(parseNumber(values.sampleDepth, "Sample depth"), "Sample depth");
+    const groundwaterDepth = ensureNonNegative(
+      parseNumber(values.groundwaterDepth, "Groundwater depth"),
+      "Groundwater depth",
+    );
+    const unitWeight = ensurePositive(parseNumber(values.unitWeight, "Bulk unit weight"), "Bulk unit weight");
+    const sigmaV = Math.max(unitWeight * sampleDepth - 9.81 * Math.max(sampleDepth - groundwaterDepth, 0), 0.1);
     const ocr = sigmaP / sigmaV;
 
     return {
       title: "Overconsolidation Ratio",
-      items: [{ label: "OCR", value: round(ocr, 3) }],
+      items: [
+        { label: "Current vertical effective stress, sigma'_v0", value: round(sigmaV, 2), unit: "kPa" },
+        { label: "OCR", value: round(ocr, 3) },
+      ],
       notes: [ocr > 1 ? "The soil is overconsolidated in this simplified interpretation." : "The soil is approximately normally consolidated."],
       warnings: baseWarnings(),
     };
@@ -1067,33 +1083,49 @@ const calculators: Record<string, Calculator> = {
     };
   },
   "spt-corrections": (values) => {
-    const cnMethod = values.cnMethod === "liao-whitman-1986" ? "liao-whitman-1986" : "peck-1974";
+    const hammerType = values.hammerType ?? "safety";
     const nField = ensurePositive(parseNumber(values.nField, "Field N"), "Field N");
     const er = ensurePositive(parseNumber(values.energyRatio, "Energy ratio"), "Energy ratio");
-    const cb = ensurePositive(parseNumber(values.boreholeFactor, "Cb"), "Cb");
-    const cr = ensurePositive(parseNumber(values.rodFactor, "Cr"), "Cr");
+    const cb = ensurePositive(parseNumber(values.boreholeDiameterFactor, "Cb"), "Cb");
+    const cr = ensurePositive(parseNumber(values.rodLengthFactor, "Cr"), "Cr");
     const cs = ensurePositive(parseNumber(values.samplerFactor, "Cs"), "Cs");
-    const sigmaEff = ensurePositive(parseNumber(values.effectiveStress, "Effective stress"), "Effective stress");
+    const sampleDepth = ensureNonNegative(parseNumber(values.sampleDepth, "Sample depth"), "Sample depth");
+    const groundwaterDepth = ensureNonNegative(parseNumber(values.groundwaterDepth, "Groundwater depth"), "Groundwater depth");
+    const unitWeight = ensurePositive(parseNumber(values.unitWeight, "Bulk unit weight"), "Bulk unit weight");
+    const sigmaEff = Math.max(unitWeight * sampleDepth - 9.81 * Math.max(sampleDepth - groundwaterDepth, 0), 0.1);
     const ce = er / 60;
     const n60 = nField * ce * cb * cr * cs;
-    const cnRaw =
-      cnMethod === "peck-1974" ? 0.77 * log10(2000 / sigmaEff) : Math.sqrt(100 / sigmaEff);
-    const cn = Math.min(Math.max(cnRaw, 0.2), 2.0);
+    const cnRaw = 9.78 * Math.sqrt(1 / sigmaEff);
+    const cn = Math.max(0.4, Math.min(cnRaw, 1.7));
     const n160 = Math.min(n60 * cn, 2 * n60);
+    const hammerRange =
+      hammerType === "automatic" ? [90, 160] : hammerType === "donut" ? [45, 100] : [60, 117];
+    const erRangeWarning =
+      er < hammerRange[0] || er > hammerRange[1]
+        ? [
+            `ER is outside the typical ${hammerType === "automatic" ? "automatic trip hammer" : hammerType === "donut" ? "donut hammer" : "safety hammer"} range (${hammerRange[0]}-${hammerRange[1]}%).`,
+          ]
+        : [];
+
     return {
       title: "SPT Corrections",
       items: [
-        { label: "Selected C_N method", value: cnMethod === "peck-1974" ? "Peck et al. (1974)" : "Liao & Whitman (1986)" },
         { label: "C_E", value: round(ce, 3) },
+        { label: "C_b", value: round(cb, 3) },
+        { label: "C_r", value: round(cr, 3) },
+        { label: "C_s", value: round(cs, 3) },
+        { label: "Calculated vertical effective stress, sigma'_v0", value: round(sigmaEff, 2), unit: "kPa" },
+        { label: "C_N", value: round(cn, 3) },
         { label: "N60", value: round(n60, 2) },
-        { label: "CN", value: round(cn, 3) },
         { label: "(N1)60", value: round(n160, 2) },
       ],
       notes: [
+        "Vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight.",
+        "C_N uses Idriss and Boulanger (2008): C_N = 9.78(1/sigma'_v0)^0.5 with bounds 0.40 to 1.70.",
         "Further fines correction may still be needed for liquefaction work.",
         "The tool enforces the practical screening cap (N1)60 <= 2N60.",
       ],
-      warnings: baseWarnings(),
+      warnings: [...erRangeWarning, ...baseWarnings()],
     };
   },
   "cpt-parameter-correlation": (values) => {

@@ -759,9 +759,9 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
       `Borehole ID`,
       `Top (${depthUnit})`,
       `Bottom (${depthUnit})`,
-      `V? (${velocityUnit})`,
-      `Unit weight, ? (${unitWeightUnit})`,
-      `Mass density, ? (${densityUnit})`,
+      `Vs (${velocityUnit})`,
+      `Unit weight (${unitWeightUnit})`,
+      `Mass density (${densityUnit})`,
       `Gmax (${gmaxUnit})`,
     ]
       .map((label) => `<th>${escapeHtml(label)}</th>`)
@@ -831,8 +831,8 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
     const tableHtml = buildExportTableHtml();
     const [vsChartImgSrc, gmaxChartImgSrc] = await Promise.all([
       buildChartImageDataUri({
-        title: "Depth vs V?",
-        xLabel: "V?",
+        title: "Depth vs Vs",
+        xLabel: "Vs",
         xUnit: velocityUnit,
         valueKey: "vs",
       }),
@@ -864,7 +864,9 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
   </head>
   <body>
     <h1>Gmax from Vs Soil Profile Export</h1>
-    <p>Density input mode: ${densityInputMode === "unit-weight" ? "Use unit weight, ?" : "Use mass density, ?"}</p>
+    <p>Density input mode: ${
+      densityInputMode === "unit-weight" ? "Use unit weight (kN/m3)" : "Use mass density (kg/m3)"
+    }</p>
     <h2>Layered profile table</h2>
     ${tableHtml}
     <h2>Profile plots</h2>
@@ -971,8 +973,8 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
               onChange={(event) => setDensityInputMode(event.target.value as DensityInputMode)}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
             >
-              <option value="unit-weight">Use unit weight, ?</option>
-              <option value="mass-density">Use mass density, ?</option>
+              <option value="unit-weight">Use unit weight (kN/m3)</option>
+              <option value="mass-density">Use mass density (kg/m3)</option>
             </select>
           </div>
         </div>
@@ -1007,13 +1009,13 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
                   <HeaderCell
                     title={
                       <span className="whitespace-nowrap">
-                        Unit weight, ? ({unitWeightUnit})
+                        Unit weight ({unitWeightUnit})
                       </span>
                     }
                   />
                 </th>
                 <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>Mass density, ?</span>} unit={densityUnit} />
+                  <HeaderCell title={<span>Mass density</span>} unit={densityUnit} />
                 </th>
                 <th className="px-2 py-3 text-left font-semibold">
                   <HeaderCell title={<span>G<sub>max</sub></span>} unit="MPa" />
@@ -1152,15 +1154,6 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            The selected density mode applies to the full profile. When unit weight, ? is the active input, mass
-            density, ? is calculated automatically for each layer; when mass density, ? is active, unit weight, ? is
-            back-calculated before <span className="font-medium text-slate-700">G<sub>max</sub></span> is formed from
-            <span className="font-medium text-slate-700"> ?V<sub>s</sub><sup>2</sup></span>.
-          </p>
-        </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
@@ -1172,7 +1165,7 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
               Depth vs V<sub>s</sub>
             </span>
           }
-          xLabel="V?"
+          xLabel="Vs"
           xUnit={velocityUnit}
           depthUnit={depthUnit}
           rows={plotRows}
@@ -1186,12 +1179,23 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
               Depth vs G<sub>max</sub>
             </span>
           }
-          xLabel="G???"
+          xLabel="Gmax"
           xUnit={gmaxUnit}
           depthUnit={depthUnit}
           rows={plotRows}
           valueKey="gmax"
         />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          The selected density mode applies to the full profile. When unit weight (kN/m3) is the active input, mass
+          density (kg/m3) is calculated automatically for each layer; when mass density (kg/m3) is active, unit weight
+          (kN/m3) is back-calculated before <span className="font-medium text-slate-700">G<sub>max</sub></span> is
+          formed from <span className="font-medium text-slate-700">rho V<sub>s</sub>
+          <sup>2</sup></span>.
+        </p>
       </div>
     </section>
   );

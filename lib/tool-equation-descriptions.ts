@@ -203,9 +203,9 @@
   "spt-corrections": [
     "This equation converts the measured field N value to the standard N60 value using energy and equipment corrections.",
     "This ratio normalizes hammer energy to the 60 percent reference level.",
-    "This Peck et al. (1974) expression estimates the overburden correction factor from effective vertical stress in kPa.",
-    "This Liao and Whitman (1986) expression estimates the overburden correction factor from effective vertical stress in kPa.",
-    "This result applies the selected overburden correction factor to N60 and then limits (N1)60 so it does not exceed twice N60 in the screening workflow.",
+    "This equation estimates vertical effective stress at sample depth using bulk unit weight and groundwater depth.",
+    "This Idriss and Boulanger (2008) expression estimates the overburden correction factor from effective vertical stress and applies an upper cap of 1.7.",
+    "This result applies C_N to N60 and then limits (N1)60 so it does not exceed twice N60 in the screening workflow.",
   ],
   "cpt-parameter-correlation": [
     "This relationship uses the cone resistance above total overburden stress to estimate undrained shear strength approximately.",

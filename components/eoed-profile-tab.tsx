@@ -28,8 +28,8 @@ interface ProfilePoint {
 }
 
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
-const MV_SYMBOL = "m\u1D65";
-const EOED_SYMBOL = "E\u2092\u2091d";
+const MV_SYMBOL = "m_v";
+const EOED_SYMBOL = "E_oed";
 
 const initialRows: EoedProfileRow[] = [
   { id: 1, topDepth: "0", boreholeId: "", bottomDepth: "2", mv: "0.40" },
@@ -115,6 +115,54 @@ function wrapBase64(base64: string) {
   return base64.replace(/(.{76})/g, "$1\r\n");
 }
 
+function splitSubscript(symbol: string): { main: string; sub: string } {
+  const dividerIndex = symbol.indexOf("_");
+  if (dividerIndex < 0) {
+    return { main: symbol, sub: "" };
+  }
+  return {
+    main: symbol.slice(0, dividerIndex),
+    sub: symbol.slice(dividerIndex + 1),
+  };
+}
+
+function measureSymbolWidth(
+  context: CanvasRenderingContext2D,
+  symbol: string,
+  mainFont: string,
+  subFont: string,
+): number {
+  const { main, sub } = splitSubscript(symbol);
+  context.font = mainFont;
+  const mainWidth = context.measureText(main).width;
+  if (!sub) {
+    return mainWidth;
+  }
+  context.font = subFont;
+  const subWidth = context.measureText(sub).width;
+  return mainWidth + subWidth;
+}
+
+function drawSymbol(
+  context: CanvasRenderingContext2D,
+  symbol: string,
+  startX: number,
+  baselineY: number,
+  mainFont: string,
+  subFont: string,
+  subscriptOffsetY = 6,
+) {
+  const { main, sub } = splitSubscript(symbol);
+  context.font = mainFont;
+  context.fillText(main, startX, baselineY);
+  if (!sub) {
+    return;
+  }
+  const mainWidth = context.measureText(main).width;
+  context.font = subFont;
+  context.fillText(sub, startX + mainWidth, baselineY + subscriptOffsetY);
+}
+
 function buildChartPngDataUri({
   title,
   xLabel,
@@ -174,13 +222,33 @@ function buildChartPngDataUri({
   context.fillRect(0, 0, width, height);
 
   context.fillStyle = "#0f172a";
-  context.font = "700 30px Georgia, 'Times New Roman', serif";
-  context.fillText(title, margin.left, 52);
+  const titleMainFont = "700 30px Georgia, 'Times New Roman', serif";
+  const titleSubFont = "700 21px Georgia, 'Times New Roman', serif";
+  if (title.includes(" vs ")) {
+    const [titlePrefix, titleSymbol] = title.split(" vs ");
+    const prefixText = `${titlePrefix} vs `;
+    context.font = titleMainFont;
+    context.fillText(prefixText, margin.left, 52);
+    const prefixWidth = context.measureText(prefixText).width;
+    drawSymbol(context, titleSymbol, margin.left + prefixWidth, 52, titleMainFont, titleSubFont, 7);
+  } else {
+    context.font = titleMainFont;
+    context.fillText(title, margin.left, 52);
+  }
 
   context.fillStyle = "#1e3a5f";
-  context.font = "700 23px Inter, Arial, sans-serif";
-  context.textAlign = "center";
-  context.fillText(`${xLabel} (${xUnit})`, margin.left + innerWidth / 2, 84);
+  const axisMainFont = "700 23px Inter, Arial, sans-serif";
+  const axisSubFont = "700 16px Inter, Arial, sans-serif";
+  context.textAlign = "start";
+  const unitText = ` (${xUnit})`;
+  const symbolWidth = measureSymbolWidth(context, xLabel, axisMainFont, axisSubFont);
+  context.font = axisMainFont;
+  const unitWidth = context.measureText(unitText).width;
+  const axisTotalWidth = symbolWidth + unitWidth;
+  const axisStartX = margin.left + innerWidth / 2 - axisTotalWidth / 2;
+  drawSymbol(context, xLabel, axisStartX, 60, axisMainFont, axisSubFont, 5);
+  context.font = axisMainFont;
+  context.fillText(unitText, axisStartX + symbolWidth, 60);
   context.textAlign = "start";
 
   context.strokeStyle = "#dbe5f1";
@@ -273,17 +341,20 @@ function buildChartPngDataUri({
   context.restore();
 
   const legendY = margin.top + innerHeight + 52;
-  let legendX = margin.left;
   context.font = "600 18px Inter, Arial, sans-serif";
 
-  lineSeries.forEach((series) => {
-    const label = series.boreholeId;
-    const textWidth = context.measureText(label).width;
-    const blockWidth = 44 + textWidth;
+  const legendBlocks = lineSeries.map((series) => {
+    const textWidth = context.measureText(series.boreholeId).width;
+    return { series, blockWidth: 44 + textWidth };
+  });
+  const legendGap = 10;
+  const totalLegendWidth =
+    legendBlocks.reduce((total, item) => total + item.blockWidth, 0) + Math.max(legendBlocks.length - 1, 0) * legendGap;
+  let legendX = totalLegendWidth <= innerWidth ? margin.left + (innerWidth - totalLegendWidth) / 2 : margin.left;
 
-    if (legendX + blockWidth > width - margin.right) {
-      legendX = margin.left;
-    }
+  legendBlocks.forEach((item) => {
+    const { series, blockWidth } = item;
+    const label = series.boreholeId;
 
     context.beginPath();
     context.fillStyle = hexToRgba(series.colour, 0.12);
@@ -305,7 +376,7 @@ function buildChartPngDataUri({
     context.textAlign = "start";
     context.fillText(label, legendX + 28, legendY + 5);
 
-    legendX += blockWidth + 10;
+    legendX += blockWidth + legendGap;
   });
 
   return canvas.toDataURL("image/png");
@@ -681,13 +752,6 @@ export function EoedProfileTab({ unitSystem }: EoedProfileTabProps) {
           </button>
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            This profile view applies <span className="font-medium text-slate-700">E<sub>oed</sub> = 1/m<sub>v</sub></span> per
-            layer and keeps Borehole IDs explicit for multi-borehole comparison in the same export and plot layout.
-          </p>
-        </div>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
@@ -707,6 +771,14 @@ export function EoedProfileTab({ unitSystem }: EoedProfileTabProps) {
           }
           imageSrc={eoedChartImgSrc}
         />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          This profile view applies <span className="font-medium text-slate-700">E<sub>oed</sub> = 1/m<sub>v</sub></span>{" "}
+          per layer and keeps Borehole IDs explicit for multi-borehole comparison in the same export and plot layout.
+        </p>
       </div>
     </section>
   );
