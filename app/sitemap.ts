@@ -10,8 +10,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes: MetadataRoute.Sitemap = [
     "",
     "/tools",
-    "/insights",
+    "/blog",
     "/contact",
+    "/signup",
+    "/login",
     "/terms",
     "/disclaimer",
   ].map((route) => ({
@@ -25,7 +27,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }));
 
   const insightRoutes: MetadataRoute.Sitemap = getArticleSlugs().map((slug) => ({
-    url: `${baseUrl}/insights/${slug}`,
+    url: `${baseUrl}/blog/${slug}`,
     lastModified: now,
   }));
 

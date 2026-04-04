@@ -1,4 +1,7 @@
-﻿export const TOOL_CATEGORIES = [
+export const TOOL_CATEGORIES = [
+  "Mechanical Tools",
+  "Rigidity / Deformation Tools",
+  "Stress Related Tools",
   "Soil Parameters",
   "Soil Classification",
   "Bearing Capacity",
@@ -43,6 +46,7 @@ export interface ToolInformation {
   references: string[];
   disclaimer: string;
   tables?: ToolInformationTable[];
+  figures?: ToolInformationFigure[];
 }
 
 export interface ToolInformationTable {
@@ -50,6 +54,12 @@ export interface ToolInformationTable {
   columns: string[];
   rows: string[][];
   note?: string;
+}
+
+export interface ToolInformationFigure {
+  src: string;
+  alt: string;
+  caption?: string;
 }
 
 export interface ToolDefinition {

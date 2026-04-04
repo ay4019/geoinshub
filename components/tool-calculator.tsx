@@ -1,13 +1,17 @@
-﻿"use client";
+"use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { incrementToolUseAction } from "@/app/actions/analytics";
 import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
+import { CuProfileReportTab, type CuProfileReportPoint } from "@/components/cu-profile-report-tab";
+import { CuFromSptProfileTab } from "@/components/cu-from-spt-profile-tab";
 import { EngineeringText } from "@/components/engineering-text";
 import { EoedProfileTab } from "@/components/eoed-profile-tab";
 import { GmaxProfileTab } from "@/components/gmax-profile-tab";
+import { FrictionAngleProfileTab } from "@/components/friction-angle-profile-tab";
 import { LiquefactionProfileTab } from "@/components/liquefaction-profile-tab";
 import { LiquefactionScreeningVisual } from "@/components/liquefaction-screening-visual";
 import { ModulusFromCuProfileTab } from "@/components/modulus-from-cu-profile-tab";
@@ -284,6 +288,12 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [cuProfileReportData, setCuProfileReportData] = useState<{
+    depthUnit: string;
+    stressUnit: string;
+    points: CuProfileReportPoint[];
+    plotImageDataUrl: string | null;
+  } | null>(null);
   const previousUnitSystem = useRef(unitSystem);
 
   const disclaimer = useMemo(
@@ -300,6 +310,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const isGmaxFromVs = tool.slug === "gmax-from-vs";
   const isEoedFromMv = tool.slug === "eoed-from-mv";
   const isOcrCalculator = tool.slug === "ocr-calculator";
+  const isCuFromPiAndSpt = tool.slug === "cu-from-pi-and-spt";
+  const isFrictionAngleFromSpt = tool.slug === "friction-angle-from-spt";
   const isLiquefactionScreening = tool.slug === "seed-idriss-liquefaction-screening";
   const isPostLiquefactionSettlement = tool.slug === "post-liquefaction-settlement";
   const liquefactionMethod =
@@ -435,6 +447,9 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           ...(isGmaxFromVs ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isEoedFromMv ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isOcrCalculator ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isCuFromPiAndSpt ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isCuFromPiAndSpt ? [{ id: "report", label: "Report" }] : []),
+          ...(isFrictionAngleFromSpt ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           { id: "information", label: "Information" },
@@ -545,57 +560,6 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                   );
                 })}
 
-                {isModulusFromCu ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                          Suggested E/c<sub>u</sub> Ratio Table
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">
-                          Select a soil class to auto-fill a mid-range E/c<sub>u</sub> ratio, or switch to manual
-                          override if you already have a project-specific value.
-                        </p>
-                      </div>
-                      <p className="text-sm font-medium text-slate-700">
-                        Active auto-fill:{" "}
-                        <span className="font-semibold text-slate-900">{selectedModulusFromCuRow.recommendedRatio}</span>
-                      </p>
-                    </div>
-
-                    <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-100 text-slate-600">
-                          <tr>
-                            <th className="px-3 py-2 font-semibold">Soil class</th>
-                            <th className="px-3 py-2 font-semibold">Suggested E/c<sub>u</sub> range</th>
-                            <th className="px-3 py-2 font-semibold">Auto-filled value</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {modulusFromCuGuidance.map((item) => {
-                            const isSelected = item.value === selectedModulusFromCuRow.value;
-                            return (
-                              <tr
-                                key={item.value}
-                                className={`border-t border-slate-200 ${isSelected ? "bg-blue-50/70" : "bg-white"}`}
-                              >
-                                <td className="px-3 py-2 font-medium text-slate-800">{item.label}</td>
-                                <td className="px-3 py-2 text-slate-600">{item.range}</td>
-                                <td className="px-3 py-2 font-semibold text-slate-900">{item.recommendedRatio}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <p className="mt-2 text-xs text-slate-500">
-                      Auto mode uses the mid-point of the selected range as a screening value. Manual mode keeps the
-                      table for reference but lets you enter your own ratio.
-                    </p>
-                  </div>
-                ) : null}
               </div>
               <button type="button" onClick={handleCalculate} className="btn-base btn-md mt-6" disabled={isPending}>
                 {isPending ? "Calculating..." : "Calculate"}
@@ -632,18 +596,12 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                     ))}
                   </dl>
 
-                  {displayResult.notes.length ? (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Notes</p>
-                      <ul className="mt-2 space-y-1 text-sm text-slate-600">
-                        {displayResult.notes.map((note, index) => (
-                          <li key={`${note}-${index}`}>
-                            <EngineeringText text={note} />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Notes</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Detailed calculation steps are available in the Information tab.
+                    </p>
+                  </div>
 
                   {visibleWarnings.length ? (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -682,6 +640,18 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           globalGroundwaterDepth={formValues.groundwaterDepth ?? ""}
           globalUnitWeight={formValues.unitWeight ?? ""}
         />
+      ) : activeTab === "profile" && isCuFromPiAndSpt ? (
+        <CuFromSptProfileTab unitSystem={unitSystem} onReportDataChange={setCuProfileReportData} />
+      ) : activeTab === "report" && isCuFromPiAndSpt ? (
+        <CuProfileReportTab
+          toolTitle={tool.title}
+          depthUnit={cuProfileReportData?.depthUnit ?? getDisplayUnit("m", unitSystem) ?? "m"}
+          stressUnit={cuProfileReportData?.stressUnit ?? getDisplayUnit("kPa", unitSystem) ?? "kPa"}
+          points={cuProfileReportData?.points ?? []}
+          plotImageDataUrl={cuProfileReportData?.plotImageDataUrl ?? null}
+        />
+      ) : activeTab === "profile" && isFrictionAngleFromSpt ? (
+        <FrictionAngleProfileTab unitSystem={unitSystem} />
       ) : activeTab === "profile" && isLiquefactionScreening ? (
         <LiquefactionProfileTab unitSystem={unitSystem} initialMethod={liquefactionMethod} />
       ) : activeTab === "profile" && isPostLiquefactionSettlement ? (
@@ -823,6 +793,31 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                     </p>
                   ) : null}
                 </div>
+              ))}
+            </div>
+          ) : null}
+
+          {effectiveInformation.figures?.length ? (
+            <div className="mt-5 space-y-4">
+              {effectiveInformation.figures.map((figure, index) => (
+                <figure key={`${figure.src}-${index}`} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <div className="p-4">
+                    <div className="mx-auto w-full max-w-[560px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                      <Image
+                        src={figure.src}
+                        alt={figure.alt}
+                        width={560}
+                        height={420}
+                        className="h-auto w-full"
+                      />
+                    </div>
+                    {figure.caption ? (
+                      <figcaption className="mt-3 text-sm leading-6 text-slate-600">
+                        <EngineeringText text={figure.caption} />
+                      </figcaption>
+                    ) : null}
+                  </div>
+                </figure>
               ))}
             </div>
           ) : null}

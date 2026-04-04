@@ -122,6 +122,8 @@
   "k0-earth-pressure": [
     "This Jaky relationship gives the at-rest lateral earth pressure coefficient for normally consolidated soil.",
     "This extended form includes OCR to estimate an approximate K0 value for overconsolidated soils.",
+    "This Rankine expression gives the active lateral earth pressure coefficient.",
+    "This Rankine expression gives the passive lateral earth pressure coefficient.",
   ],
   "pile-axial-capacity": [
     "This term gives shaft capacity from unit skin resistance multiplied by pile perimeter and embedded length.",
@@ -203,6 +205,7 @@
   "spt-corrections": [
     "This equation converts the measured field N value to the standard N60 value using energy and equipment corrections.",
     "This ratio normalizes hammer energy to the 60 percent reference level.",
+    "This piecewise rule assigns C_r from sample depth range according to the Youd et al. (2001) table used in the tool.",
     "This equation estimates vertical effective stress at sample depth using bulk unit weight and groundwater depth.",
     "This Idriss and Boulanger (2008) expression estimates the overburden correction factor from effective vertical stress and applies an upper cap of 1.7.",
     "This result applies C_N to N60 and then limits (N1)60 so it does not exceed twice N60 in the screening workflow.",
@@ -222,7 +225,8 @@
     "This linear profile adds a depth-dependent strength increase to the surface undrained shear strength.",
   ],
   "cu-from-pi-and-spt": [
-    "This Stroud (1974) relationship shows how the chart-selected factor f1 would later be used with corrected SPT resistance; in this tool, only f1 is interpreted from PI.",
+    "This Stroud (1974) relationship is used directly to estimate undrained shear strength from the chart-derived f1 factor and corrected SPT resistance.",
+    "This step states that f1 is obtained by linearly interpolating between interpreted Stroud PI anchor points used in the tool.",
   ],
   "friction-angle-from-spt": [
     "This empirical relationship, commonly cited after Peck, Hanson, and Thornburn (1974), gives an approximate effective friction angle for granular soils from corrected SPT resistance.",

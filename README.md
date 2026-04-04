@@ -5,6 +5,7 @@ Production-ready Next.js web app for geotechnical articles and a scalable geotec
 ## Stack
 - Next.js (App Router) + TypeScript
 - Tailwind CSS
+- Supabase Auth (email/password)
 - File-based local data store (`/data`)
 
 ## Routes
@@ -14,6 +15,9 @@ Production-ready Next.js web app for geotechnical articles and a scalable geotec
 - `/blog` Blog list
 - `/blog/[slug]` Blog detail
 - `/contact` Contact + newsletter + CV
+- `/login` Login page
+- `/signup` Sign-up page
+- `/account` Protected account page
 - `/terms` Terms of Use
 - `/disclaimer` Disclaimer
 
@@ -31,6 +35,48 @@ Production-ready Next.js web app for geotechnical articles and a scalable geotec
    npm run build
    npm run start
    ```
+
+## Production Auth (Supabase)
+
+This project uses Supabase Auth for production-safe email/password authentication.
+
+### Required environment variables
+Add these to your local `.env.local` and to Vercel project settings:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+### Supabase setup (manual)
+1. Create a Supabase project.
+2. Go to `Authentication > Providers > Email` and enable Email provider.
+3. In `Authentication > URL Configuration` set:
+   - `Site URL`: your production domain (for example `https://your-app.vercel.app`)
+   - `Redirect URLs`:
+     - `http://localhost:3000/auth/callback`
+     - `https://your-app.vercel.app/auth/callback`
+     - (optional) your custom domain callback URL, e.g. `https://example.com/auth/callback`
+4. Keep JWT/session defaults unless you have project-specific requirements.
+5. If email confirmation is enabled, users will confirm by email and return through `/auth/callback`.
+
+### Vercel setup (manual)
+1. Open your project in Vercel.
+2. Go to `Settings > Environment Variables`.
+3. Add:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Redeploy the project after adding variables.
+
+### What is implemented
+- Client Supabase browser client: `lib/supabase/client.ts`
+- Server Supabase client: `lib/supabase/server.ts`
+- Auth middleware/session refresh + route protection: `middleware.ts`, `lib/supabase/middleware.ts`
+- Sign-up page: `/signup`
+- Login page: `/login`
+- Logout button in header/account
+- Protected account page: `/account`
+- Callback route for email verification/session exchange: `/auth/callback`
 
 ## Tool System Overview
 The tools are now data-driven and split into three layers:

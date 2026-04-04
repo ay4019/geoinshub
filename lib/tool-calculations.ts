@@ -118,6 +118,53 @@ function interpolateStroudF1(pi: number): { f1: number; band: string; anchorText
   return { f1: 4.4, band: "PI > 40", anchorText: "Anchored at PI >= 40 -> f1 = 4.4" };
 }
 
+function computeCrFromSampleDepth(sampleDepth: number): number {
+  if (sampleDepth < 3) {
+    return 0.75;
+  }
+  if (sampleDepth < 4) {
+    return 0.8;
+  }
+  if (sampleDepth < 6) {
+    return 0.85;
+  }
+  if (sampleDepth < 10) {
+    return 0.95;
+  }
+  if (sampleDepth <= 30) {
+    return 1;
+  }
+  // For z > 30 m the source table indicates variable values below 1.0.
+  // A screening default is applied here.
+  return 0.95;
+}
+
+function computeCbFromBoreholeDiameterSelection(selection: string): number {
+  if (selection === "lt115") {
+    return 1.0;
+  }
+  if (selection === "115to200") {
+    return 1.05;
+  }
+  if (selection === "gt200") {
+    return 1.15;
+  }
+
+  // Backward compatibility with older saved numeric values.
+  const numeric = Number(selection);
+  if (Number.isFinite(numeric)) {
+    if (numeric > 200) {
+      return 1.15;
+    }
+    if (numeric < 115) {
+      return 1.0;
+    }
+    return 1.05;
+  }
+
+  return 1.0;
+}
+
 function bearingCapacityCore(
   method: "terzaghi" | "meyerhof" | "hansen" | "vesic",
   values: FormValues,
@@ -684,14 +731,23 @@ const calculators: Record<string, Calculator> = {
     const phi = degToRad(phiDeg);
     const k0nc = 1 - Math.sin(phi);
     const k0oc = k0nc * ocr ** Math.sin(phi);
+    const ka = Math.tan(Math.PI / 4 - phi / 2) ** 2;
+    const kp = Math.tan(Math.PI / 4 + phi / 2) ** 2;
     return {
-      title: "At-Rest Earth Pressure",
+      title: "Earth Pressure Coefficients",
       items: [
         { label: "K0 (NC)", value: round(k0nc, 3) },
         { label: "K0 (OCR-adjusted)", value: round(k0oc, 3) },
-        { label: "Horizontal stress", value: round(k0oc * sigmaV, 2), unit: "kPa" },
+        { label: "Kactive (Ka)", value: round(ka, 3) },
+        { label: "Kpassive (Kp)", value: round(kp, 3) },
+        { label: "sigma'h,0", value: round(k0oc * sigmaV, 2), unit: "kPa" },
+        { label: "sigma'h,a", value: round(ka * sigmaV, 2), unit: "kPa" },
+        { label: "sigma'h,p", value: round(kp * sigmaV, 2), unit: "kPa" },
       ],
-      notes: ["The OCR-adjusted value is a screening relation and not a full stress-path model."],
+      notes: [
+        "K0 is reported with OCR adjustment using a Jaky-based screening relation.",
+        "Kactive and Kpassive are Rankine coefficients for drained frictional backfill assumptions.",
+      ],
       warnings: baseWarnings(),
     };
   },
@@ -1086,12 +1142,12 @@ const calculators: Record<string, Calculator> = {
     const hammerType = values.hammerType ?? "safety";
     const nField = ensurePositive(parseNumber(values.nField, "Field N"), "Field N");
     const er = ensurePositive(parseNumber(values.energyRatio, "Energy ratio"), "Energy ratio");
-    const cb = ensurePositive(parseNumber(values.boreholeDiameterFactor, "Cb"), "Cb");
-    const cr = ensurePositive(parseNumber(values.rodLengthFactor, "Cr"), "Cr");
+    const cb = computeCbFromBoreholeDiameterSelection(values.boreholeDiameterFactor ?? "lt115");
     const cs = ensurePositive(parseNumber(values.samplerFactor, "Cs"), "Cs");
     const sampleDepth = ensureNonNegative(parseNumber(values.sampleDepth, "Sample depth"), "Sample depth");
     const groundwaterDepth = ensureNonNegative(parseNumber(values.groundwaterDepth, "Groundwater depth"), "Groundwater depth");
     const unitWeight = ensurePositive(parseNumber(values.unitWeight, "Bulk unit weight"), "Bulk unit weight");
+    const cr = computeCrFromSampleDepth(sampleDepth);
     const sigmaEff = Math.max(unitWeight * sampleDepth - 9.81 * Math.max(sampleDepth - groundwaterDepth, 0), 0.1);
     const ce = er / 60;
     const n60 = nField * ce * cb * cr * cs;
@@ -1121,6 +1177,7 @@ const calculators: Record<string, Calculator> = {
       ],
       notes: [
         "Vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight.",
+        "C_r is assigned automatically from sample depth ranges (<3: 0.75, 3-4: 0.80, 4-6: 0.85, 6-10: 0.95, 10-30: 1.00, >30 m: 0.95 screening default).",
         "C_N uses Idriss and Boulanger (2008): C_N = 9.78(1/sigma'_v0)^0.5 with bounds 0.40 to 1.70.",
         "Further fines correction may still be needed for liquefaction work.",
         "The tool enforces the practical screening cap (N1)60 <= 2N60.",
@@ -1199,19 +1256,23 @@ const calculators: Record<string, Calculator> = {
   },
   "cu-from-pi-and-spt": (values) => {
     const pi = Math.max(0, parseNumber(values.plasticityIndex, "Plasticity Index"));
+    const n60 = ensurePositive(parseNumber(values.n60, "Corrected SPT resistance"), "Corrected SPT resistance");
     const interpretation = interpolateStroudF1(pi);
+    const cu = interpretation.f1 * n60;
 
     return {
-      title: "Stroud f1 Interpretation",
-      summary: `Interpolated Stroud (1974) screening interpretation using the ${interpretation.band} segment of the chart.`,
+      title: "Undrained Shear Strength from SPT",
+      summary: `Stroud (1974) PI-to-f1 interpretation (${interpretation.band}) combined with corrected N60.`,
       items: [
         { label: "Selected PI segment", value: interpretation.band },
         { label: "Interpolated f1", value: round(interpretation.f1, 2) },
+        { label: "Input N60", value: round(n60, 2) },
+        { label: "Estimated cu", value: round(cu, 2), unit: "kPa" },
       ],
       notes: [
         interpretation.anchorText,
-        "This tool interprets only the Stroud chart factor f1 from PI.",
-        "If cu is required later, combine the selected f1 with a corrected N60 value in a separate step.",
+        "f1 is interpreted from PI using the Stroud chart anchors and linear interpolation.",
+        "cu is then calculated directly as f1 x N60.",
       ],
       warnings: baseWarnings(),
     };

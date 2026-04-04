@@ -203,7 +203,7 @@ const soilParameterTools: ToolDefinition[] = [
     slug: "gmax-from-vs",
     status: "active",
     title: "Small-Strain Shear Modulus (Gmax) from Shear Wave Velocity (Vs)",
-    category: "Soil Parameters",
+    category: "Rigidity / Deformation Tools",
     shortDescription:
       "Small-strain shear modulus is obtained from the standard elastic wave relationship using shear wave velocity and either mass density or unit weight.",
     tags: ["small strain", "Vs"],
@@ -241,7 +241,7 @@ const soilParameterTools: ToolDefinition[] = [
     slug: "eoed-from-mv",
     status: "active",
     title: "Oedometer Constrained Modulus (Eoed) from Coefficient of Volume Compressibility (mv)",
-    category: "Soil Parameters",
+    category: "Rigidity / Deformation Tools",
     shortDescription:
       "Oedometer constrained modulus is obtained from the standard one-dimensional compressibility relationship used in classical settlement interpretation.",
     tags: ["compressibility", "oedometer"],
@@ -271,7 +271,7 @@ const soilParameterTools: ToolDefinition[] = [
     slug: "ocr-calculator",
     status: "active",
     title: "Overconsolidation Ratio (OCR) Calculator",
-    category: "Soil Parameters",
+    category: "Stress Related Tools",
     shortDescription:
       "OCR is computed from preconsolidation stress and automatically calculated current vertical effective stress at sample depth.",
     tags: ["stress history", "OCR"],
@@ -771,11 +771,11 @@ const earthPressureTools: ToolDefinition[] = [
   },
   {
     slug: "k0-earth-pressure",
-    status: "archived",
-    title: "At-Rest Earth Pressure K0",
-    category: "Earth Pressure & Retaining Structures",
+    status: "active",
+    title: "Earth Pressure Coefficients (K0, Kactive, Kpassive)",
+    category: "Stress Related Tools",
     shortDescription:
-      "Estimate at-rest earth pressure coefficient using Jaky's relation and an OCR adjustment.",
+      "Computes K0, Kactive, and Kpassive from friction angle and OCR, then reports corresponding horizontal effective stresses.",
     tags: ["K0", "Jaky"],
     keywords: ["at-rest", "OCR", "lateral stress"],
     featured: false,
@@ -786,7 +786,7 @@ const earthPressureTools: ToolDefinition[] = [
     ],
     information: info({
       methodology:
-        "Computes Jaky's K0 for normally consolidated soil and an OCR-adjusted version for stress-history screening.",
+        "Combines Jaky's at-rest relation with Rankine active/passive coefficients to provide K0, Kactive, and Kpassive in one stress-focused screening tool.",
       assumptions: [
         "The soil is not heavily structured or cemented.",
         "Effective stress friction angle is representative.",
@@ -798,6 +798,8 @@ const earthPressureTools: ToolDefinition[] = [
       equations: [
         "K<sub>0,NC</sub> = 1 - sin&phi;'",
         "K<sub>0,OC</sub> = K<sub>0,NC</sub> OCR<sup>sin&phi;'</sup>",
+        "K<sub>a</sub> = tan<sup>2</sup>(45 - &phi;'/2)",
+        "K<sub>p</sub> = tan<sup>2</sup>(45 + &phi;'/2)",
       ],
       references: retainingRefs,
     }),
@@ -1422,8 +1424,8 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "spt-corrections",
     status: "active",
-    title: "Standard Penetration Test (SPT) Corrections for N60 and (N1)60",
-    category: "Soil Parameters",
+    title: "Standard Penetration Test (SPT) Corrections for N₆₀ and (N₁)₆₀",
+    category: "Mechanical Tools",
     shortDescription:
       "Corrected SPT resistance is obtained through standard energy and equipment corrections, while vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight.",
     tags: ["SPT", "N60"],
@@ -1435,13 +1437,14 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
         { label: "Donut hammer", value: "donut" },
         { label: "Automatic trip hammer", value: "automatic" },
       ]),
-      select("boreholeDiameterFactor", "Borehole diameter", "1.00", [
-        { label: "65-115 mm (Cb = 1.00)", value: "1.00" },
-        { label: "150 mm (Cb = 1.05)", value: "1.05" },
-        { label: "200 mm (Cb = 1.15)", value: "1.15" },
+      select("boreholeDiameterFactor", "Borehole diameter", "lt115", [
+        { label: "<115 mm (Cb = 1.00)", value: "lt115" },
+        { label: "115-200 mm (Cb = 1.05)", value: "115to200" },
+        { label: ">200 mm (Cb = 1.15)", value: "gt200" },
       ]),
       select("energyRatio", "Hammer efficiency, ER (%)", "70", [
         { label: "45%", value: "45" },
+        { label: "55%", value: "55" },
         { label: "60%", value: "60" },
         { label: "70%", value: "70" },
         { label: "80%", value: "80" },
@@ -1450,14 +1453,6 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
         { label: "117%", value: "117" },
         { label: "130%", value: "130" },
         { label: "160%", value: "160" },
-      ]),
-      select("rodLengthFactor", "Rod length", "0.95", [
-        { label: "< 3 m (Cr = 0.75)", value: "0.75" },
-        { label: "3-4 m (Cr = 0.75)", value: "0.75" },
-        { label: "4-6 m (Cr = 0.85)", value: "0.85" },
-        { label: "6-10 m (Cr = 0.95)", value: "0.95" },
-        { label: "10-30 m (Cr = 1.00)", value: "1.00" },
-        { label: "> 30 m (screening Cr = 1.00)", value: "1.00" },
       ]),
       select("samplerFactor", "Sampler type", "1.00", [
         { label: "Standard sampler with liner (Cs = 1.00)", value: "1.00" },
@@ -1472,7 +1467,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     ],
     information: info({
       methodology:
-        "Applies energy and equipment corrections to produce N60, computes current vertical effective stress from sample depth, groundwater depth, and bulk unit weight, then applies the Idriss and Boulanger (2008) overburden correction expression to obtain (N1)60.",
+        "Applies energy and equipment corrections to produce N60. The rod-length factor Cr is assigned automatically from sample depth ranges (Youd et al., 2001), vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight, then Idriss and Boulanger (2008) overburden correction is used to obtain (N1)60.",
       assumptions: [
         "The chosen equipment factors are appropriate for the test setup.",
         "An atmospheric pressure of 100 kPa is used.",
@@ -1484,6 +1479,8 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
       equations: [
         "N<sub>60</sub> = N C<sub>E</sub>C<sub>b</sub>C<sub>r</sub>C<sub>s</sub>",
         "C<sub>E</sub> = ER / 60",
+        "C<sub>b</sub> = 1.00 (d &lt; 115 mm), 1.05 (115 &le; d &le; 200 mm), 1.15 (d &gt; 200 mm)",
+        "C<sub>r</sub> = 0.75 (z &lt; 3 m), 0.80 (3 &le; z &lt; 4 m), 0.85 (4 &le; z &lt; 6 m), 0.95 (6 &le; z &lt; 10 m), 1.00 (10 &le; z &le; 30 m), 0.95 for z &gt; 30 m in this screening implementation",
         "&sigma;'<sub>v0</sub> = &gamma;z - &gamma;<sub>w</sub> max(z - z<sub>GWT</sub>, 0)",
         "C<sub>N</sub> = 9.78(1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70",
         "(N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub>N<sub>60</sub> &le; 2N<sub>60</sub>",
@@ -1495,19 +1492,19 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
           rows: [
             ["Energy correction", "C_E = ER / 60", "ASTM D4633; ASTM D6066"],
             ["Borehole diameter correction", "C_b selected from borehole size", "Skempton (1986)"],
-            ["Rod length correction", "C_r selected from rod length", "Skempton (1986)"],
+            ["Rod length correction", "C_r assigned automatically from sample depth range", "Youd et al. (2001)"],
             ["Sampler correction", "C_s selected from sampler configuration", "ASTM D1586/D1586M; Youd et al. (2001)"],
             ["Overburden correction", "C_N = 9.78(1/sigma'v0)^0.5, capped at 1.7", "Idriss & Boulanger (2008)"],
           ],
-          note: "The tool uses global selections for borehole diameter, hammer efficiency, and rod length, then applies them consistently in the correction sequence.",
+          note: "The tool uses global selections for borehole diameter and hammer efficiency, while C_r is computed automatically from sample depth.",
         },
         {
           title: "Typical Screening Values For Equipment Factors",
           columns: ["Factor", "Typical selection", "Reference basis"],
           rows: [
-            ["C_r", "< 3 m: 0.75; 3-4 m: 0.75; 4-6 m: 0.85; 6-10 m: 0.95; 10-30 m: 1.00; > 30 m: project-specific (< 1.00 may be used)", "Provided correction table"],
+            ["C_r", "< 3 m: 0.75; 3-4 m: 0.80; 4-6 m: 0.85; 6-10 m: 0.95; 10-30 m: 1.00; > 30 m: variable (< 1.00). This tool uses 0.95 for screening.", "Provided correction table (Youd et al., 2001)"],
             ["C_s", "Standard sampler with liner: 1.00; sampler without liner: 1.10-1.30", "Provided correction table"],
-            ["C_b", "65-115 mm: 1.00; 150 mm: 1.05; 200 mm: 1.15", "Provided correction table"],
+            ["C_b", "<115 mm: 1.00; 115-200 mm: 1.05; >200 mm: 1.15", "Provided correction table"],
             ["C_E", "Safety hammer: 0.60-1.17; donut hammer: 0.45-1.00; automatic trip hammer: 0.90-1.60", "Provided correction table"],
           ],
           note: "These are common screening values used in practice. Project-specific procedures, hardware, and local standards should govern the final selection.",
@@ -1524,6 +1521,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
       references: [
         "Idriss, I.M. and Boulanger, R.W. (2008). Soil liquefaction during earthquakes. Oakland, CA: Earthquake Engineering Research Institute.",
         "Skempton, A.W. (1986). Standard penetration test procedures and the effects in sands of overburden pressure, relative density, particle size, ageing and overconsolidation. Geotechnique, 36(3), 425-447.",
+        "Youd, T.L. et al. (2001). Liquefaction resistance of soils: Summary report from the 1996 NCEER and 1998 NCEER/NSF workshops. Journal of Geotechnical and Geoenvironmental Engineering, ASCE, 127(10), 817-833.",
         "ASTM D1586/D1586M. Standard Test Method for Standard Penetration Test (SPT) and Split-Barrel Sampling of Soils.",
       ],
     }),
@@ -1621,7 +1619,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   },
   {
     slug: "cu-vs-depth",
-    status: "active",
+    status: "archived",
     title: "Undrained Shear Strength (cu) versus Depth",
     category: "Soil Parameters",
     shortDescription:
@@ -1649,28 +1647,33 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "cu-from-pi-and-spt",
     status: "active",
-    title: "Stroud Factor (f1) from Plasticity Index (PI)",
-    category: "Soil Parameters",
+    title: "Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI)",
+    category: "Mechanical Tools",
     shortDescription:
-      "The Stroud (1974) chart is interpreted to select a representative f1 factor from plasticity index for cohesive-soil screening.",
+      "Uses Stroud (1974) PI-based f1 interpretation and computes undrained shear strength from cu = f1 x N60 for cohesive-soil screening.",
     tags: ["undrained strength", "plasticity index", "Stroud"],
-    keywords: ["f1", "PI", "Stroud 1974", "cohesive soil", "chart interpretation"],
+    keywords: ["cu", "f1", "PI", "N60", "Stroud 1974", "cohesive soil"],
     featured: false,
     inputs: [
       num("plasticityIndex", "Plasticity Index, PI", 25, "%", { min: 0, max: 100, step: 0.1 }),
+      num("n60", "Corrected SPT resistance, N60", 18, undefined, { min: 1, max: 80, step: 0.1 }),
     ],
     information: info({
       methodology:
-        "Interprets the Stroud (1974) f1-versus-PI chart to select a representative factor for cohesive soils. The chart is used here only to obtain f1; a separate corrected SPT resistance value would still be required later if cu is to be estimated.",
+        "Interprets the Stroud (1974) f1-versus-PI chart to select a representative factor for cohesive soils, then computes undrained shear strength using the corrected SPT resistance via cu = f1 x N60.",
       assumptions: [
         "The soil is cohesive and the Stroud chart is considered applicable to the deposit being screened.",
         "The plotted Stroud trend is interpreted using representative PI bands rather than a continuous fitted curve.",
+        "N60 has already been corrected from raw SPT field values.",
       ],
       limitations: [
-        "This tool does not calculate cu directly because N60 is not entered here.",
-        "The chart interpretation is approximate and should not replace laboratory strength testing or project-specific correlation work.",
+        "The chart interpretation is approximate and should not replace laboratory strength testing.",
+        "Project-specific calibration and engineering judgement remain necessary before design use.",
       ],
-      equations: ["c<sub>u</sub> = f<sub>1</sub>N<sub>60</sub>"],
+      equations: [
+        "c<sub>u</sub> = f<sub>1</sub>N<sub>60</sub>",
+        "f<sub>1</sub> is obtained by linear interpolation between the Stroud (1974) PI anchor points.",
+      ],
       tables: [
         {
           title: "Stroud (1974) PI Anchor Points Used In This Tool",
@@ -1683,7 +1686,15 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
             ["35", "4.5", "Interpolated with adjacent points"],
             ["40", "4.4", "Upper-plasticity anchor"],
           ],
-          note: "The tool linearly interpolates between these interpreted chart anchor points, so f1 changes smoothly with PI instead of remaining constant inside a broad band.",
+          note: "The tool linearly interpolates between these interpreted chart anchor points so f1 changes smoothly with PI, then multiplies by N60 to estimate cu.",
+        },
+      ],
+      figures: [
+        {
+          src: "/images/stroud-1974-f1-pi-original.png",
+          alt: "Stroud 1974 f1 versus plasticity index reference chart",
+          caption:
+            "Interpreted Stroud (1974) reference trend for f1 versus PI used in this tool to estimate c_u from corrected SPT resistance.",
         },
       ],
       references: [
@@ -1695,8 +1706,8 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "friction-angle-from-spt",
     status: "active",
-    title: "Effective Friction Angle (phi') from Standard Penetration Test Resistance (N60)",
-    category: "Soil Parameters",
+    title: "Effective Friction Angle (φ') from Standard Penetration Test Resistance (N60)",
+    category: "Mechanical Tools",
     shortDescription:
       "Effective friction angle is estimated from corrected SPT resistance using the empirical correlation cited by Peck, Hanson, and Thornburn (1974).",
     tags: ["SPT", "friction angle"],
@@ -1722,13 +1733,15 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     slug: "modulus-from-cu",
     status: "active",
     title: "Elastic Young's Modulus (Eu) from Undrained Shear Strength (cu)",
-    category: "Soil Parameters",
+    category: "Rigidity / Deformation Tools",
     shortDescription:
       "Elastic Young's modulus is estimated from undrained shear strength using consistency-based Eu/cu screening ratios, with optional manual override where project data exists.",
     tags: ["modulus correlation", "undrained strength"],
     keywords: ["E/cu", "stiffness", "clay"],
     featured: false,
     inputs: [
+      num("cu", "Undrained shear strength, c_u", 50, "kPa", { min: 0.1, step: 0.1 }),
+      num("ratio", "Selected modulus ratio, E/cu", 500, undefined, { min: 10, step: 1 }),
       select("soilClass", "Soil class", "stiff-clay", [
         { label: "Soft clay", value: "soft-clay" },
         { label: "Medium clay", value: "medium-clay" },
@@ -1738,8 +1751,6 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
         { label: "Use recommended range", value: "auto" },
         { label: "Manual override", value: "manual" },
       ]),
-      num("cu", "Undrained shear strength, c_u", 50, "kPa", { min: 0.1, step: 0.1 }),
-      num("ratio", "Selected modulus ratio, E/cu", 500, undefined, { min: 10, step: 1 }),
     ],
     information: info({
       methodology:
@@ -1772,7 +1783,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     slug: "resilient-modulus-from-cbr",
     status: "active",
     title: "Resilient Modulus (Mr) from California Bearing Ratio (CBR)",
-    category: "Soil Parameters",
+    category: "Rigidity / Deformation Tools",
     shortDescription:
       "Resilient modulus is estimated from CBR using a common pavement-engineering screening correlation.",
     tags: ["CBR", "resilient modulus"],

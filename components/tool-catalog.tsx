@@ -14,7 +14,7 @@ const TOOL_SUPERGROUPS = [
   {
     id: "site-characterization",
     title: "Site Characterization Tools",
-    categories: ["Soil Parameters", "Soil Classification", "Field & In-Situ Testing", "Correlations & Empirical Tools"],
+    categories: ["Mechanical Tools", "Rigidity / Deformation Tools", "Stress Related Tools"],
   },
   {
     id: "geotechnical-analysis",
@@ -146,7 +146,7 @@ export function ToolCatalog({ tools }: ToolCatalogProps) {
                   }`}
                   aria-pressed={isActive}
                 >
-                  <h2 className="text-xl font-semibold text-slate-900">{section.title}</h2>
+                  <h2 className="font-serif text-xl font-semibold text-slate-900">{section.title}</h2>
                   <p className="mt-2 text-sm text-slate-600">
                     {section.categories.length} categories · {toolCount} tools
                   </p>
@@ -161,7 +161,7 @@ export function ToolCatalog({ tools }: ToolCatalogProps) {
             aria-labelledby={`supergroup-${visibleSection.id}`}
           >
             <div className="space-y-1">
-              <h2 id={`supergroup-${visibleSection.id}`} className="text-2xl font-semibold text-slate-900">
+              <h2 id={`supergroup-${visibleSection.id}`} className="font-serif text-2xl font-semibold text-slate-900">
                 {visibleSection.title}
               </h2>
               <p className="text-sm text-slate-600">
@@ -171,7 +171,7 @@ export function ToolCatalog({ tools }: ToolCatalogProps) {
 
             {visibleSection.categories.map((group) => (
               <section key={group.category} className="space-y-4" aria-labelledby={`group-${group.category}`}>
-                <h3 id={`group-${group.category}`} className="text-lg font-semibold text-slate-800">
+                <h3 id={`group-${group.category}`} className="font-serif text-lg font-semibold text-slate-800">
                   {group.category}
                 </h3>
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

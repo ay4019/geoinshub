@@ -509,6 +509,11 @@ const equationParameterMap: Record<string, string[]> = {
     "C_E = energy correction factor",
     "ER = measured hammer energy ratio in percent",
   ],
+  "C<sub>r</sub> = 0.75 (z &lt; 3 m), 0.80 (3 &le; z &lt; 4 m), 0.85 (4 &le; z &lt; 6 m), 0.95 (6 &le; z &lt; 10 m), 1.00 (10 &le; z &le; 30 m), 0.95 for z &gt; 30 m in this screening implementation": [
+    "C_r = rod length correction factor assigned from sample depth",
+    "z = sample depth in meters",
+    "For z > 30 m, source tables indicate variable values below 1.00; this tool applies 0.95 as a screening default",
+  ],
   "C<sub>N</sub> = 9.78(1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70": [
     "C_N = overburden correction factor",
     "sigma'_v0 = effective vertical overburden stress in kPa (kN/m2)",
@@ -560,6 +565,11 @@ const equationParameterMap: Record<string, string[]> = {
     "c_u = undrained shear strength",
     "f1 = Stroud plasticity-index factor selected from the PI band",
     "N_60 = corrected SPT resistance",
+  ],
+  "f<sub>1</sub> is obtained by linear interpolation between the Stroud (1974) PI anchor points.": [
+    "f1 = Stroud factor used with corrected SPT resistance",
+    "PI = plasticity index used to select/interpolate f1",
+    "Anchor points = interpreted Stroud chart values used for interpolation",
   ],
   "&phi;' &asymp; 27.1 + 0.3N<sub>60</sub> - 0.00054N<sub>60</sub><sup>2</sup>": [
     "phi' = approximate effective friction angle",
