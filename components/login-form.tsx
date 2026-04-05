@@ -9,9 +9,19 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 interface LoginFormProps {
   nextPath?: string;
+  showSwitchLink?: boolean;
+  signUpHref?: string;
+  showSignUpButton?: boolean;
+  switchText?: string;
 }
 
-export function LoginForm({ nextPath = "/account" }: LoginFormProps) {
+export function LoginForm({
+  nextPath = "/account",
+  showSwitchLink = true,
+  signUpHref = "/signup",
+  showSignUpButton = false,
+  switchText = "No account yet?",
+}: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -90,22 +100,35 @@ export function LoginForm({ nextPath = "/account" }: LoginFormProps) {
           className="w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition-colors focus:border-slate-500"
           required
         />
+        <div className="mt-2">
+          <Link href="/forgot-password" className="text-sm font-medium text-slate-900 underline-offset-4 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
       </div>
 
       <button type="submit" disabled={isPending} className="btn-base btn-md">
         {isPending ? "Logging in..." : "Login"}
       </button>
 
+      {showSignUpButton ? (
+        <Link href={signUpHref} className="btn-base btn-md">
+          Sign Up
+        </Link>
+      ) : null}
+
       {message ? (
         <p className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-800">{message}</p>
       ) : null}
 
-      <p className="text-sm text-slate-600">
-        No account yet?{" "}
-        <Link href="/signup" className="font-medium text-slate-900 underline-offset-4 hover:underline">
-          Sign up
-        </Link>
-      </p>
+      {showSwitchLink ? (
+        <p className="text-sm text-slate-600">
+          {switchText}{" "}
+          <Link href={signUpHref} className="font-medium text-slate-900 underline-offset-4 hover:underline">
+            Sign up
+          </Link>
+        </p>
+      ) : null}
     </form>
   );
 }

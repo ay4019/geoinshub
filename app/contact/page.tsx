@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 
 import { ContactForm } from "@/components/contact-form";
-import { NewsletterForm } from "@/components/newsletter-form";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Contact Geotechnical Insights Hub and subscribe for new insights and tools.",
+  description: "Contact Geotechnical Insights Hub.",
 };
 
 function EducationIcon() {
@@ -60,6 +59,65 @@ function LinkedInIcon() {
   );
 }
 
+function PersonalInformationCard() {
+  return (
+    <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7">
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-semibold text-slate-900">Personal Information</h2>
+          <div className="flex items-center gap-3 text-slate-500">
+            <PersonIcon />
+            <p className="text-2xl font-semibold text-slate-900">Arifcan Yılmaz</p>
+          </div>
+        </div>
+
+        <div className="space-y-6 text-sm text-slate-700">
+          <div className="flex items-start gap-4">
+            <div className="mt-0.5 text-slate-500">
+              <EducationIcon />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-slate-500">Education</p>
+              <div className="space-y-1 text-base font-semibold text-slate-900">
+                <p>Heriot-Watt University (PhD)</p>
+                <p>University of Southampton (MSc)</p>
+                <p>Yıldız Technical University (BSc)</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <div className="mt-0.5 text-slate-500">
+              <LocationIcon />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-slate-500">Address</p>
+              <p className="text-base font-semibold text-slate-900">Edinburgh, UK</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <div className="mt-0.5 text-slate-500">
+              <LinkedInIcon />
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-slate-500">LinkedIn</p>
+              <a
+                href="https://www.linkedin.com/in/arifcan-yilmaz/"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex text-base font-semibold text-slate-900 transition-colors hover:text-slate-700"
+              >
+                linkedin.com/in/arifcan-yilmaz/
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function ContactPage() {
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-10 px-4 py-10 sm:px-6 sm:py-12">
@@ -72,65 +130,9 @@ export default function ContactPage() {
 
       <section className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
         <ContactForm />
-        <NewsletterForm />
-      </section>
-
-      <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-semibold text-slate-900">Personal Information</h2>
-            <div className="flex items-center gap-3 text-slate-500">
-              <PersonIcon />
-              <p className="text-2xl font-semibold text-slate-900">Arifcan Yılmaz</p>
-            </div>
-          </div>
-
-          <div className="space-y-6 text-sm text-slate-700">
-            <div className="flex items-start gap-4">
-              <div className="mt-0.5 text-slate-500">
-                <EducationIcon />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-slate-500">Education</p>
-                <div className="space-y-1 text-base font-semibold text-slate-900">
-                  <p>Heriot-Watt University (PhD)</p>
-                  <p>University of Southampton (MSc)</p>
-                  <p>Yıldız Technical University (BSc)</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="mt-0.5 text-slate-500">
-                <LocationIcon />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-slate-500">Address</p>
-                <p className="text-base font-semibold text-slate-900">Edinburgh, UK</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="mt-0.5 text-slate-500">
-                <LinkedInIcon />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-slate-500">LinkedIn</p>
-                <a
-                  href="https://www.linkedin.com/in/arifcan-yilmaz/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex text-base font-semibold text-slate-900 transition-colors hover:text-slate-700"
-                >
-                  linkedin.com/in/arifcan-yilmaz/
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PersonalInformationCard />
       </section>
     </div>
   );
 }
-
 

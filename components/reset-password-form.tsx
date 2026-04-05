@@ -1,19 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
-interface SignUpFormProps {
-  showSwitchLink?: boolean;
-}
-
-export function SignUpForm({ showSwitchLink = true }: SignUpFormProps) {
+export function ResetPasswordForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -44,39 +39,24 @@ export function SignUpForm({ showSwitchLink = true }: SignUpFormProps) {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const redirectTo =
-        typeof window !== "undefined" ? `${window.location.origin}/auth/callback?next=/account` : undefined;
-
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          emailRedirectTo: redirectTo,
-        },
-      });
+      const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
         setMessage(error.message);
         return;
       }
 
-      if (data.session) {
-        setIsSuccess(true);
-        setMessage("Account created successfully. Redirecting to your account...");
-        setTimeout(() => {
-          router.replace("/account");
-          router.refresh();
-        }, 700);
-        return;
-      }
-
       setIsSuccess(true);
-      setMessage("Sign-up successful. Please check your email to confirm your account.");
-      setEmail("");
+      setMessage("Password updated successfully. Redirecting to account...");
       setPassword("");
       setConfirmPassword("");
+
+      setTimeout(() => {
+        router.replace("/account");
+        router.refresh();
+      }, 700);
     } catch {
-      setMessage("Sign-up failed. Please try again.");
+      setMessage("Password update failed. Please try again.");
     } finally {
       setIsPending(false);
     }
@@ -88,33 +68,18 @@ export function SignUpForm({ showSwitchLink = true }: SignUpFormProps) {
       className="space-y-5 rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7"
     >
       <div className="space-y-2">
-        <h2 className="text-2xl font-semibold text-slate-900">Create Account</h2>
+        <h2 className="text-2xl font-semibold text-slate-900">Set New Password</h2>
         <p className="text-sm leading-6 text-slate-600">
-          Create an account with your email and password using secure Supabase authentication.
+          Enter your new password. This page should be opened from the email reset link.
         </p>
       </div>
 
       <div>
-        <label htmlFor="signup-email" className="mb-1 block text-sm font-medium text-slate-700">
-          Email Address
+        <label htmlFor="reset-password" className="mb-1 block text-sm font-medium text-slate-700">
+          New Password
         </label>
         <input
-          id="signup-email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
-          className="w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition-colors focus:border-slate-500"
-          required
-        />
-      </div>
-
-      <div>
-        <label htmlFor="signup-password" className="mb-1 block text-sm font-medium text-slate-700">
-          Password
-        </label>
-        <input
-          id="signup-password"
+          id="reset-password"
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -125,22 +90,22 @@ export function SignUpForm({ showSwitchLink = true }: SignUpFormProps) {
       </div>
 
       <div>
-        <label htmlFor="signup-confirm-password" className="mb-1 block text-sm font-medium text-slate-700">
-          Confirm Password
+        <label htmlFor="reset-confirm-password" className="mb-1 block text-sm font-medium text-slate-700">
+          Confirm New Password
         </label>
         <input
-          id="signup-confirm-password"
+          id="reset-confirm-password"
           type="password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
-          placeholder="Repeat your password"
+          placeholder="Repeat your new password"
           className="w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition-colors focus:border-slate-500"
           required
         />
       </div>
 
       <button type="submit" disabled={isPending} className="btn-base btn-md">
-        {isPending ? "Creating account..." : "Sign Up"}
+        {isPending ? "Updating..." : "Update Password"}
       </button>
 
       {message ? (
@@ -153,14 +118,13 @@ export function SignUpForm({ showSwitchLink = true }: SignUpFormProps) {
         </p>
       ) : null}
 
-      {showSwitchLink ? (
-        <p className="text-sm text-slate-600">
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium text-slate-900 underline-offset-4 hover:underline">
-            Login
-          </Link>
-        </p>
-      ) : null}
+      <p className="text-sm text-slate-600">
+        Back to{" "}
+        <Link href="/account" className="font-medium text-slate-900 underline-offset-4 hover:underline">
+          Account
+        </Link>
+      </p>
     </form>
   );
 }
+

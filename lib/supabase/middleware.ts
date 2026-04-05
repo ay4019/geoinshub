@@ -3,12 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
-const PROTECTED_ROUTES = ["/account"];
 const AUTH_ROUTES = ["/login", "/signup"];
-
-function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
-}
 
 function isAuthPath(pathname: string): boolean {
   return AUTH_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
@@ -43,13 +38,6 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-
-  if (!user && isProtectedPath(pathname)) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
 
   if (user && isAuthPath(pathname)) {
     const redirectUrl = request.nextUrl.clone();

@@ -46,6 +46,9 @@ Add these to your local `.env.local` and to Vercel project settings:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+RESEND_API_KEY=re_xxxxxxxxx
+CONTACT_FROM_EMAIL=hello@yourdomain.com
+CONTACT_TO_EMAIL=your-inbox@yourdomain.com
 ```
 
 ### Supabase setup (manual)
@@ -66,6 +69,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 3. Add:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `RESEND_API_KEY`
+   - `CONTACT_FROM_EMAIL`
+   - `CONTACT_TO_EMAIL`
 4. Redeploy the project after adding variables.
 
 ### What is implemented
@@ -77,6 +83,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 - Logout button in header/account
 - Protected account page: `/account`
 - Callback route for email verification/session exchange: `/auth/callback`
+- Contact email action: `app/actions/contact.ts` (Resend-powered, used by `components/contact-form.tsx`)
 
 ## Tool System Overview
 The tools are now data-driven and split into three layers:
@@ -171,5 +178,5 @@ Core access functions:
 ## Notes
 - Counter updates are best-effort and fail silently to protect UX.
 - Visit counter increments once per short session using an HTTP-only cookie.
-- Contact form is intentionally not connected in v1; newsletter storage is local mock persistence.
+- Contact form sends real email via Resend when env variables are set.
 - Tool outputs are deliberately conservative and simplified. They are intended for education, screening, and engineering discussion rather than final design.

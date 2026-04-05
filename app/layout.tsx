@@ -48,10 +48,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body suppressHydrationWarning className={`${sans.variable} ${serif.variable} bg-slate-50 text-slate-900 antialiased`}>
-        <div className="relative min-h-screen">
+        <div className="relative flex min-h-screen flex-col">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_#e8f0fb_0%,_#f8fafc_55%,_#f8fafc_100%)]" />
           <Header />
-          <main>{children}</main>
+          <main className="flex-1">{children}</main>
           <Footer />
           <Analytics />
           <SpeedInsights />

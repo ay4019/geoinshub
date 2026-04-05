@@ -12,8 +12,6 @@ const navItems = [
   { href: "/tools", label: "Tools" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
-  { href: "/signup", label: "Sign Up" },
-  { href: "/login", label: "Login" },
   { href: "/account", label: "Account" },
 ];
 
@@ -65,7 +63,7 @@ export function Header() {
     await supabase.auth.signOut();
     setIsAuthenticated(false);
     router.refresh();
-    router.push("/login");
+    router.push("/account");
   };
 
   return (

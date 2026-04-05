@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { sendContactMessageAction } from "@/app/actions/contact";
+
 interface FormState {
   name: string;
   email: string;
@@ -19,7 +21,9 @@ const initialState: FormState = {
 export function ContactForm() {
   const [values, setValues] = useState<FormState>(initialState);
   const [errors, setErrors] = useState<Partial<FormState>>({});
-  const [submitted, setSubmitted] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusOk, setStatusOk] = useState(false);
 
   const validate = (): Partial<FormState> => {
     const nextErrors: Partial<FormState> = {};
@@ -43,8 +47,9 @@ export function ContactForm() {
     return nextErrors;
   };
 
-  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setStatusMessage(null);
     const nextErrors = validate();
     setErrors(nextErrors);
 
@@ -52,8 +57,21 @@ export function ContactForm() {
       return;
     }
 
-    setSubmitted(true);
-    setValues(initialState);
+    setIsPending(true);
+    try {
+      const result = await sendContactMessageAction(values);
+      setStatusOk(result.ok);
+      setStatusMessage(result.message);
+
+      if (result.ok) {
+        setValues(initialState);
+      }
+    } catch {
+      setStatusOk(false);
+      setStatusMessage("Message could not be sent. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -126,15 +144,20 @@ export function ContactForm() {
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <button
           type="submit"
+          disabled={isPending}
           className="btn-base btn-md"
         >
-          Submit
+          {isPending ? "Sending..." : "Submit"}
         </button>
       </div>
 
-      {submitted ? (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-sm text-emerald-800">
-          Form captured locally in UI state. No message was sent.
+      {statusMessage ? (
+        <p
+          className={`rounded-xl border px-3.5 py-3 text-sm ${
+            statusOk ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"
+          }`}
+        >
+          {statusMessage}
         </p>
       ) : null}
     </form>
