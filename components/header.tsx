@@ -1,11 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { usePathname } from "next/navigation";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -24,47 +20,6 @@ function isActive(pathname: string, href: string): boolean {
 
 export function Header() {
   const pathname = usePathname();
-  const router = useRouter();
-  const supabaseReady = isSupabaseConfigured();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    if (!supabaseReady) {
-      return;
-    }
-
-    const supabase = createSupabaseBrowserClient();
-
-    const syncAuth = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setIsAuthenticated(Boolean(user));
-    };
-
-    void syncAuth();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void syncAuth();
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabaseReady]);
-
-  const handleLogout = async () => {
-    if (!supabaseReady) {
-      return;
-    }
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    setIsAuthenticated(false);
-    router.refresh();
-    router.push("/account");
-  };
 
   return (
     <header className="sticky top-0 z-40 overflow-hidden border-b border-slate-200/70 bg-white/95 backdrop-blur">
@@ -95,17 +50,6 @@ export function Header() {
               </Link>
             );
           })}
-          {supabaseReady && isAuthenticated ? (
-            <button
-              type="button"
-              onClick={() => {
-                void handleLogout();
-              }}
-              className="btn-base px-3.5 py-2.5 text-[15px]"
-            >
-              Logout
-            </button>
-          ) : null}
         </nav>
       </div>
     </header>

@@ -23,7 +23,7 @@ export function LogoutButton({ className }: LogoutButtonProps) {
     try {
       const supabase = createSupabaseBrowserClient();
       await supabase.auth.signOut();
-      router.replace("/login");
+      router.replace("/account");
       router.refresh();
     } finally {
       setIsPending(false);
@@ -36,4 +36,3 @@ export function LogoutButton({ className }: LogoutButtonProps) {
     </button>
   );
 }
-
