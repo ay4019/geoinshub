@@ -46,6 +46,7 @@ Add these to your local `.env.local` and to Vercel project settings:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 RESEND_API_KEY=re_xxxxxxxxx
 CONTACT_FROM_EMAIL=hello@yourdomain.com
 CONTACT_TO_EMAIL=your-inbox@yourdomain.com
@@ -69,6 +70,7 @@ CONTACT_TO_EMAIL=your-inbox@yourdomain.com
 3. Add:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
    - `RESEND_API_KEY`
    - `CONTACT_FROM_EMAIL`
    - `CONTACT_TO_EMAIL`
@@ -84,6 +86,7 @@ CONTACT_TO_EMAIL=your-inbox@yourdomain.com
 - Protected account page: `/account`
 - Callback route for email verification/session exchange: `/auth/callback`
 - Contact email action: `app/actions/contact.ts` (Resend-powered, used by `components/contact-form.tsx`)
+- Account deletion action: `app/actions/account.ts` (server-side Supabase admin delete using service role key)
 
 ## Tool System Overview
 The tools are now data-driven and split into three layers:

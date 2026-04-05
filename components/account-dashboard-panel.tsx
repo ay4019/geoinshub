@@ -1,7 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { deleteCurrentUserAccountAction } from "@/app/actions/account";
 import { LogoutButton } from "@/components/logout-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -20,12 +22,16 @@ const tabItems: Array<{ id: AccountTab; label: string }> = [
 ];
 
 export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<AccountTab>("information");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordOk, setPasswordOk] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
+  const [deleteOk, setDeleteOk] = useState(false);
 
   const submitPasswordChange = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -64,6 +70,35 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
       setPasswordMessage("Password change failed. Please try again.");
     } finally {
       setIsUpdatingPassword(false);
+    }
+  };
+
+  const onDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "This will permanently delete your account and you will lose access immediately. Continue?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleteMessage(null);
+    setDeleteOk(false);
+    setIsDeletingAccount(true);
+    try {
+      const result = await deleteCurrentUserAccountAction();
+      setDeleteMessage(result.message);
+      setDeleteOk(result.ok);
+
+      if (result.ok) {
+        router.replace("/account");
+        router.refresh();
+      }
+    } catch {
+      setDeleteMessage("Account deletion failed. Please try again.");
+      setDeleteOk(false);
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -155,13 +190,27 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
           <div className="space-y-4 text-sm text-slate-700">
             <div className="space-y-1">
               <p className="font-medium text-slate-900">Privacy and Account Deletion</p>
-              <p>
-                If you want to delete your account, please submit a deletion request. This action is not active yet in this version.
-              </p>
+              <p>This action permanently deletes your account from the authentication system.</p>
             </div>
-            <button type="button" className="btn-base btn-md border-red-200 text-red-700 hover:bg-red-50">
-              Delete Account (Not Active Yet)
+            <button
+              type="button"
+              onClick={() => {
+                void onDeleteAccount();
+              }}
+              disabled={isDeletingAccount}
+              className="btn-base btn-md border-red-200 text-red-700 hover:bg-red-50"
+            >
+              {isDeletingAccount ? "Deleting..." : "Delete Account"}
             </button>
+            {deleteMessage ? (
+              <p
+                className={`rounded-lg border px-3.5 py-3 text-sm ${
+                  deleteOk ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"
+                }`}
+              >
+                {deleteMessage}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
