@@ -84,10 +84,21 @@ export function Header() {
                     <span>{item.label}</span>
                     {supabaseReady && isAuthenticated ? (
                       <span
-                        className="ml-1.5 inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"
+                        className="ml-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white"
                         aria-label="Signed in"
                         title="Signed in"
-                      />
+                      >
+                        <svg viewBox="0 0 16 16" className="h-2.5 w-2.5 text-white" aria-hidden="true">
+                          <path
+                            d="M3.2 8.2L6.4 11.1L12.8 4.9"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
                     ) : null}
                   </span>
                 ) : (
