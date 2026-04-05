@@ -18,6 +18,16 @@ function isStrongPassword(value: string): boolean {
   return hasUpper && hasLower && hasNumber && hasSymbol;
 }
 
+function getPasswordChecks(value: string) {
+  return {
+    minLength: value.length >= 8,
+    hasUpper: /[A-Z]/.test(value),
+    hasLower: /[a-z]/.test(value),
+    hasNumber: /\d/.test(value),
+    hasSymbol: /[^A-Za-z0-9]/.test(value),
+  };
+}
+
 export function AccountAuthPanel() {
   const router = useRouter();
   const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
@@ -27,6 +37,7 @@ export function AccountAuthPanel() {
   const [isPending, setIsPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const passwordChecks = getPasswordChecks(password);
 
   const resetStateForMode = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -158,9 +169,23 @@ export function AccountAuthPanel() {
             />
           </div>
           {mode === "signup" ? (
-            <p className="mt-2 text-sm text-slate-600">
-              At least 8 characters with uppercase, lowercase, number, and symbol
-            </p>
+            <div className="mt-2 space-y-1 text-sm">
+              <p className={passwordChecks.minLength ? "text-emerald-700" : "text-slate-600"}>
+                {passwordChecks.minLength ? "✓" : "•"} At least 8 characters
+              </p>
+              <p className={passwordChecks.hasUpper ? "text-emerald-700" : "text-slate-600"}>
+                {passwordChecks.hasUpper ? "✓" : "•"} One uppercase letter
+              </p>
+              <p className={passwordChecks.hasLower ? "text-emerald-700" : "text-slate-600"}>
+                {passwordChecks.hasLower ? "✓" : "•"} One lowercase letter
+              </p>
+              <p className={passwordChecks.hasNumber ? "text-emerald-700" : "text-slate-600"}>
+                {passwordChecks.hasNumber ? "✓" : "•"} One number
+              </p>
+              <p className={passwordChecks.hasSymbol ? "text-emerald-700" : "text-slate-600"}>
+                {passwordChecks.hasSymbol ? "✓" : "•"} One symbol
+              </p>
+            </div>
           ) : (
             <div className="mt-2 text-right">
               <Link href="/forgot-password" className="text-sm font-medium text-slate-700 underline-offset-4 hover:underline">
