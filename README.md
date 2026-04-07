@@ -14,12 +14,15 @@ Production-ready Next.js web app for geotechnical articles and a scalable geotec
 - `/tools/[slug]` Tool detail with Calculation + Information tabs
 - `/blog` Blog list
 - `/blog/[slug]` Blog detail
-- `/contact` Contact + newsletter + CV
-- `/login` Login page
-- `/signup` Sign-up page
-- `/account` Protected account page
+- `/contact` Contact form + personal information panel
+- `/account` Unified auth + account workspace (projects, subscription, personal information)
+- `/login` Redirects to `/account`
+- `/signup` Redirects to `/account`
+- `/forgot-password` Password reset request
+- `/reset-password` Password reset form
 - `/terms` Terms of Use
 - `/disclaimer` Disclaimer
+- `/privacy-policy` Privacy Policy
 
 ## Run Locally
 1. Install dependencies:
@@ -80,13 +83,116 @@ CONTACT_TO_EMAIL=your-inbox@yourdomain.com
 - Client Supabase browser client: `lib/supabase/client.ts`
 - Server Supabase client: `lib/supabase/server.ts`
 - Auth middleware/session refresh + route protection: `middleware.ts`, `lib/supabase/middleware.ts`
-- Sign-up page: `/signup`
-- Login page: `/login`
-- Logout button in header/account
-- Protected account page: `/account`
+- Unified account authentication flow on `/account` (login + sign-up toggle)
+- `/login` and `/signup` redirect to `/account`
+- Logout from account workspace
 - Callback route for email verification/session exchange: `/auth/callback`
 - Contact email action: `app/actions/contact.ts` (Resend-powered, used by `components/contact-form.tsx`)
 - Account deletion action: `app/actions/account.ts` (server-side Supabase admin delete using service role key)
+- Account Projects workspace (inside `/account`): project creation, borehole entries, and active selection for tools
+- Tools integration: import active borehole inputs and send calculated/profile results to selected projects
+
+### Supabase database tables required for Projects/Boreholes
+Run this SQL in Supabase SQL Editor:
+
+```sql
+create table if not exists public.projects (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.boreholes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  project_id uuid not null references public.projects(id) on delete cascade,
+  borehole_id text not null,
+  sample_top_depth numeric,
+  sample_bottom_depth numeric,
+  n_value numeric,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.tool_results (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  project_id uuid not null references public.projects(id) on delete cascade,
+  borehole_id uuid references public.boreholes(id) on delete set null,
+  tool_slug text not null,
+  tool_title text not null,
+  result_title text not null,
+  result_payload jsonb not null,
+  unit_system text not null default 'metric',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.project_parameters (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  project_id uuid not null references public.projects(id) on delete cascade,
+  borehole_label text,
+  sample_depth numeric,
+  parameter_code text not null,
+  parameter_label text not null,
+  value numeric not null,
+  unit text,
+  source_tool_slug text not null,
+  source_result_id uuid not null references public.tool_results(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+alter table public.projects enable row level security;
+alter table public.boreholes enable row level security;
+alter table public.tool_results enable row level security;
+alter table public.project_parameters enable row level security;
+
+create policy if not exists "projects_select_own" on public.projects
+for select using (auth.uid() = user_id);
+create policy if not exists "projects_insert_own" on public.projects
+for insert with check (auth.uid() = user_id);
+create policy if not exists "projects_update_own" on public.projects
+for update using (auth.uid() = user_id);
+create policy if not exists "projects_delete_own" on public.projects
+for delete using (auth.uid() = user_id);
+
+create policy if not exists "boreholes_select_own" on public.boreholes
+for select using (auth.uid() = user_id);
+create policy if not exists "boreholes_insert_own" on public.boreholes
+for insert with check (auth.uid() = user_id);
+create policy if not exists "boreholes_update_own" on public.boreholes
+for update using (auth.uid() = user_id);
+create policy if not exists "boreholes_delete_own" on public.boreholes
+for delete using (auth.uid() = user_id);
+
+create policy if not exists "tool_results_select_own" on public.tool_results
+for select using (auth.uid() = user_id);
+create policy if not exists "tool_results_insert_own" on public.tool_results
+for insert with check (auth.uid() = user_id);
+create policy if not exists "tool_results_delete_own" on public.tool_results
+for delete using (auth.uid() = user_id);
+
+create policy if not exists "project_parameters_select_own" on public.project_parameters
+for select using (auth.uid() = user_id);
+create policy if not exists "project_parameters_insert_own" on public.project_parameters
+for insert with check (auth.uid() = user_id);
+create policy if not exists "project_parameters_update_own" on public.project_parameters
+for update using (auth.uid() = user_id);
+create policy if not exists "project_parameters_delete_own" on public.project_parameters
+for delete using (auth.uid() = user_id);
+
+create index if not exists idx_project_parameters_project_depth
+  on public.project_parameters (project_id, borehole_label, sample_depth);
+create index if not exists idx_project_parameters_source
+  on public.project_parameters (source_result_id);
+```
+
+### Integrated parameter layer
+- `tool_results`: stores raw saved snapshots (inputs, calculation output, plots).
+- `project_parameters`: stores normalised parameter points extracted from saved snapshots.
+- Extraction and indexing logic: `lib/project-parameters.ts`
+- Save flows (write both raw + normalised): `components/tool-calculator.tsx`
+- Project-level matrix viewer: `components/account-projects-panel.tsx`
 
 ## Tool System Overview
 The tools are now data-driven and split into three layers:
@@ -142,19 +248,17 @@ data/
   tools.ts
   counters.json
   articles.json
-  newsletter.json
 ```
 
 ## Data Layer
 - `data/tools.ts`: tool metadata and engineering content
 - `data/articles.json`: article metadata + article body content
 - `data/counters.json`: aggregate counters and per-tool/per-article counters
-- `data/newsletter.json`: locally stored newsletter emails (mock v1)
 
 Core access functions:
 - `lib/data-layer.ts` for tool/article reads
-- `lib/counters-store.ts` for resilient file-based counter/newsletter writes
-- `app/actions/analytics.ts` for server actions (visit tracking, tool uses, article reads, newsletter subscribe)
+- `lib/counters-store.ts` for resilient file-based counter writes
+- `app/actions/analytics.ts` for server actions (visit tracking, tool uses, article reads)
 
 ## Add a New Tool
 1. Add a new tool definition in `data/tools.ts`.
@@ -169,6 +273,27 @@ Core access functions:
 2. Add matching images in `public/images`.
 3. Optionally seed `articleBreakdown` in `data/counters.json`.
 
+## Tool Report Template System
+- Report template registry: `lib/tool-report-templates.ts`
+- PDF builder (table + plot + optional AI paragraph): `lib/tool-report-pdf.ts`
+- AI interpretation action: `app/actions/ai-report.ts`
+- Report UI (buttons: `Download PDF Report`, `Report with Evaluation`): `components/cu-profile-report-tab.tsx`
+
+### Add or update a template for a specific tool
+1. Open `lib/tool-report-templates.ts`.
+2. Add/update entry by tool slug inside `TOOL_REPORT_TEMPLATES`.
+3. Set:
+   - `defaultNarrative`: the exact base paragraph you want in PDF output
+   - `aiPromptHint` (optional): extra guidance for AI interpretation tone/focus
+
+Example:
+```ts
+"spt-corrections": {
+  defaultNarrative: "Your final template text for this specific tool...",
+  aiPromptHint: "Focus on N60 vs (N1)60 profile behaviour and outlier checks.",
+}
+```
+
 ## Where Disclaimers Live
 - Global legal pages:
   - `app/terms/page.tsx`
@@ -182,4 +307,5 @@ Core access functions:
 - Counter updates are best-effort and fail silently to protect UX.
 - Visit counter increments once per short session using an HTTP-only cookie.
 - Contact form sends real email via Resend when env variables are set.
+- Tool UI is currently metric-focused in production.
 - Tool outputs are deliberately conservative and simplified. They are intended for education, screening, and engineering discussion rather than final design.

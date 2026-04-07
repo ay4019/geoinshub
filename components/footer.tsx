@@ -11,6 +11,9 @@ export function Footer() {
           <Link href="/terms" className="transition-colors hover:text-slate-900">
             Terms of Use
           </Link>
+          <Link href="/privacy-policy" className="transition-colors hover:text-slate-900">
+            Privacy Policy
+          </Link>
           <Link href="/disclaimer" className="transition-colors hover:text-slate-900">
             Disclaimer
           </Link>

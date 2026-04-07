@@ -1,14 +1,16 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface EoedProfileTabProps {
   unitSystem: UnitSystem;
+  importRows?: SelectedBoreholeSummary[];
 }
 
 interface EoedProfileRow {
@@ -410,7 +412,7 @@ function ProfileImageCard({ title, imageSrc }: { title: ReactNode; imageSrc: str
   );
 }
 
-export function EoedProfileTab({ unitSystem }: EoedProfileTabProps) {
+export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) {
   const [rows, setRows] = useState<EoedProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
@@ -432,6 +434,24 @@ export function EoedProfileTab({ unitSystem }: EoedProfileTabProps) {
 
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
+
+  useEffect(() => {
+    if (!importRows || importRows.length === 0) {
+      return;
+    }
+    setRows((current) => {
+      const template = current[0] ?? initialRows[0];
+      return importRows.map((item, index) => ({
+        ...template,
+        id: index + 1,
+        boreholeId: item.boreholeLabel || template.boreholeId,
+        topDepth:
+          item.sampleTopDepth === null
+            ? template.topDepth
+            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+      }));
+    });
+  }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<EoedProfileRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -772,15 +792,7 @@ export function EoedProfileTab({ unitSystem }: EoedProfileTabProps) {
           imageSrc={eoedChartImgSrc}
         />
       </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          This profile view applies <span className="font-medium text-slate-700">E<sub>oed</sub> = 1/m<sub>v</sub></span>{" "}
-          per layer and keeps Borehole IDs explicit for multi-borehole comparison in the same export and plot layout.
-        </p>
-      </div>
-    </section>
+</section>
   );
 }
 

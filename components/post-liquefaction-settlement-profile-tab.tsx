@@ -1,15 +1,18 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import { computePostLiquefactionSettlement } from "@/lib/post-liquefaction-settlement";
 import type { UnitSystem } from "@/lib/types";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 
 interface PostLiquefactionSettlementProfileTabProps {
   unitSystem: UnitSystem;
+  importRows?: SelectedBoreholeSummary[];
 }
 
 interface SettlementProfileRow {
@@ -54,7 +57,10 @@ function OutputCell({ value }: { value: string }) {
   );
 }
 
-export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefactionSettlementProfileTabProps) {
+export function PostLiquefactionSettlementProfileTab({
+  unitSystem,
+  importRows,
+}: PostLiquefactionSettlementProfileTabProps) {
   const [rows, setRows] = useState<SettlementProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
@@ -75,6 +81,24 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
 
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
+
+  useEffect(() => {
+    if (!importRows || importRows.length === 0) {
+      return;
+    }
+    setRows((current) => {
+      const template = current[0] ?? initialRows[0];
+      return importRows.map((item, index) => ({
+        ...template,
+        id: index + 1,
+        boreholeId: item.boreholeLabel || template.boreholeId,
+        topDepth:
+          item.sampleTopDepth === null
+            ? template.topDepth
+            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+      }));
+    });
+  }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<SettlementProfileRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -113,9 +137,20 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
               factor of safety as the main screening inputs.
             </p>
           </div>
-          <button type="button" className="btn-base btn-md" onClick={addRow}>
-            Add Layer
-          </button>
+          <div className="flex items-center gap-3">
+            <button type="button" className="btn-base btn-md" onClick={addRow}>
+              Add Layer
+            </button>
+            <button
+              type="button"
+              className="btn-base btn-md"
+              onClick={(event) => {
+                void exportProfileExcelFromSection(event.currentTarget);
+              }}
+            >
+              Export Excel
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-white">
@@ -140,14 +175,14 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Borehole ID" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Top" unit={depthUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Bottom" unit={depthUnit} /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Î”H</span>} unit={depthUnit} /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>ΔH</span>} unit={depthUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>(N<sub>1</sub>)<sub>60</sub></span>} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="FS" /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Î³<sub>lim</sub></span>} unit="%" /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>γ<sub>lim</sub></span>} unit="%" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>D<sub>r</sub></span>} /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>F<sub>Î±</sub></span>} /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Î³<sub>max</sub></span>} unit="%" /></th>
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>Îµ<sub>v</sub></span>} unit="%" /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>F<sub>α</sub></span>} /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>γ<sub>max</sub></span>} unit="%" /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>ε<sub>v</sub></span>} unit="%" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><HeaderCell title="Settlement" unit={settlementUnit} /></th>
                 <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">Action</span></th>
               </tr>
@@ -258,19 +293,7 @@ export function PostLiquefactionSettlementProfileTab({ unitSystem }: PostLiquefa
         </div>
 
       </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          This layered sheet infers <span className="font-medium text-slate-700">D<sub>r</sub></span> from corrected SPT
-          resistance, then calculates <span className="font-medium text-slate-700">Î³<sub>lim</sub></span> from the Idriss
-          and Boulanger style relative-density expression. Maximum shear strain{" "}
-          <span className="font-medium text-slate-700">Î³<sub>max</sub></span>, volumetric strain{" "}
-          <span className="font-medium text-slate-700">Îµ<sub>v</sub></span>, and settlement are then computed
-          automatically for each layer.
-        </p>
-      </div>
-    </section>
+</section>
   );
 }
 

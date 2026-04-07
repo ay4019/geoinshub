@@ -1,7 +1,7 @@
 {
-  "visits": 35,
-  "toolUses": 111,
-  "articleReads": 73,
+  "visits": 47,
+  "toolUses": 112,
+  "articleReads": 75,
   "toolBreakdown": {
     "gmax-from-vs": 3,
     "eoed-from-mv": 3,
@@ -18,8 +18,14 @@
     "post-liquefaction-settlement": 4,
     "spt-corrections": 2,
     "cu-from-pi-and-spt": 15,
+    "cu-from-pressuremeter": 1,
+    "cprime-from-cu": 0,
     "friction-angle-from-spt": 4,
+    "friction-angle-from-pi": 0,
     "modulus-from-cu": 6,
+    "eu-from-spt-butler-1975": 0,
+    "effective-modulus-eprime-cohesive": 0,
+    "eprime-from-spt-cohesionless": 0,
     "resilient-modulus-from-cbr": 2,
     "cu-vs-depth": 3,
     "gmax-vs-correlation": 2,
@@ -59,6 +65,7 @@
     "route-planning-in-railway-projects": 18,
     "track-system-in-railway-engineering": 26,
     "consolidation-settlement-in-geotechnical-engineering": 14,
-    "bearing-capacity-in-layered-soils": 7
+    "bearing-capacity-in-layered-soils": 7,
+    "deep-soil-mixing-for-railway-embankment-settlement-control": 2
   }
 }

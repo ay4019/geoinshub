@@ -1,29 +1,38 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { deleteCurrentUserAccountAction } from "@/app/actions/account";
+import { AccountProjectsPanel } from "@/components/account-projects-panel";
 import { LogoutButton } from "@/components/logout-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
-type AccountTab = "information" | "password" | "subscription" | "privacy";
+type MainAccountTab = "projects" | "personal" | "subscription";
+type PersonalTab = "information" | "password" | "privacy";
 
 interface AccountDashboardPanelProps {
   email: string;
 }
 
-const tabItems: Array<{ id: AccountTab; label: string }> = [
+const mainTabItems: Array<{ id: MainAccountTab; label: string }> = [
+  { id: "projects", label: "Projects" },
+  { id: "subscription", label: "Subscription" },
+  { id: "personal", label: "Personal Information" },
+];
+
+const personalTabItems: Array<{ id: PersonalTab; label: string }> = [
   { id: "information", label: "Information" },
   { id: "password", label: "Password" },
-  { id: "subscription", label: "Subscription" },
   { id: "privacy", label: "Privacy" },
 ];
 
 export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<AccountTab>("information");
+  const [activeMainTab, setActiveMainTab] = useState<MainAccountTab>("projects");
+  const [activePersonalTab, setActivePersonalTab] = useState<PersonalTab>("information");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -104,28 +113,61 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
 
   return (
     <section className="mx-auto max-w-[1200px] rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7">
-      <div className="space-y-2">
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Account</h1>
-        <p className="text-sm leading-6 text-slate-600 sm:text-base">Welcome to Geotechnical Insights Hub.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Account</h1>
+          <p className="text-sm leading-6 text-slate-600 sm:text-base">
+            Manage everything related to your account from one place. Update your personal information, change your
+            password, review your subscription status, and control your privacy settings.
+          </p>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {tabItems.map((tab) => (
+        {mainTabItems.map((tab) => (
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => setActiveMainTab(tab.id)}
             className={`btn-base btn-md ${
-              activeTab === tab.id ? "bg-slate-900 text-white hover:bg-slate-800" : ""
+              activeMainTab === tab.id ? "bg-slate-900 text-white hover:bg-slate-800" : ""
             }`}
           >
             {tab.label}
           </button>
         ))}
+        <LogoutButton className="btn-base btn-md btn-danger" />
       </div>
 
-      <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-        {activeTab === "information" ? (
+      {activeMainTab === "projects" ? (
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+          <AccountProjectsPanel />
+        </div>
+      ) : activeMainTab === "subscription" ? (
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+          <div className="space-y-2 text-sm text-slate-700">
+            <p className="font-medium text-slate-900">Subscription Status</p>
+            <p>Subscription features are not active yet.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+          <div className="flex flex-wrap gap-2">
+            {personalTabItems.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActivePersonalTab(tab.id)}
+                className={`btn-base btn-md ${
+                  activePersonalTab === tab.id ? "bg-slate-900 text-white hover:bg-slate-800" : ""
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {activePersonalTab === "information" ? (
           <dl className="text-sm">
             <div className="flex items-center justify-between gap-3">
               <dt className="font-medium text-slate-700">Email</dt>
@@ -134,7 +176,7 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
           </dl>
         ) : null}
 
-        {activeTab === "password" ? (
+        {activePersonalTab === "password" ? (
           <form onSubmit={submitPasswordChange} className="space-y-4">
             <div>
               <label htmlFor="new-password" className="mb-1 block text-sm font-medium text-slate-700">
@@ -179,17 +221,17 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
           </form>
         ) : null}
 
-        {activeTab === "subscription" ? (
-          <div className="space-y-2 text-sm text-slate-700">
-            <p className="font-medium text-slate-900">Subscription Status</p>
-            <p>Subscription features are not active yet.</p>
-          </div>
-        ) : null}
-
-        {activeTab === "privacy" ? (
+        {activePersonalTab === "privacy" ? (
           <div className="space-y-4 text-sm text-slate-700">
             <div className="space-y-1">
               <p className="font-medium text-slate-900">Privacy and Account Deletion</p>
+              <p>
+                Please review our{" "}
+                <Link href="/privacy-policy" className="font-semibold underline underline-offset-4">
+                  Privacy Policy
+                </Link>{" "}
+                for data handling details.
+              </p>
               <p>This action permanently deletes your account from the authentication system.</p>
             </div>
             <button
@@ -213,11 +255,8 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
             ) : null}
           </div>
         ) : null}
-      </div>
-
-      <div className="mt-6">
-        <LogoutButton className="btn-base btn-md" />
-      </div>
+        </div>
+      )}
     </section>
   );
 }

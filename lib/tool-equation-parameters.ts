@@ -566,6 +566,21 @@ const equationParameterMap: Record<string, string[]> = {
     "f1 = Stroud plasticity-index factor selected from the PI band",
     "N_60 = corrected SPT resistance",
   ],
+  "c<sub>u</sub> = 0.67(P<sub>LN</sub>)<sup>0.75</sup>": [
+    "c_u = undrained shear strength",
+    "P_LN = pressuremeter net limit pressure",
+    "0.67 and 0.75 = empirical Baguelin (1978) correlation constants",
+  ],
+  "c'<sub>oc</sub> = 0.1c<sub>u</sub>": [
+    "c'_oc = interpreted effective cohesion for overconsolidated clay screening",
+    "c_u = undrained shear strength",
+    "0.1 = empirical correlation coefficient",
+  ],
+  "c'<sub>oc,screened</sub> = min(0.1c<sub>u</sub>, 30 kPa)": [
+    "c'_oc,screened = chart-limited effective cohesion used for screening",
+    "0.1c_u = raw correlation output from the cu-based relation",
+    "30 kPa = chart-aligned upper screening bound",
+  ],
   "f<sub>1</sub> is obtained by linear interpolation between the Stroud (1974) PI anchor points.": [
     "f1 = Stroud factor used with corrected SPT resistance",
     "PI = plasticity index used to select/interpolate f1",
@@ -575,10 +590,81 @@ const equationParameterMap: Record<string, string[]> = {
     "phi' = approximate effective friction angle",
     "N_60 = corrected SPT resistance",
   ],
+  "&phi;' = 45 - 14log<sub>10</sub>(PI)": [
+    "phi' = estimated effective friction angle",
+    "PI = plasticity index",
+    "log10 = base-10 logarithm",
+  ],
   "E = (E/c<sub>u</sub>)c<sub>u</sub>": [
     "E = estimated elastic modulus",
     "E/c_u = selected modulus-to-strength ratio",
     "c_u = undrained shear strength",
+  ],
+  "E<sub>u</sub> / N<sub>60</sub> = 1000 &ndash; 1200 kN/m<sup>2</sup>": [
+    "E_u = undrained deformation modulus",
+    "N_60 = corrected SPT resistance",
+    "1000-1200 kN/m2 = Butler (1975) screening range for cohesive soils",
+  ],
+  "E<sub>u</sub> = (E<sub>u</sub>/N<sub>60</sub>)N<sub>60</sub>": [
+    "E_u = undrained deformation modulus",
+    "E_u/N_60 = selected modulus-to-blow-count ratio within the Butler range",
+    "N_60 = corrected SPT resistance",
+  ],
+  "E' = &beta;'E<sub>u</sub>": [
+    "E' = effective modulus",
+    "beta' = modulus reduction factor selected by cohesive soil type",
+    "E_u = undrained Young's modulus",
+  ],
+  "E<sub>u</sub> = (E<sub>u</sub>/c<sub>u</sub>)c<sub>u</sub>": [
+    "E_u = undrained Young's modulus",
+    "E_u/c_u = interpreted modulus-to-strength ratio",
+    "c_u = undrained shear strength",
+  ],
+  "(E<sub>u</sub>/c<sub>u</sub>) = 1500OCR<sup>-0.58</sup> for PI &lt; 30; 600OCR<sup>-0.55</sup> for 30 &le; PI &le; 50; 300OCR<sup>-0.58</sup> for PI &gt; 50": [
+    "E_u/c_u = screening ratio estimated from PI class and OCR",
+    "OCR = overconsolidation ratio (used within 1-10 range in this tool)",
+    "PI = plasticity index class indicator",
+  ],
+  "E' = 500N<sub>60</sub>, 1000N<sub>60</sub>, or 1500N<sub>60</sub> (Kulhawy and Mayne, 1990)": [
+    "E' = effective modulus for cohesionless-soil screening",
+    "N_60 = corrected SPT resistance used in Kulhawy-Mayne options",
+    "500, 1000, 1500 = empirical multipliers for silty/clayey sands, clean sands, and overconsolidated clean sands",
+  ],
+  "E' = 500(N<sub>55</sub> + 15)": [
+    "E' = effective modulus",
+    "N_55 = corrected SPT resistance used in Bowles options",
+    "500 and 15 = empirical coefficients in this Bowles correlation",
+  ],
+  "E' = 7000N<sub>55</sub><sup>0.5</sup>": [
+    "E' = effective modulus",
+    "N_55 = corrected SPT resistance used in Bowles options",
+    "7000 = empirical coefficient in this Bowles square-root correlation",
+  ],
+  "E' = 6000N<sub>55</sub>": [
+    "E' = effective modulus",
+    "N_55 = corrected SPT resistance used in Bowles options",
+    "6000 = empirical coefficient in this Bowles linear correlation",
+  ],
+  "E' = 15000ln(N<sub>55</sub>) to 22000ln(N<sub>55</sub>)": [
+    "E' = effective modulus",
+    "N_55 = corrected SPT resistance used in Bowles options",
+    "ln = natural logarithm",
+    "15000 and 22000 = lower and upper empirical logarithmic coefficients",
+  ],
+  "E' = 2600N<sub>55</sub> to 2900N<sub>55</sub>": [
+    "E' = effective modulus",
+    "N_55 = corrected SPT resistance used in Bowles options",
+    "2600 and 2900 = lower and upper empirical linear coefficients",
+  ],
+  "E' = 250(N<sub>55</sub> + 15), 1200(N<sub>55</sub> + 6), 320(N<sub>55</sub> + 15), or 300(N<sub>55</sub> + 6)": [
+    "E' = effective modulus",
+    "N_55 = corrected SPT resistance used in Bowles options",
+    "Each coefficient set corresponds to a different soil condition in Bowles (1996)",
+  ],
+  "E' = 600(N<sub>55</sub> + 6) for N<sub>55</sub> <= 15; E' = 2000 + 600(N<sub>55</sub> + 6) for N<sub>55</sub> > 15": [
+    "E' = effective modulus",
+    "N_55 = corrected SPT resistance used in Bowles options",
+    "The expression changes branch at N_55 = 15 for the conditional gravelly-sand option",
   ],
   "M<sub>r</sub> &asymp; 10.34CBR": [
     "M_r = resilient modulus",

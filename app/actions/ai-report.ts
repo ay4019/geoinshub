@@ -1,20 +1,14 @@
 "use server";
 
-interface CuProfilePoint {
-  boreholeId: string;
-  depth: number;
-  pi: number;
-  n60: number;
-  f1: number;
-  cu: number;
-}
-
-interface CuProfileReportRequest {
+interface ProfileReportAiRequest {
+  toolSlug: string;
   toolTitle: string;
   depthUnit: string;
-  stressUnit: string;
-  points: CuProfilePoint[];
+  valueUnit: string;
+  templateText: string;
+  tableRows: Array<Record<string, string>>;
   plotImageDataUrl?: string | null;
+  aiPromptHint?: string;
 }
 
 function extractResponseText(payload: unknown): string {
@@ -41,19 +35,28 @@ function extractResponseText(payload: unknown): string {
   return chunks.join("\n\n").trim();
 }
 
-export async function interpretCuProfileAction(request: CuProfileReportRequest): Promise<string> {
+function normaliseRows(rows: Array<Record<string, string>>) {
+  return rows.slice(0, 80).map((row, index) => {
+    const pairs = Object.entries(row)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(", ");
+    return `${index + 1}. ${pairs}`;
+  });
+}
+
+export async function interpretProfileReportAction(request: ProfileReportAiRequest): Promise<string> {
   try {
-    if (!request.points?.length) {
-      return "No soil profile data found. Please add sample rows in Soil Profile Plot first.";
+    if (!request.tableRows?.length) {
+      return "No profile table data was found. Please prepare profile rows first.";
     }
 
     if (!request.plotImageDataUrl) {
-      return "Plot image was not generated. Please return to Soil Profile Plot and try again.";
+      return "No profile plot image is available yet. Please complete the profile plot first.";
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return "AI interpretation is configured, but OPENAI_API_KEY is missing on the server.";
+      return "AI report is enabled, but OPENAI_API_KEY is missing on the server.";
     }
 
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -70,8 +73,13 @@ export async function interpretCuProfileAction(request: CuProfileReportRequest):
             content: [
               {
                 type: "input_text",
-                text:
-                  "You are a geotechnical engineering assistant. Interpret the provided c_u depth profile for preliminary screening only. Keep it concise, technical, and practical. Avoid design-code claims.",
+                text: [
+                  "You are a geotechnical engineering reporting assistant.",
+                  "Return exactly one concise paragraph (80-140 words).",
+                  "Tone must be technical, objective, and preliminary-screening focused.",
+                  "Do not claim code compliance or final design suitability.",
+                  "Include at least one caution sentence about verification by qualified engineers.",
+                ].join("\n"),
               },
             ],
           },
@@ -81,22 +89,19 @@ export async function interpretCuProfileAction(request: CuProfileReportRequest):
               {
                 type: "input_text",
                 text: [
-                  `Tool: ${request.toolTitle}`,
-                  `Units: depth (${request.depthUnit}), c_u (${request.stressUnit})`,
-                  "Please provide:",
-                  "1) Trend summary with depth",
-                  "2) Any outliers or unusual transitions",
-                  "3) Practical implications for preliminary site characterisation",
-                  "4) A short caution note for design-stage use",
+                  `Tool slug: ${request.toolSlug}`,
+                  `Tool title: ${request.toolTitle}`,
+                  `Units: depth (${request.depthUnit}), value (${request.valueUnit})`,
+                  request.aiPromptHint ? `Project hint: ${request.aiPromptHint}` : "",
                   "",
-                  "Tabulated points:",
-                  ...request.points.map(
-                    (point, index) =>
-                      `${index + 1}. BH=${point.boreholeId}, z=${point.depth.toFixed(2)}, PI=${point.pi.toFixed(
-                        2,
-                      )}, N60=${point.n60.toFixed(2)}, f1=${point.f1.toFixed(2)}, cu=${point.cu.toFixed(2)}`,
-                  ),
-                ].join("\n"),
+                  "Base report text:",
+                  request.templateText,
+                  "",
+                  "Table rows:",
+                  ...normaliseRows(request.tableRows),
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
               },
               {
                 type: "input_image",
@@ -109,14 +114,14 @@ export async function interpretCuProfileAction(request: CuProfileReportRequest):
     });
 
     if (!response.ok) {
-      return `AI interpretation request failed (${response.status}).`;
+      return `AI report request failed (${response.status}).`;
     }
 
     const payload = (await response.json()) as unknown;
     const text = extractResponseText(payload);
     return text || "AI returned no text. Please try again.";
   } catch {
-    return "AI interpretation is temporarily unavailable. Please try again.";
+    return "AI report is temporarily unavailable. Please try again.";
   }
 }
 

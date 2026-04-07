@@ -9,30 +9,30 @@ import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
-interface FrictionAngleProfileTabProps {
+interface EprimeFromEuProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
 }
 
-interface FrictionAngleRow {
+interface EprimeFromEuRow {
   id: number;
   boreholeId: string;
   sampleDepth: string;
-  n60: string;
+  eModulus: string;
+  soilType: "silt-clay" | "stiff-clay" | "soft-clay";
 }
 
 interface PlotPoint {
   boreholeId: string;
   depth: number;
-  n60: number;
-  phi: number;
+  ePrime: number;
 }
 
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
 
-const initialRows: FrictionAngleRow[] = [
-  { id: 1, boreholeId: "", sampleDepth: "1.5", n60: "12" },
-  { id: 2, boreholeId: "", sampleDepth: "3.0", n60: "18" },
+const initialRows: EprimeFromEuRow[] = [
+  { id: 1, boreholeId: "", sampleDepth: "1.5", eModulus: "12000", soilType: "stiff-clay" },
+  { id: 2, boreholeId: "", sampleDepth: "3.0", eModulus: "15000", soilType: "silt-clay" },
 ];
 
 function parse(value: string): number {
@@ -40,15 +40,21 @@ function parse(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function estimatePhiFromN60(n60: number): number {
-  return 27.1 + 0.3 * n60 - 0.00054 * n60 ** 2;
+function betaFromSoilType(soilType: EprimeFromEuRow["soilType"]): number {
+  if (soilType === "soft-clay") {
+    return 0.4;
+  }
+  if (soilType === "stiff-clay") {
+    return 0.6;
+  }
+  return 0.7;
 }
 
 function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
   return (
-    <span className="block leading-tight">
-      <span className="block">{title}</span>
-      {unit ? <span className="mt-0.5 block text-slate-500">({unit})</span> : null}
+    <span className="inline-flex items-baseline gap-1 whitespace-nowrap leading-tight">
+      <span>{title}</span>
+      {unit ? <span className="text-slate-500">({unit})</span> : null}
     </span>
   );
 }
@@ -81,17 +87,13 @@ function getNiceTickStep(rawStep: number): number {
 }
 
 function renderScatterChart({
-  title,
-  xLabel,
   points,
-  valueKey,
   depthUnit,
+  stressUnit,
 }: {
-  title: string;
-  xLabel: string;
   points: PlotPoint[];
-  valueKey: "n60" | "phi";
   depthUnit: string;
+  stressUnit: string;
 }) {
   const width = 560;
   const height = 360;
@@ -99,7 +101,7 @@ function renderScatterChart({
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   const maxDepth = Math.max(...points.map((point) => point.depth), 1);
-  const maxValue = Math.max(...points.map((point) => point[valueKey]), 1);
+  const maxValue = Math.max(...points.map((point) => point.ePrime), 1);
   const xStep = getNiceTickStep(maxValue / 6);
   const xIntervals = Math.max(Math.floor(maxValue / xStep) + 1, 2);
   const xAxisMax = xStep * xIntervals;
@@ -117,7 +119,7 @@ function renderScatterChart({
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+      <h3 className="text-lg font-semibold text-slate-900">Depth vs E′</h3>
       <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 w-full">
         <rect x={0} y={0} width={width} height={height} rx={12} fill="#ffffff" />
         <rect
@@ -158,14 +160,14 @@ function renderScatterChart({
         {points.map((point, index) => {
           const colour = colourByBorehole.get(point.boreholeId) ?? BOREHOLE_COLOURS[0];
           return (
-            <g key={`${point.boreholeId}-${point.depth}-${point[valueKey]}-${index}`}>
-              <circle cx={xScale(point[valueKey])} cy={yScale(point.depth)} r={5.5} fill="#ffffff" stroke={colour} strokeWidth={2.4} />
-              <circle cx={xScale(point[valueKey])} cy={yScale(point.depth)} r={2.2} fill={colour} />
+            <g key={`${point.boreholeId}-${point.depth}-${point.ePrime}-${index}`}>
+              <circle cx={xScale(point.ePrime)} cy={yScale(point.depth)} r={5.5} fill="#ffffff" stroke={colour} strokeWidth={2.4} />
+              <circle cx={xScale(point.ePrime)} cy={yScale(point.depth)} r={2.2} fill={colour} />
             </g>
           );
         })}
         <text x={margin.left + innerWidth / 2} y={24} textAnchor="middle" fontSize={12} fill="#1e3a5f" fontWeight={700}>
-          {xLabel}
+          E′ ({stressUnit})
         </text>
         <text
           x={18}
@@ -198,11 +200,12 @@ function renderScatterChart({
   );
 }
 
-export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngleProfileTabProps) {
-  const [rows, setRows] = useState<FrictionAngleRow[]>(initialRows);
+export function EprimeFromEuProfileTab({ unitSystem, importRows }: EprimeFromEuProfileTabProps) {
+  const [rows, setRows] = useState<EprimeFromEuRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
+  const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
 
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
@@ -213,6 +216,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
       current.map((row) => ({
         ...row,
         sampleDepth: convertInputValueBetweenSystems(row.sampleDepth, "m", previousUnitSystem.current, unitSystem),
+        eModulus: convertInputValueBetweenSystems(row.eModulus, "kPa", previousUnitSystem.current, unitSystem),
       })),
     );
 
@@ -223,6 +227,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
     if (!importRows || importRows.length === 0) {
       return;
     }
+
     setRows((current) => {
       const template = current[0] ?? initialRows[0];
       return importRows.map((item, index) => ({
@@ -237,7 +242,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
     });
   }, [importRows, unitSystem]);
 
-  const updateRow = (id: number, patch: Partial<FrictionAngleRow>) => {
+  const updateRow = (id: number, patch: Partial<EprimeFromEuRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   };
 
@@ -251,7 +256,8 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
           id: nextId,
           boreholeId: "",
           sampleDepth: String(parse(lastDepth) + 1.5),
-          n60: "15",
+          eModulus: "14000",
+          soilType: "stiff-clay",
         },
       ];
     });
@@ -265,16 +271,20 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
     .map((row) => {
       const depthDisplay = parse(row.sampleDepth);
       const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
-      if (!Number.isFinite(depthMetric) || depthMetric < 0) {
+      const eModulusDisplay = parse(row.eModulus);
+      const eModulusMetric = Number(convertInputValueBetweenSystems(String(eModulusDisplay), "kPa", unitSystem, "metric"));
+      if (!Number.isFinite(depthMetric) || depthMetric < 0 || !Number.isFinite(eModulusMetric) || eModulusMetric <= 0) {
         return null;
       }
-      const n60 = Math.max(0, parse(row.n60));
-      const phi = estimatePhiFromN60(n60);
+
+      const beta = betaFromSoilType(row.soilType);
+      const ePrimeMetric = beta * eModulusMetric;
+      const ePrimeDisplay = Number(convertInputValueBetweenSystems(String(ePrimeMetric), "kPa", "metric", unitSystem));
+
       return {
         boreholeId: row.boreholeId?.trim() || "BH not set",
         depth: depthDisplay,
-        n60,
-        phi,
+        ePrime: ePrimeDisplay,
       };
     })
     .filter((point): point is PlotPoint => point !== null);
@@ -282,21 +292,22 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
   return (
     <section className="space-y-5">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Soil Layer Profile</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Enter corrected SPT resistance by depth and the tool computes effective friction angle using
-          &phi;&prime; &asymp; 27.1 + 0.3N<sub>60</sub> - 0.00054N<sub>60</sub>
-          <sup>2</sup>.
+          Enter deformation modulus by depth and select cohesive soil type (β′). The profile computes E′ with
+          E′ = β′E.
         </p>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-white">
           <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
             <colgroup>
+              <col className="w-[20%]" />
               <col className="w-[18%]" />
               <col className="w-[18%]" />
-              <col className="w-[16%]" />
-              <col className="w-[22%]" />
-              <col className="w-[14%]" />
+              <col className="w-[20%]" />
+              <col className="w-[10%]" />
+              <col className="w-[9%]" />
+              <col className="w-[5%]" />
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
@@ -307,20 +318,29 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
                   <HeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
                 <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="N60" />
+                  <HeaderCell title="E" unit={stressUnit} />
                 </th>
                 <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>&phi;&prime;</span>} unit="deg" />
+                  <HeaderCell title="Soil type (β′)" />
                 </th>
                 <th className="px-2 py-3 text-left font-semibold">
-                  <span className="block leading-tight">Action</span>
+                  <HeaderCell title="β′" />
+                </th>
+                <th className="px-2 py-3 text-left font-semibold">
+                  <HeaderCell title="E′" unit={stressUnit} />
+                </th>
+                <th className="px-2 py-3 text-left font-semibold">
+                  <HeaderCell title="Action" />
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
-                const n60 = Math.max(0, parse(row.n60));
-                const phi = estimatePhiFromN60(n60);
+                const eModulusDisplay = parse(row.eModulus);
+                const eModulusMetric = Number(convertInputValueBetweenSystems(String(eModulusDisplay), "kPa", unitSystem, "metric"));
+                const beta = betaFromSoilType(row.soilType);
+                const ePrimeMetric = eModulusMetric > 0 ? beta * eModulusMetric : 0;
+                const ePrimeDisplay = Number(convertInputValueBetweenSystems(String(ePrimeMetric), "kPa", "metric", unitSystem));
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
@@ -346,13 +366,31 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
                         type="number"
                         step="0.1"
                         min="0"
-                        value={row.n60}
-                        onChange={(event) => updateRow(row.id, { n60: event.target.value })}
+                        value={row.eModulus}
+                        onChange={(event) => updateRow(row.id, { eModulus: event.target.value })}
                         className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
                       />
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={phi.toFixed(2)} />
+                      <select
+                        value={row.soilType}
+                        onChange={(event) =>
+                          updateRow(row.id, {
+                            soilType: event.target.value as EprimeFromEuRow["soilType"],
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                      >
+                        <option value="silt-clay">Silt / silty clay</option>
+                        <option value="stiff-clay">Stiff clay</option>
+                        <option value="soft-clay">Soft clay</option>
+                      </select>
+                    </td>
+                    <td className="px-2 py-3">
+                      <OutputCell value={beta.toFixed(2)} />
+                    </td>
+                    <td className="px-2 py-3">
+                      <OutputCell value={ePrimeDisplay.toFixed(2)} />
                     </td>
                     <td className="px-2 py-3">
                       <button
@@ -375,8 +413,8 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
                     Add Layer
                   </button>
                 </td>
-                <td colSpan={3} />
-                <td className="px-2 py-3 text-right align-top">
+                <td colSpan={5} />
+                <td colSpan={1} className="px-2 py-3 text-right align-top">
                   <button
                     type="button"
                     className="btn-base px-3 py-1.5 text-sm"
@@ -394,20 +432,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
 
         {plotPoints.length ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            {renderScatterChart({
-              title: "Depth vs N\u2086\u2080",
-              xLabel: "N\u2086\u2080",
-              points: plotPoints,
-              valueKey: "n60",
-              depthUnit,
-            })}
-            {renderScatterChart({
-              title: "Depth vs \u03c6'",
-              xLabel: "\u03c6' (deg)",
-              points: plotPoints,
-              valueKey: "phi",
-              depthUnit,
-            })}
+            {renderScatterChart({ points: plotPoints, depthUnit, stressUnit })}
           </div>
         ) : null}
       </div>

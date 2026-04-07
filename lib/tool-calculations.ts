@@ -165,6 +165,103 @@ function computeCbFromBoreholeDiameterSelection(selection: string): number {
   return 1.0;
 }
 
+function estimateEuCuRatioFromPiOcr(pi: number, ocr: number): number {
+  const boundedPi = Math.max(pi, 0.1);
+  const boundedOcr = Math.min(Math.max(ocr, 1), 10);
+
+  if (boundedPi < 30) {
+    return 1500 * boundedOcr ** -0.58;
+  }
+  if (boundedPi <= 50) {
+    return 600 * boundedOcr ** -0.55;
+  }
+  return 300 * boundedOcr ** -0.58;
+}
+
+function betaPrimeFromCohesiveSoilType(soilType: string): number {
+  if (soilType === "soft-clay") {
+    return 0.4;
+  }
+  if (soilType === "stiff-clay") {
+    return 0.6;
+  }
+  return 0.7;
+}
+
+function estimateEprimeFromCohesionlessSpt(correlation: string, n: number): number {
+  switch (correlation) {
+    case "km-silty-clayey-500n60":
+      return 500 * n;
+    case "km-clean-1000n60":
+      return 1000 * n;
+    case "km-oc-clean-1500n60":
+      return 1500 * n;
+    case "bw-nc-500-n55-plus15":
+      return 500 * (n + 15);
+    case "bw-nc-7000-sqrt-n55":
+      return 7000 * Math.sqrt(n);
+    case "bw-nc-6000-n55":
+      return 6000 * n;
+    case "bw-nc-15000-ln-n55":
+      return 15000 * Math.log(n);
+    case "bw-nc-22000-ln-n55":
+      return 22000 * Math.log(n);
+    case "bw-nc-2600-n55":
+      return 2600 * n;
+    case "bw-nc-2900-n55":
+      return 2900 * n;
+    case "bw-sat-250-n55-plus15":
+      return 250 * (n + 15);
+    case "bw-gravel-1200-n55-plus6":
+      return 1200 * (n + 6);
+    case "bw-gravel-conditional":
+      return n <= 15 ? 600 * (n + 6) : 2000 + 600 * (n + 6);
+    case "bw-clayey-320-n55-plus15":
+      return 320 * (n + 15);
+    case "bw-silty-300-n55-plus6":
+      return 300 * (n + 6);
+    default:
+      return 1000 * n;
+  }
+}
+
+function cohesionlessCorrelationLabel(correlation: string): string {
+  switch (correlation) {
+    case "km-silty-clayey-500n60":
+      return "Kulhawy & Mayne (1990): E' = 500N60";
+    case "km-clean-1000n60":
+      return "Kulhawy & Mayne (1990): E' = 1000N60";
+    case "km-oc-clean-1500n60":
+      return "Kulhawy & Mayne (1990): E' = 1500N60";
+    case "bw-nc-500-n55-plus15":
+      return "Bowles (1996): E' = 500(N55 + 15)";
+    case "bw-nc-7000-sqrt-n55":
+      return "Bowles (1996): E' = 7000N55^0.5";
+    case "bw-nc-6000-n55":
+      return "Bowles (1996): E' = 6000N55";
+    case "bw-nc-15000-ln-n55":
+      return "Bowles (1996): E' = 15000ln(N55)";
+    case "bw-nc-22000-ln-n55":
+      return "Bowles (1996): E' = 22000ln(N55)";
+    case "bw-nc-2600-n55":
+      return "Bowles (1996): E' = 2600N55";
+    case "bw-nc-2900-n55":
+      return "Bowles (1996): E' = 2900N55";
+    case "bw-sat-250-n55-plus15":
+      return "Bowles (1996): E' = 250(N55 + 15)";
+    case "bw-gravel-1200-n55-plus6":
+      return "Bowles (1996): E' = 1200(N55 + 6)";
+    case "bw-gravel-conditional":
+      return "Bowles (1996): conditional gravelly sands formula";
+    case "bw-clayey-320-n55-plus15":
+      return "Bowles (1996): E' = 320(N55 + 15)";
+    case "bw-silty-300-n55-plus6":
+      return "Bowles (1996): E' = 300(N55 + 6)";
+    default:
+      return "Kulhawy & Mayne (1990): E' = 1000N60";
+  }
+}
+
 function bearingCapacityCore(
   method: "terzaghi" | "meyerhof" | "hansen" | "vesic",
   values: FormValues,
@@ -1277,6 +1374,44 @@ const calculators: Record<string, Calculator> = {
       warnings: baseWarnings(),
     };
   },
+  "cu-from-pressuremeter": (values) => {
+    const pln = ensurePositive(
+      parseNumber(values.pln, "Pressuremeter net limit pressure"),
+      "Pressuremeter net limit pressure",
+    );
+    const cu = 0.67 * pln ** 0.75;
+
+    return {
+      title: "Undrained Shear Strength from Pressuremeter",
+      summary: "Baguelin (1978) empirical pressuremeter interpretation.",
+      items: [
+        { label: "Input P_LN", value: round(pln, 2), unit: "kPa" },
+        { label: "Estimated c_u", value: round(cu, 2), unit: "kPa" },
+      ],
+      notes: ["Computed with c_u = 0.67(P_LN)^0.75."],
+      warnings: baseWarnings(),
+    };
+  },
+  "cprime-from-cu": (values) => {
+    const cu = ensurePositive(
+      parseNumber(values.cu, "Undrained shear strength"),
+      "Undrained shear strength",
+    );
+    const cprimeRaw = 0.1 * cu;
+    const cprimeChart = Math.min(cprimeRaw, 30);
+
+    return {
+      title: "Effective Cohesion from c_u",
+      summary: "Sorensen and Okkels (2013) style screening interpretation.",
+      items: [
+        { label: "Input c_u", value: round(cu, 2), unit: "kPa" },
+        { label: "c'_oc = 0.1c_u", value: round(cprimeRaw, 2), unit: "kPa" },
+        { label: "c'_oc, screened", value: round(cprimeChart, 2), unit: "kPa" },
+      ],
+      notes: ["Chart-aligned screening cap of 30 kPa is applied to c'_oc,screened."],
+      warnings: baseWarnings(),
+    };
+  },
   "friction-angle-from-spt": (values) => {
     const n60 = ensurePositive(parseNumber(values.n60, "N60"), "N60");
     const phi = 27.1 + 0.3 * n60 - 0.00054 * n60 ** 2;
@@ -1287,6 +1422,21 @@ const calculators: Record<string, Calculator> = {
       warnings: baseWarnings(),
     };
   },
+  "friction-angle-from-pi": (values) => {
+    const pi = ensurePositive(parseNumber(values.plasticityIndex, "Plasticity Index"), "Plasticity Index");
+    const phi = 45 - 14 * log10(pi);
+
+    return {
+      title: "Effective Friction Angle from PI",
+      summary: "PI-based cohesive-soil screening relation.",
+      items: [
+        { label: "Input PI", value: round(pi, 2), unit: "%" },
+        { label: "Estimated phi'", value: round(phi, 2), unit: "deg" },
+      ],
+      notes: ["Computed with phi' = 45 - 14log10(PI)."],
+      warnings: baseWarnings(),
+    };
+  },
   "modulus-from-cu": (values) => {
     const cu = ensurePositive(parseNumber(values.cu, "cu"), "cu");
     const ratio = ensurePositive(parseNumber(values.ratio, "E/cu ratio"), "E/cu ratio");
@@ -1294,6 +1444,86 @@ const calculators: Record<string, Calculator> = {
       title: "Elastic Modulus from cu",
       items: [{ label: "Estimated elastic modulus", value: round(cu * ratio, 1), unit: "kPa" }],
       notes: ["The chosen modulus ratio should reflect soil type and strain level."],
+      warnings: baseWarnings(),
+    };
+  },
+  "eu-from-spt-butler-1975": (values) => {
+    const n60 = ensurePositive(parseNumber(values.n60, "N60"), "N60");
+    const ratio = ensurePositive(parseNumber(values.euN60Ratio, "Eu/N60 ratio"), "Eu/N60 ratio");
+
+    if (ratio < 1000 || ratio > 1200) {
+      throw new Error("Eu/N60 ratio must stay within 1000 to 1200 for the Butler (1975) range.");
+    }
+
+    const eu = ratio * n60;
+    const euLower = 1000 * n60;
+    const euUpper = 1200 * n60;
+
+    return {
+      title: "Undrained Deformation Modulus from SPT",
+      summary: "Computed with Butler (1975): Eu/N60 = 1000-1200 kN/m2 for cohesive-soil screening.",
+      items: [
+        { label: "Input N60", value: round(n60, 2) },
+        { label: "Selected Eu/N60", value: round(ratio, 2), unit: "kPa" },
+        { label: "Estimated Eu", value: round(eu, 2), unit: "kPa" },
+        { label: "Butler lower Eu", value: round(euLower, 2), unit: "kPa" },
+        { label: "Butler upper Eu", value: round(euUpper, 2), unit: "kPa" },
+      ],
+      notes: [
+        "This tool keeps Eu/N60 within 1000 to 1200 as reported in Butler (1975) for preliminary cohesive-soil interpretation.",
+      ],
+      warnings: baseWarnings(),
+    };
+  },
+  "effective-modulus-eprime-cohesive": (values) => {
+    const cu = ensurePositive(parseNumber(values.cu, "Undrained shear strength"), "Undrained shear strength");
+    const pi = ensurePositive(parseNumber(values.plasticityIndex, "Plasticity Index"), "Plasticity Index");
+    const ocr = ensurePositive(parseNumber(values.ocr, "OCR"), "OCR");
+    const betaPrime = betaPrimeFromCohesiveSoilType(values.soilType ?? "stiff-clay");
+    const euCuRatio = estimateEuCuRatioFromPiOcr(pi, ocr);
+    const eu = euCuRatio * cu;
+    const ePrime = betaPrime * eu;
+
+    return {
+      title: "Effective Modulus for Cohesive Soils",
+      summary: "Computed using E' = beta'Eu with PI-OCR based Eu/cu screening relation.",
+      items: [
+        { label: "Input c_u", value: round(cu, 2), unit: "kPa" },
+        { label: "Input PI", value: round(pi, 2), unit: "%" },
+        { label: "Input OCR", value: round(ocr, 2) },
+        { label: "Selected beta'", value: round(betaPrime, 2) },
+        { label: "Estimated E_u/c_u", value: round(euCuRatio, 1) },
+        { label: "Estimated E_u", value: round(eu, 2), unit: "kPa" },
+        { label: "Estimated E'", value: round(ePrime, 2), unit: "kPa" },
+      ],
+      notes: [
+        "Eu/cu is interpreted from PI and OCR bands as a screening-level correlation.",
+        "OCR is internally bounded to 1-10 to stay within the chart range used in this tool.",
+      ],
+      warnings: baseWarnings(),
+    };
+  },
+  "eprime-from-spt-cohesionless": (values) => {
+    const correlation = values.correlation ?? "km-clean-1000n60";
+    const nValue = ensurePositive(parseNumber(values.nValue, "Corrected SPT resistance"), "Corrected SPT resistance");
+
+    if ((correlation === "bw-nc-15000-ln-n55" || correlation === "bw-nc-22000-ln-n55") && nValue <= 1) {
+      throw new Error("For logarithmic Bowles options, N55 should be greater than 1.");
+    }
+
+    const ePrime = estimateEprimeFromCohesionlessSpt(correlation, nValue);
+
+    return {
+      title: "Effective Modulus for Cohesionless Soils",
+      summary: "Computed from the selected Kulhawy-Mayne or Bowles SPT-based correlation.",
+      items: [
+        { label: "Selected correlation", value: cohesionlessCorrelationLabel(correlation) },
+        { label: "Input N value", value: round(nValue, 2) },
+        { label: "Estimated E'", value: round(ePrime, 2), unit: "kPa" },
+      ],
+      notes: [
+        "N is interpreted as N60 for Kulhawy-Mayne options and N55 for Bowles options.",
+      ],
       warnings: baseWarnings(),
     };
   },

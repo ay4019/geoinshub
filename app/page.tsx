@@ -24,10 +24,10 @@ export default async function HomePage() {
             Geotechnical Insights Hub
           </h1>
           <p className="text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">
-            Geotechnical Insights Hub brings together fundamental soil mechanics calculations, advanced technical topics, and the latest developments in geotechnical engineering.
+            Geotechnical Insights Hub brings together practical soil mechanics, design code interpretation, and real-world engineering experience in a single platform. From fundamental calculations to advanced geotechnical behaviour, the content is structured to support clear assumptions, consistent parameter selection, and reliable analysis.
             <br />
             <br />
-            A structured platform designed to support rigorous analysis, informed parameter selection, and practical engineering decision-making.
+            Applicable across engineering practice, academic research, and education, it brings together analytical tools, technical insights, and field-based understanding—supporting applications from learning to design and construction, and enabling more confident and defensible geotechnical decisions.
           </p>
         </div>
         <div className="flex flex-wrap gap-4 sm:gap-6">
@@ -52,7 +52,12 @@ export default async function HomePage() {
         <div className="flex items-end justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-slate-900">Featured Tools</h2>
-            <p className="mt-1 text-sm text-slate-700">Practical calculators for preliminary geotechnical assessments.</p>
+            <p className="mt-1 text-sm text-slate-700">
+              A curated set of engineering tools, organised under Site Characterisation and Geotechnical Analysis, is
+              designed to support systematic and reliable preliminary assessments, with full access available via{" "}
+              <span className="font-semibold text-slate-900">View More</span> or the{" "}
+              <span className="font-semibold text-slate-900">Tools</span> page.
+            </p>
           </div>
           <Link href="/tools" className="text-sm font-semibold text-slate-800 transition-colors hover:text-slate-950">
             View more
@@ -69,7 +74,12 @@ export default async function HomePage() {
         <div className="flex items-end justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-slate-900">Featured Blog</h2>
-            <p className="mt-1 text-sm text-slate-700">Owner-written articles on methods, assumptions, and interpretation.</p>
+            <p className="mt-1 text-sm text-slate-700">
+              A curated selection of geotechnical and railway engineering articles presents design interpretation,
+              calculation logic, and field-informed technical judgement, with full access available via{" "}
+              <span className="font-semibold text-slate-900">View More</span> or the{" "}
+              <span className="font-semibold text-slate-900">Blog</span> page.
+            </p>
           </div>
           <Link
             href="/blog"

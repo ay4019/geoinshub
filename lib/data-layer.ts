@@ -31,9 +31,9 @@ export function getAllTools(): ToolDefinition[] {
 
 export function getFeaturedTools(limit = 3): ToolDefinition[] {
   const featuredHomeSlugs = [
-    "traditional-bearing-capacity-methods",
-    "seed-idriss-liquefaction-screening",
-    "schmertmann-settlement",
+    "spt-corrections",
+    "modulus-from-cu",
+    "eurocode-7-bearing-resistance",
   ];
 
   const curatedTools = featuredHomeSlugs

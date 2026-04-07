@@ -50,7 +50,7 @@
       },
       {
         "type": "paragraph",
-        "text": "One of the reasons for this is that in order to reduce costs, it is preferred to reduce the operating speed and provide service at lower curve radii. If the speed of a line suddenly drops significantly, it can be interpreted that this is related to geometric features. Letâ€™s give a numerical example. According to HS2 data, the minimum curve radius on a line where a train will be operated at 200 km/h should be 1800 m, while a radius of 7200 m is required for operating a train at 400 km/h. As can be easily understood from here, the curve radius, which is proportional to the square of the speed, may pose various geometrical difficulties due to extending the distance. Although the standards used by each country use different radius limits for different speed values, it is clear that high speed requires high radius as an approach. When its come to make a choice, either you choose to keep comfort of the line high and accept increasing the cost or decrease not only the speed but also number of tunnels, viaducts etc. In another significant example, in the project I am currently working on, due to the route coincides with a 3rd Degree protected area, various alternatives were studied to how to find the best solution. Since the archaeological excavation procedure is long, and tunnel and viaduct alternatives increase the cost unexpectedly, the solution was found to be rehabilitating the existing railway line and operating on that line, and in turn reducing the speed. This stabilized to the route not only by reducing the speed but also by reducing the number of art structures. In summary, the geometric features of the line and the route determination significantly affect both the construction phase and the comfort of the line."
+        "text": "One of the reasons for this is that in order to reduce costs, it is preferred to reduce the operating speed and provide service at lower curve radii. If the speed of a line suddenly drops significantly, it can be interpreted that this is related to geometric features. LetÃ¢â‚¬â„¢s give a numerical example. According to HS2 data, the minimum curve radius on a line where a train will be operated at 200 km/h should be 1800 m, while a radius of 7200 m is required for operating a train at 400 km/h. As can be easily understood from here, the curve radius, which is proportional to the square of the speed, may pose various geometrical difficulties due to extending the distance. Although the standards used by each country use different radius limits for different speed values, it is clear that high speed requires high radius as an approach. When its come to make a choice, either you choose to keep comfort of the line high and accept increasing the cost or decrease not only the speed but also number of tunnels, viaducts etc. In another significant example, in the project I am currently working on, due to the route coincides with a 3rd Degree protected area, various alternatives were studied to how to find the best solution. Since the archaeological excavation procedure is long, and tunnel and viaduct alternatives increase the cost unexpectedly, the solution was found to be rehabilitating the existing railway line and operating on that line, and in turn reducing the speed. This stabilized to the route not only by reducing the speed but also by reducing the number of art structures. In summary, the geometric features of the line and the route determination significantly affect both the construction phase and the comfort of the line."
       },
       {
         "type": "paragraph",
@@ -769,6 +769,188 @@
           "[4] Meyerhof, G.G. & Hanna, A.M. (1978). Ultimate Bearing Capacity of Foundations on Layered Soils under Inclined Load.",
           "[5] NPTEL. (2013) Advanced Foundation Engineering. Available at: https://archive.nptel.ac.in/courses/105/108/105108069/# (Accessed: 16 March 2025).",
           "[6] Uncuoglu, E. (2020) Tabakali Zeminlerde Tasima Gucu."
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "deep-soil-mixing-for-railway-embankment-settlement-control",
+    "title": "Deep Soil Mixing for Settlement Control under Railway Embankments",
+    "excerpt": "A detailed engineering workflow for using deep soil mixing to control settlement beneath railway embankments, with practical screening equations, staged checks, and design caveats.",
+    "date": "2026-04-05",
+    "tags": [
+      "Deep Soil Mixing",
+      "Railway Embankment",
+      "Settlement",
+      "Ground Improvement"
+    ],
+    "thumbnail": "/images/blog-consolidation-cover.png",
+    "featured": true,
+    "readTimeMinutes": 15,
+    "content": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "Deep Soil Mixing (DSM) is one of the most practical ground-improvement options when railway embankments are planned over compressible soils that would otherwise generate excessive post-construction settlement. In railway projects, this is not only a serviceability issue. Differential settlement can also amplify maintenance demand, degrade track geometry, and reduce ride comfort and operational reliability."
+      },
+      {
+        "type": "paragraph",
+        "text": "This note presents a design-oriented methodology focused on embankment applications: how to define replacement ratio, estimate stress sharing between mixed columns and surrounding soil, and build a transparent settlement calculation sequence. The equations below are intentionally simplified for preliminary engineering decisions and should be calibrated with project-specific investigation data and local code requirements."
+      },
+      {
+        "type": "heading",
+        "text": "1) Why DSM is effective beneath railway embankments"
+      },
+      {
+        "type": "paragraph",
+        "text": "DSM reduces settlement mainly by increasing the composite stiffness of the treated zone and redistributing stress from soft natural soil to cement-treated columns. Under railway embankments, the mechanism is typically evaluated using an equivalent composite approach, then checked with staged construction logic and observational control during filling."
+      },
+      {
+        "type": "heading",
+        "text": "2) Core geometry and replacement ratio"
+      },
+      {
+        "type": "equation",
+        "label": "(1)",
+        "lines": [
+          "a<sub>s</sub> = A<sub>c</sub>/A<sub>t</sub>",
+          "a<sub>s</sub> = (&pi; D<sup>2</sup>/4)/(s<sub>x</sub> s<sub>y</sub>)"
+        ],
+        "caption": "Area replacement ratio of DSM columns in plan."
+      },
+      {
+        "type": "paragraph",
+        "text": "Where a_s is the replacement ratio, D is column diameter, and s_x, s_y are centre-to-centre spacings. For a fixed column diameter, reducing spacing directly increases a_s and generally improves settlement performance, but it also increases binder demand and construction cost."
+      },
+      {
+        "type": "heading",
+        "text": "3) Stress concentration and load sharing"
+      },
+      {
+        "type": "equation",
+        "label": "(2)",
+        "lines": [
+          "n = &sigma;<sub>c</sub>/&sigma;<sub>s</sub>",
+          "&eta;<sub>c</sub> = (n a<sub>s</sub>)/[(1-a<sub>s</sub>) + n a<sub>s</sub>]",
+          "&eta;<sub>s</sub> = (1-a<sub>s</sub>)/[(1-a<sub>s</sub>) + n a<sub>s</sub>]"
+        ],
+        "caption": "Stress concentration ratio and stress share carried by column (&eta;_c) and surrounding soil (&eta;_s)."
+      },
+      {
+        "type": "paragraph",
+        "text": "The stress concentration ratio n depends on stiffness contrast, construction quality, load-transfer platform details, and embankment staging. In preliminary screening, n is often treated as a calibrated project parameter rather than a fixed constant."
+      },
+      {
+        "type": "heading",
+        "text": "4) Settlement methodology for preliminary design"
+      },
+      {
+        "type": "paragraph",
+        "text": "A practical workflow is to compute an untreated baseline first, then compute improved settlement with stress-sharing. Layer-by-layer calculations are preferred for railway corridors where geology changes along alignment."
+      },
+      {
+        "type": "equation",
+        "label": "(3)",
+        "lines": [
+          "S<sub>untreated</sub> = &Sigma; (m<sub>v,i</sub> &Delta;&sigma;&#8242;<sub>v,i</sub> H<sub>i</sub>)"
+        ],
+        "caption": "Baseline one-dimensional settlement estimate in untreated ground."
+      },
+      {
+        "type": "equation",
+        "label": "(4)",
+        "lines": [
+          "&Delta;&sigma;&#8242;<sub>s,i</sub> = &eta;<sub>s</sub> q<sub>i</sub>",
+          "&Delta;&sigma;&#8242;<sub>c,i</sub> = &eta;<sub>c</sub> q<sub>i</sub>"
+        ],
+        "caption": "Partition of embankment stress increment into soil and DSM columns."
+      },
+      {
+        "type": "equation",
+        "label": "(5)",
+        "lines": [
+          "S<sub>improved</sub> &asymp; &Sigma; [ (&Delta;&sigma;&#8242;<sub>s,i</sub> H<sub>i</sub>/M<sub>s,i</sub>) + (&Delta;&sigma;&#8242;<sub>c,i</sub> H<sub>i</sub>/E<sub>50,c</sub>) ]"
+        ],
+        "caption": "Simplified strain-compatible estimate for improved-ground settlement."
+      },
+      {
+        "type": "equation",
+        "label": "(6)",
+        "lines": [
+          "IF = S<sub>untreated</sub>/S<sub>improved</sub> &asymp; 1/[1-a<sub>s</sub>(1-1/n)]"
+        ],
+        "caption": "Common screening-form improvement factor expression used in preliminary studies."
+      },
+      {
+        "type": "note",
+        "text": "The improvement-factor form above is widely used for quick screening in column-improved ground. Final design should always be checked with project-specific constitutive assumptions and staged construction modelling where required."
+      },
+      {
+        "type": "heading",
+        "text": "5) Consolidation-time check for track-service criteria"
+      },
+      {
+        "type": "equation",
+        "label": "(7)",
+        "lines": [
+          "T<sub>v</sub> = c<sub>v</sub> t/H<sub>d</sub><sup>2</sup>",
+          "t = T<sub>v</sub> H<sub>d</sub><sup>2</sup>/c<sub>v</sub>"
+        ],
+        "caption": "Primary consolidation time relationship for preliminary scheduling checks."
+      },
+      {
+        "type": "paragraph",
+        "text": "In railway projects, the design target is often not only total settlement but also the proportion completed before track installation or before speed upgrades. DSM can materially reduce post-construction settlement, but timing must still be checked against programme constraints and staged fill sequence."
+      },
+      {
+        "type": "heading",
+        "text": "6) Construction and QA/QC parameters that control settlement performance"
+      },
+      {
+        "type": "paragraph",
+        "text": "Analytical predictions are only as good as field execution. For embankment support, critical controls include binder content, mixing energy, penetration or withdrawal rates, overlap geometry, and curing management. Strength and stiffness verification is typically based on core or wet-grab testing and laboratory UCS testing at specified curing ages (for example 7- and 28-day checkpoints)."
+      },
+      {
+        "type": "equation",
+        "label": "(8)",
+        "lines": [
+          "E<sub>50,c</sub> &asymp; &alpha; q<sub>u,c</sub>"
+        ],
+        "caption": "Typical preliminary link between secant modulus and UCS of treated material; alpha is project-calibrated."
+      },
+      {
+        "type": "heading",
+        "text": "7) Practical staged-design sequence for railway embankments"
+      },
+      {
+        "type": "paragraph",
+        "text": "A robust workflow is: (i) define untreated baseline settlement and stability; (ii) select trial DSM grid and replacement ratio; (iii) assign preliminary strength or stiffness targets for treated soil; (iv) compute stress-sharing and improved settlement by layers; (v) run staged checks for construction period and operational period; (vi) update model parameters using trial-section or early production QA/QC data."
+      },
+      {
+        "type": "note",
+        "text": "Engineering disclaimer: The equations in this article are for preliminary assessment and concept-level comparison. Final design for railway infrastructure must be completed and signed off by qualified geotechnical engineers using project-specific ground data, verified constitutive parameters, and governing national or owner standards."
+      },
+      {
+        "type": "author",
+        "text": "Arifcan Yilmaz, MSc"
+      },
+      {
+        "type": "author",
+        "text": "Geotechnical Engineer"
+      },
+      {
+        "type": "heading",
+        "text": "Bibliography"
+      },
+      {
+        "type": "bibliography",
+        "items": [
+          "[1] Federal Highway Administration (FHWA) (2013). Deep Mixing for Embankment and Foundation Support, FHWA-HRT-13-046.",
+          "[2] Bruce, D.A. (2000). An Introduction to the Deep Mixing Method as Used in Geotechnical Applications, FHWA-RD-99-138.",
+          "[3] Terashi, M. (2003). The State of Practice in Deep Mixing Methods. Proceedings of Grouting and Ground Treatment 2003, ASCE Geotechnical Special Publication 120.",
+          "[4] EuroSoilStab (2002). Design Guide: Soft Soil Stabilisation. CT97-0351 Project Report, BRE Press.",
+          "[5] Han, J. (2015). Principles and Practice of Ground Improvement. Wiley.",
+          "[6] Navin, M.P. (2005). Stability of Embankments Founded on Soft Soil Improved with Deep-Mixing-Method Columns. Doctoral Dissertation, Virginia Tech."
         ]
       }
     ]

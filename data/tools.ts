@@ -772,7 +772,7 @@ const earthPressureTools: ToolDefinition[] = [
   {
     slug: "k0-earth-pressure",
     status: "active",
-    title: "Earth Pressure Coefficients (K0, Kactive, Kpassive)",
+    title: "Earth Pressure Coefficients (K₀, Kₐ, Kₚ)",
     category: "Stress Related Tools",
     shortDescription:
       "Computes K0, Kactive, and Kpassive from friction angle and OCR, then reports corresponding horizontal effective stresses.",
@@ -1704,6 +1704,69 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     }),
   },
   {
+    slug: "cu-from-pressuremeter",
+    status: "active",
+    title: "Undrained Shear Strength (cu) from Pressuremeter Net Limit Pressure (PLN)",
+    category: "Mechanical Tools",
+    shortDescription:
+      "Uses the Baguelin (1978) pressuremeter correlation to estimate undrained shear strength from net limit pressure for cohesive-soil screening.",
+    tags: ["pressuremeter", "undrained strength", "Baguelin 1978"],
+    keywords: ["cu", "PLN", "pressuremeter", "limit pressure"],
+    featured: false,
+    inputs: [
+      num("pln", "Pressuremeter net limit pressure, PLN", 750, "kPa", { min: 1, step: 1 }),
+    ],
+    information: info({
+      methodology:
+        "Applies the Baguelin (1978) pressuremeter-based empirical relation to estimate undrained shear strength from net limit pressure in cohesive soils.",
+      assumptions: [
+        "Pressuremeter data quality and corrections are adequate for preliminary interpretation.",
+        "The soil behaviour is compatible with the empirical basis of the Baguelin correlation.",
+      ],
+      limitations: [
+        "This is a screening-level empirical conversion and should not replace laboratory or project-specific calibration.",
+        "Interpretation uncertainty can be significant in fissured, structured, or highly heterogeneous soils.",
+      ],
+      equations: ["c<sub>u</sub> = 0.67(P<sub>LN</sub>)<sup>0.75</sup>"],
+      references: [
+        "Baguelin, F., Jezequel, J.F., and Shields, D.H. (1978). The Pressuremeter and Foundation Engineering. Trans Tech Publications.",
+        "Clarke, B.G. (1995). Pressuremeters in Geotechnical Design. Blackie Academic & Professional.",
+      ],
+    }),
+  },
+  {
+    slug: "cprime-from-cu",
+    status: "active",
+    title: "Effective Cohesion (c') from Undrained Shear Strength (cu)",
+    category: "Mechanical Tools",
+    shortDescription:
+      "Uses the c' = 0.1cu correlation and chart-aligned 30 kPa screening cap reported by Sorensen and Okkels (2013) for cohesive soils.",
+    tags: ["effective cohesion", "undrained strength", "cohesive soil"],
+    keywords: ["c'", "cu", "Sorensen", "Okkels", "2013"],
+    featured: false,
+    inputs: [num("cu", "Undrained shear strength, cu", 120, "kPa", { min: 1, step: 0.1 })],
+    information: info({
+      methodology:
+        "Applies the simplified cohesive-soil correlation c' = 0.1cu and includes the chart-aligned screening cap c' <= 30 kPa as indicated in Sorensen and Okkels (2013).",
+      assumptions: [
+        "The deposit behaviour is sufficiently cohesive for this simplified cu-to-c' interpretation.",
+        "The chart-based cap is used as a screening constraint, not as a universal design limit.",
+      ],
+      limitations: [
+        "This conversion is empirical and should be calibrated with project-specific laboratory and field evidence.",
+        "Do not use this alone for final design parameter selection.",
+      ],
+      equations: [
+        "c'<sub>oc</sub> = 0.1c<sub>u</sub>",
+        "c'<sub>oc,screened</sub> = min(0.1c<sub>u</sub>, 30 kPa)",
+      ],
+      references: [
+        "Sorensen, K.K. and Okkels, N. (2013). Correlation between c'_oc and c_u for overconsolidated clays.",
+        "Ladd, C.C. and Foott, R. (1974). New design procedure for stability of soft clays. Journal of the Geotechnical Engineering Division, ASCE.",
+      ],
+    }),
+  },
+  {
     slug: "friction-angle-from-spt",
     status: "active",
     title: "Effective Friction Angle (φ') from Standard Penetration Test Resistance (N60)",
@@ -1727,6 +1790,36 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
       ],
       equations: ["&phi;' &asymp; 27.1 + 0.3N<sub>60</sub> - 0.00054N<sub>60</sub><sup>2</sup>"],
       references: empiricalRefs,
+    }),
+  },
+  {
+    slug: "friction-angle-from-pi",
+    status: "active",
+    title: "Effective Friction Angle (φ') from Plasticity Index (PI)",
+    category: "Mechanical Tools",
+    shortDescription:
+      "Uses the PI-based cohesive-soil correlation φ' = 45 - 14log10(PI), consistent with the charted trend cited by Sorensen and Okkels (2013).",
+    tags: ["friction angle", "plasticity index", "cohesive soil"],
+    keywords: ["phi'", "PI", "Mitchell", "Kulhawy", "Mayne", "Sorensen"],
+    featured: false,
+    inputs: [num("plasticityIndex", "Plasticity Index, PI", 25, "%", { min: 0.1, max: 200, step: 0.1 })],
+    information: info({
+      methodology:
+        "Estimates effective friction angle from plasticity index using the practical cohesive-soil correlation φ' = 45 - 14log10(PI), aligned with the trend shown in Mitchell (1976), Kulhawy and Mayne (1990), and Sorensen and Okkels (2013).",
+      assumptions: [
+        "The PI value is representative and obtained from reliable Atterberg limits testing.",
+        "The deposit behaviour is compatible with the cohesive-soil empirical basis of the correlation.",
+      ],
+      limitations: [
+        "This is an empirical screening relation and should not replace project-specific strength characterisation.",
+        "Mineralogy, structure, stress history, and anisotropy effects are not explicitly modelled.",
+      ],
+      equations: ["&phi;' = 45 - 14log<sub>10</sub>(PI)"],
+      references: [
+        "Mitchell, J.K. (1976). Fundamentals of Soil Behavior. John Wiley & Sons.",
+        "Kulhawy, F.H. and Mayne, P.W. (1990). Manual on Estimating Soil Properties for Foundation Design (EPRI EL-6800).",
+        "Sorensen, K.K. and Okkels, N. (2013). Practical correlations for cohesive soil strength parameters.",
+      ],
     }),
   },
   {
@@ -1780,8 +1873,161 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     }),
   },
   {
-    slug: "resilient-modulus-from-cbr",
+    slug: "eu-from-spt-butler-1975",
     status: "active",
+    title: "Undrained Deformation Modulus (Eu) from Standard Penetration Test (N60)",
+    category: "Rigidity / Deformation Tools",
+    shortDescription:
+      "Uses the Butler (1975) correlation for cohesive soils, where Eu/N60 is taken within 1000 to 1200 kN/m2 for preliminary screening.",
+    tags: ["Eu", "SPT", "cohesive soil", "Butler 1975"],
+    keywords: ["undrained modulus", "N60", "Eu/N60", "Butler"],
+    featured: false,
+    inputs: [
+      num("n60", "Corrected SPT resistance, N60", 15, undefined, { min: 1, step: 0.1 }),
+      num("euN60Ratio", "Selected ratio, Eu/N60", 1100, "kPa", { min: 1000, max: 1200, step: 10 }),
+    ],
+    information: info({
+      methodology:
+        "For cohesive soils, Eu is estimated from corrected SPT resistance by applying Butler (1975) as Eu/N60 = 1000 to 1200 kN/m2, then calculating Eu = (Eu/N60)N60.",
+      assumptions: [
+        "N60 has already been corrected and is representative of the analysed cohesive layer.",
+        "A screening ratio between 1000 and 1200 kN/m2 per blow is acceptable for preliminary Eu interpretation.",
+      ],
+      limitations: [
+        "This is an empirical screening correlation and should be checked against project-specific laboratory and field stiffness evidence.",
+        "Final design modulus selection should account for stress level, strain level, and soil structure effects.",
+      ],
+      equations: [
+        "E<sub>u</sub> / N<sub>60</sub> = 1000 &ndash; 1200 kN/m<sup>2</sup>",
+        "E<sub>u</sub> = (E<sub>u</sub>/N<sub>60</sub>)N<sub>60</sub>",
+      ],
+      references: [
+        "Butler, F.G. (1975). Correlations of SPT resistance with undrained deformation modulus from case-history interpretation.",
+        "Kulhawy, F.H. and Mayne, P.W. (1990). Manual on Estimating Soil Properties for Foundation Design (EPRI EL-6800).",
+      ],
+    }),
+  },
+  {
+    slug: "effective-modulus-eprime-cohesive",
+    status: "active",
+    title: "Effective Modulus (E') for Cohesive Soils",
+    category: "Rigidity / Deformation Tools",
+    shortDescription:
+      "Estimates E' from E' = β'Eu, where Eu is derived from PI and OCR based Eu/cu screening trends and Eu = (Eu/cu)cu.",
+    tags: ["cohesive soils", "modulus", "Eu", "E'"],
+    keywords: ["E'", "Eu", "PI", "OCR", "beta prime"],
+    featured: false,
+    inputs: [
+      num("cu", "Undrained shear strength, cu", 100, "kPa", { min: 1, step: 0.1 }),
+      num("plasticityIndex", "Plasticity Index, PI", 30, "%", { min: 0.1, max: 200, step: 0.1 }),
+      num("ocr", "OCR", 2.5, undefined, { min: 1, max: 10, step: 0.1 }),
+      select("soilType", "Cohesive soil type for beta'", "stiff-clay", [
+        { label: "Silt / silty clay (beta' = 0.7)", value: "silt-clay" },
+        { label: "Stiff clay (beta' = 0.6)", value: "stiff-clay" },
+        { label: "Soft clay (beta' = 0.4)", value: "soft-clay" },
+      ]),
+    ],
+    information: info({
+      methodology:
+        "The tool estimates Eu/cu from PI and OCR screening bands, computes Eu = (Eu/cu)cu, then obtains effective modulus from E' = beta'Eu for cohesive soils.",
+      assumptions: [
+        "PI and OCR fall within the screening range used by the reference chart interpretation (OCR approximately 1 to 10).",
+        "Selected beta' value is representative of the cohesive soil type at the analysed depth.",
+      ],
+      limitations: [
+        "Eu/cu from the chart is interpreted for preliminary screening and should be calibrated with project-specific laboratory or in-situ stiffness evidence.",
+        "Final design modulus selection should account for strain level, stress path, structure, and anisotropy.",
+      ],
+      equations: [
+        "E' = &beta;'E<sub>u</sub>",
+        "E<sub>u</sub> = (E<sub>u</sub>/c<sub>u</sub>)c<sub>u</sub>",
+        "(E<sub>u</sub>/c<sub>u</sub>) = 1500OCR<sup>-0.58</sup> for PI &lt; 30; 600OCR<sup>-0.55</sup> for 30 &le; PI &le; 50; 300OCR<sup>-0.58</sup> for PI &gt; 50",
+      ],
+      tables: [
+        {
+          title: "Cohesive Soil beta' Factors Used In This Tool",
+          columns: ["Soil type", "beta'"],
+          rows: [
+            ["Silt / silty clay", "0.7"],
+            ["Stiff clay", "0.6"],
+            ["Soft clay", "0.4"],
+          ],
+          note: "These values follow the cohesive-soil subset of the table shown in Poulos and Small (2000).",
+        },
+      ],
+      references: [
+        "Poulos, H.G. and Small, J.C. (2000). Pile Foundation Analysis and Design. John Wiley & Sons.",
+        "Duncan, J.M. and Buchignani, A.L. (1976). An engineering manual for settlement studies of foundations in overconsolidated clays.",
+        "Sorensen, K.K. and Okkels, N. (2013). Practical correlations for cohesive soil parameters.",
+      ],
+    }),
+  },
+  {
+    slug: "eprime-from-spt-cohesionless",
+    status: "active",
+    title: "Effective Modulus (E') for Cohesionless Soils from SPT",
+    category: "Rigidity / Deformation Tools",
+    shortDescription:
+      "Estimates E' for cohesionless soils using selectable Kulhawy and Mayne (1990) and Bowles (1996) SPT correlations.",
+    tags: ["cohesionless soils", "E'", "SPT", "Kulhawy", "Mayne", "Bowles"],
+    keywords: ["E'", "N60", "N55", "sand modulus", "SPT correlation"],
+    featured: false,
+    inputs: [
+      select("correlation", "Correlation option", "km-clean-1000n60", [
+        { label: "Kulhawy & Mayne (1990) - clean sands: E' = 1000N60", value: "km-clean-1000n60" },
+        { label: "Kulhawy & Mayne (1990) - silty/clayey sands: E' = 500N60", value: "km-silty-clayey-500n60" },
+        { label: "Kulhawy & Mayne (1990) - overconsolidated clean sands: E' = 1500N60", value: "km-oc-clean-1500n60" },
+        { label: "Bowles (1996) - normal sands: E' = 500(N55 + 15)", value: "bw-nc-500-n55-plus15" },
+        { label: "Bowles (1996) - normal sands: E' = 7000sqrt(N55)", value: "bw-nc-7000-sqrt-n55" },
+        { label: "Bowles (1996) - normal sands: E' = 6000N55", value: "bw-nc-6000-n55" },
+        { label: "Bowles (1996) - normal sands: E' = 15000ln(N55)", value: "bw-nc-15000-ln-n55" },
+        { label: "Bowles (1996) - normal sands: E' = 22000ln(N55)", value: "bw-nc-22000-ln-n55" },
+        { label: "Bowles (1996) - normal sands: E' = 2600N55", value: "bw-nc-2600-n55" },
+        { label: "Bowles (1996) - normal sands: E' = 2900N55", value: "bw-nc-2900-n55" },
+        { label: "Bowles (1996) - saturated sands: E' = 250(N55 + 15)", value: "bw-sat-250-n55-plus15" },
+        { label: "Bowles (1996) - gravelly sands: E' = 1200(N55 + 6)", value: "bw-gravel-1200-n55-plus6" },
+        {
+          label: "Bowles (1996) - gravelly sands conditional: N55<=15 and N55>15 branches",
+          value: "bw-gravel-conditional",
+        },
+        { label: "Bowles (1996) - clayey sands: E' = 320(N55 + 15)", value: "bw-clayey-320-n55-plus15" },
+        { label: "Bowles (1996) - silty sands/silts: E' = 300(N55 + 6)", value: "bw-silty-300-n55-plus6" },
+      ]),
+      num("nValue", "Corrected SPT resistance, N (use N60 or N55 based on selected equation)", 15, undefined, {
+        min: 0.1,
+        step: 0.1,
+      }),
+    ],
+    information: info({
+      methodology:
+        "For cohesionless soils, this tool provides selectable SPT-based E' correlations from Kulhawy and Mayne (1990) and Bowles (1996). The selected equation is applied directly to the entered corrected SPT resistance.",
+      assumptions: [
+        "The selected correlation is compatible with the soil type and stress-history condition represented by the sample.",
+        "The entered corrected SPT value is consistent with the required index in the selected formula (N60 for Kulhawy-Mayne options, N55 for Bowles options).",
+      ],
+      limitations: [
+        "These are empirical screening correlations and should be checked against project-specific stiffness evidence.",
+        "Do not use this output alone for final design without engineering judgement and code-based verification.",
+      ],
+      equations: [
+        "E' = 500N<sub>60</sub>, 1000N<sub>60</sub>, or 1500N<sub>60</sub> (Kulhawy and Mayne, 1990)",
+        "E' = 500(N<sub>55</sub> + 15)",
+        "E' = 7000N<sub>55</sub><sup>0.5</sup>",
+        "E' = 6000N<sub>55</sub>",
+        "E' = 15000ln(N<sub>55</sub>) to 22000ln(N<sub>55</sub>)",
+        "E' = 2600N<sub>55</sub> to 2900N<sub>55</sub>",
+        "E' = 250(N<sub>55</sub> + 15), 1200(N<sub>55</sub> + 6), 320(N<sub>55</sub> + 15), or 300(N<sub>55</sub> + 6)",
+        "E' = 600(N<sub>55</sub> + 6) for N<sub>55</sub> <= 15; E' = 2000 + 600(N<sub>55</sub> + 6) for N<sub>55</sub> > 15",
+      ],
+      references: [
+        "Kulhawy, F.H. and Mayne, P.W. (1990). Manual on Estimating Soil Properties for Foundation Design (EPRI EL-6800).",
+        "Bowles, J.E. (1996). Foundation Analysis and Design, 5th ed. McGraw-Hill.",
+      ],
+    }),
+  },
+  {
+    slug: "resilient-modulus-from-cbr",
+    status: "archived",
     title: "Resilient Modulus (Mr) from California Bearing Ratio (CBR)",
     category: "Rigidity / Deformation Tools",
     shortDescription:

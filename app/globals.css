@@ -93,6 +93,18 @@ a {
   transform: none;
 }
 
+.btn-danger {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.btn-danger:hover {
+  border-color: #f87171;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .btn-md {
   min-height: 2.75rem;
   padding: 0.875rem 1rem;

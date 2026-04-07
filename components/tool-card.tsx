@@ -14,7 +14,7 @@ export function ToolCard({ tool }: ToolCardProps) {
         {tool.category}
       </p>
       <h3 className="mt-2 text-lg font-semibold text-slate-900" style={{ fontFamily: "var(--font-serif), serif" }}>
-        {tool.title}
+        <EngineeringText text={tool.title} />
       </h3>
       <p className="mt-2 flex-1 text-sm leading-6 text-slate-600" style={{ fontFamily: "var(--font-sans), sans-serif" }}>
         <EngineeringText text={tool.shortDescription} />

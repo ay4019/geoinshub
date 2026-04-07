@@ -1,15 +1,18 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import { EngineeringText } from "@/components/engineering-text";
+import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface ModulusFromCuProfileTabProps {
   unitSystem: UnitSystem;
+  importRows?: SelectedBoreholeSummary[];
 }
 
 type RatioBasis = "soft-clay" | "medium-clay" | "stiff-clay";
@@ -294,7 +297,7 @@ function renderProfileChart({
   );
 }
 
-export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabProps) {
+export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromCuProfileTabProps) {
   const [rows, setRows] = useState<ProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
@@ -316,6 +319,38 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
 
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
+
+  useEffect(() => {
+    if (!importRows || importRows.length === 0) {
+      return;
+    }
+    setRows((current) => {
+      const template = current[0] ?? initialRows[0];
+      return importRows.map((item, index) => {
+        const topDepthDisplay =
+          item.sampleTopDepth === null
+            ? template.topDepth
+            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem);
+
+        let bottomDepthDisplay =
+          item.sampleBottomDepth === null
+            ? String(parse(topDepthDisplay) + 0.5)
+            : convertInputValueBetweenSystems(String(item.sampleBottomDepth), "m", "metric", unitSystem);
+
+        if (parse(bottomDepthDisplay) <= parse(topDepthDisplay)) {
+          bottomDepthDisplay = String(parse(topDepthDisplay) + 0.5);
+        }
+
+        return {
+          ...template,
+          id: index + 1,
+          boreholeId: item.boreholeLabel || template.boreholeId,
+          topDepth: topDepthDisplay,
+          bottomDepth: bottomDepthDisplay,
+        };
+      });
+    });
+  }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<ProfileRow>) => {
     setRows((current) =>
@@ -397,9 +432,20 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
               ratio workflow.
             </p>
           </div>
-          <button type="button" className="btn-base btn-md" onClick={addRow}>
-            Add Sample
-          </button>
+          <div className="flex items-center gap-3">
+            <button type="button" className="btn-base btn-md" onClick={addRow}>
+              Add Sample
+            </button>
+            <button
+              type="button"
+              className="btn-base btn-md"
+              onClick={(event) => {
+                void exportProfileExcelFromSection(event.currentTarget);
+              }}
+            >
+              Export Excel
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-white">
@@ -555,23 +601,7 @@ export function ModulusFromCuProfileTab({ unitSystem }: ModulusFromCuProfileTabP
           </div>
         ) : null}
       </div>
-
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="font-semibold">Plot disclaimer</p>
-        <p className="mt-1">
-          This profile-based view is a Plot workflow for screening only. It does not replace project-specific stiffness
-          testing, strain-level selection, or professional engineering judgement.
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          This Plot is intended for cohesive soils only. The suggested <EngineeringText text="E/c_u" /> basis remains
-          consistency-based, and manual override should be used only when project-specific stiffness data or back-analysis
-          supports a different ratio.
-        </p>
-      </div>
-    </section>
+</section>
   );
 }
+

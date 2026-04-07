@@ -11,7 +11,13 @@ export const metadata: Metadata = {
   description: "Your Geotechnical Insights Hub account page.",
 };
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
+  const { mode } = await searchParams;
+  const initialMode = mode === "signup" ? "signup" : "login";
   const supabaseConfigured = isSupabaseConfigured();
   let user: User | null = null;
 
@@ -26,7 +32,7 @@ export default async function AccountPage() {
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-6 sm:py-6">
-        <AccountAuthPanel />
+        <AccountAuthPanel initialMode={initialMode} />
       </div>
     );
   }

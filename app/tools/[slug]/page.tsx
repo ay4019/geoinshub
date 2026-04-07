@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 
 import { EngineeringText } from "@/components/engineering-text";
 import { ToolCalculator } from "@/components/tool-calculator";
-import { ToolUnitToggle } from "@/components/tool-unit-provider";
 import { getToolBySlug, getToolSlugs } from "@/lib/data-layer";
 
 interface ToolDetailPageProps {
@@ -44,7 +43,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
       </Link>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.08em] text-slate-500">{tool.category}</p>
             <h1 className="mt-2 text-2xl font-semibold text-slate-900">
@@ -54,7 +53,6 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
               <EngineeringText text={tool.shortDescription} />
             </p>
           </div>
-          <ToolUnitToggle compact />
         </div>
       </section>
 

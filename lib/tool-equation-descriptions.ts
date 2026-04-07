@@ -228,11 +228,40 @@
     "This Stroud (1974) relationship is used directly to estimate undrained shear strength from the chart-derived f1 factor and corrected SPT resistance.",
     "This step states that f1 is obtained by linearly interpolating between interpreted Stroud PI anchor points used in the tool.",
   ],
+  "cu-from-pressuremeter": [
+    "This Baguelin (1978) pressuremeter correlation estimates undrained shear strength from net limit pressure for preliminary cohesive-soil screening.",
+  ],
+  "cprime-from-cu": [
+    "This expression converts undrained shear strength to effective cohesion using the simplified c' versus cu relationship cited for overconsolidated cohesive soils.",
+    "This screening form applies the chart-aligned upper limit so the interpreted effective cohesion does not exceed 30 kPa in preliminary checks.",
+  ],
   "friction-angle-from-spt": [
     "This empirical relationship, commonly cited after Peck, Hanson, and Thornburn (1974), gives an approximate effective friction angle for granular soils from corrected SPT resistance.",
   ],
+  "friction-angle-from-pi": [
+    "This PI-based correlation estimates effective friction angle for cohesive soils using the practical trend reported in Mitchell (1976), Kulhawy and Mayne (1990), and Sorensen and Okkels (2013).",
+  ],
   "modulus-from-cu": [
     "This conversion uses the selected E/cu ratio to estimate elastic modulus from undrained shear strength.",
+  ],
+  "eu-from-spt-butler-1975": [
+    "This Butler (1975) relationship defines the screening range of Eu per blow count for cohesive soils.",
+    "This expression computes undrained deformation modulus by multiplying the selected Eu/N60 ratio by corrected SPT resistance.",
+  ],
+  "effective-modulus-eprime-cohesive": [
+    "This relation converts undrained modulus to effective modulus by applying the selected beta' factor for cohesive soils.",
+    "This expression forms undrained modulus by multiplying the interpreted Eu/cu ratio by undrained shear strength.",
+    "This piecewise OCR-based screening relation is used to estimate Eu/cu from PI class and OCR level.",
+  ],
+  "eprime-from-spt-cohesionless": [
+    "These Kulhawy and Mayne (1990) forms estimate E' directly from corrected SPT resistance for cohesionless sand classes.",
+    "This Bowles (1996) linear expression is one of the normal-sand alternatives linking E' with N55.",
+    "This Bowles (1996) square-root form is an alternative normal-sand correlation.",
+    "This Bowles (1996) direct proportional form is an alternative normal-sand correlation.",
+    "These Bowles (1996) logarithmic alternatives represent lower and upper coefficient variants.",
+    "These Bowles (1996) linear alternatives represent lower and upper coefficient variants.",
+    "These Bowles (1996) forms cover saturated, gravelly, clayey, and silty cohesionless-soil variants.",
+    "This Bowles (1996) conditional gravelly-sand expression switches formula branch based on N55 threshold.",
   ],
   "resilient-modulus-from-cbr": [
     "This correlation gives a first-pass estimate of resilient modulus from CBR.",

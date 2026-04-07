@@ -4,11 +4,20 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface CuFromSptProfileTabProps {
   unitSystem: UnitSystem;
+  importRows?: SelectedBoreholeSummary[];
+  projectParameters?: Array<{
+    boreholeLabel: string;
+    sampleDepth: number | null;
+    parameterCode: string;
+    value: number;
+    sourceToolSlug?: string | null;
+  }>;
   onReportDataChange?: (payload: CuFromSptReportPayload) => void;
 }
 
@@ -18,6 +27,7 @@ interface CuFromSptRow {
   sampleDepth: string;
   plasticityIndex: string;
   n60: string;
+  n60Source: "manual" | "auto-spt-corrections";
 }
 
 interface PlotPoint {
@@ -39,13 +49,29 @@ export interface CuFromSptReportPayload {
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
 
 const initialRows: CuFromSptRow[] = [
-  { id: 1, boreholeId: "", sampleDepth: "1.5", plasticityIndex: "20", n60: "12" },
-  { id: 2, boreholeId: "", sampleDepth: "3.0", plasticityIndex: "28", n60: "18" },
+  { id: 1, boreholeId: "", sampleDepth: "1.5", plasticityIndex: "20", n60: "12", n60Source: "manual" },
+  { id: 2, boreholeId: "", sampleDepth: "3.0", plasticityIndex: "28", n60: "18", n60Source: "manual" },
 ];
 
 function parse(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sanitiseBoreholeLabel(value: string | null | undefined): string {
+  const cleaned = (value ?? "")
+    .replace(/[▼▾▿▲△]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "BH not set";
+}
+
+function normaliseBoreholeLabelKey(value: string | null | undefined): string {
+  return sanitiseBoreholeLabel(value).toLowerCase();
+}
+
+function depthKey(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(4) : "na";
 }
 
 function interpolateStroudF1(pi: number): number {
@@ -369,12 +395,31 @@ function buildCuPlotPngDataUri({
   return canvas.toDataURL("image/png");
 }
 
-export function CuFromSptProfileTab({ unitSystem, onReportDataChange }: CuFromSptProfileTabProps) {
+export function CuFromSptProfileTab({
+  unitSystem,
+  importRows,
+  projectParameters,
+  onReportDataChange,
+}: CuFromSptProfileTabProps) {
   const [rows, setRows] = useState<CuFromSptRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
+
+  const n60ByBoreholeDepth = useMemo(() => {
+    const map = new Map<string, number>();
+    (projectParameters ?? []).forEach((parameter) => {
+      if (parameter.parameterCode.toLowerCase() !== "n60" || !Number.isFinite(parameter.value)) {
+        return;
+      }
+      const key = `${normaliseBoreholeLabelKey(parameter.boreholeLabel)}|${depthKey(parameter.sampleDepth)}`;
+      if (!map.has(key)) {
+        map.set(key, parameter.value);
+      }
+    });
+    return map;
+  }, [projectParameters]);
 
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
@@ -390,6 +435,40 @@ export function CuFromSptProfileTab({ unitSystem, onReportDataChange }: CuFromSp
 
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
+
+  useEffect(() => {
+    if (!importRows || importRows.length === 0) {
+      return;
+    }
+
+    setRows((current) => {
+      const template = current[0] ?? initialRows[0];
+      return importRows.map((item, index) => {
+        const boreholeId = item.boreholeLabel || template.boreholeId;
+        const sampleDepthMetric = item.sampleTopDepth;
+        const key = `${normaliseBoreholeLabelKey(boreholeId)}|${depthKey(sampleDepthMetric)}`;
+        const n60Metric = n60ByBoreholeDepth.get(key);
+
+        return {
+          ...template,
+          id: index + 1,
+          boreholeId,
+          sampleDepth:
+            sampleDepthMetric === null
+              ? template.sampleDepth
+              : convertInputValueBetweenSystems(String(sampleDepthMetric), "m", "metric", unitSystem),
+          n60:
+            typeof n60Metric === "number" && Number.isFinite(n60Metric)
+              ? String(n60Metric)
+              : template.n60,
+          n60Source:
+            typeof n60Metric === "number" && Number.isFinite(n60Metric)
+              ? "auto-spt-corrections"
+              : "manual",
+        };
+      });
+    });
+  }, [importRows, n60ByBoreholeDepth, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<CuFromSptRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -407,6 +486,7 @@ export function CuFromSptProfileTab({ unitSystem, onReportDataChange }: CuFromSp
           sampleDepth: String(parse(lastDepth) + 1.5),
           plasticityIndex: "25",
           n60: "15",
+          n60Source: "manual",
         },
       ];
     });
@@ -536,6 +616,11 @@ export function CuFromSptProfileTab({ unitSystem, onReportDataChange }: CuFromSp
           Enter PI and corrected N<sub>60</sub> by layer. The tool derives f<sub>1</sub> from Stroud (1974) PI anchors
           and computes c<sub>u</sub> = f<sub>1</sub>N<sub>60</sub> for each layer.
         </p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          If available, N<sub>60</sub> is auto-filled from{" "}
+          <span className="font-semibold">Standard Penetration Test (SPT) Corrections for N₆₀ and (N₁)₆₀</span>.
+          Manual override is always allowed.
+        </p>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-white">
           <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
@@ -611,14 +696,26 @@ export function CuFromSptProfileTab({ unitSystem, onReportDataChange }: CuFromSp
                       />
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={row.n60}
-                        onChange={(event) => updateRow(row.id, { n60: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
+                      <div className="space-y-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={row.n60}
+                          onChange={(event) =>
+                            updateRow(row.id, {
+                              n60: event.target.value,
+                              n60Source: "manual",
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        />
+                        {row.n60Source === "auto-spt-corrections" ? (
+                          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            Auto-filled from SPT Corrections
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-2 py-3">
                       <OutputCell value={f1.toFixed(2)} />
@@ -670,15 +767,6 @@ export function CuFromSptProfileTab({ unitSystem, onReportDataChange }: CuFromSp
           </div>
         ) : null}
       </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          This layer profile uses PI to interpolate Stroud f<sub>1</sub> and then computes c<sub>u</sub> from
-          c<sub>u</sub> = f<sub>1</sub>N<sub>60</sub>. Points are grouped by Borehole ID and plotted without line
-          interpolation.
-        </p>
-      </div>
-    </section>
+</section>
   );
 }

@@ -18,6 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/forgot-password",
     "/reset-password",
     "/terms",
+    "/privacy-policy",
     "/disclaimer",
   ].map((route) => ({
     url: `${baseUrl}${route}`,

@@ -6,10 +6,17 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { incrementToolUseAction } from "@/app/actions/analytics";
 import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
+import { CprimeFromCuProfileTab } from "@/components/cprime-from-cu-profile-tab";
 import { CuProfileReportTab, type CuProfileReportPoint } from "@/components/cu-profile-report-tab";
+import { CuFromPressuremeterProfileTab } from "@/components/cu-from-pressuremeter-profile-tab";
 import { CuFromSptProfileTab } from "@/components/cu-from-spt-profile-tab";
+import { EarthPressureProfileTab } from "@/components/earth-pressure-profile-tab";
+import { EprimeFromEuProfileTab } from "@/components/eprime-from-eu-profile-tab";
 import { EngineeringText } from "@/components/engineering-text";
 import { EoedProfileTab } from "@/components/eoed-profile-tab";
+import { EprimeFromSptCohesionlessProfileTab } from "@/components/eprime-from-spt-cohesionless-profile-tab";
+import { EuFromSptProfileTab } from "@/components/eu-from-spt-profile-tab";
+import { FrictionAngleFromPiProfileTab } from "@/components/friction-angle-from-pi-profile-tab";
 import { GmaxProfileTab } from "@/components/gmax-profile-tab";
 import { FrictionAngleProfileTab } from "@/components/friction-angle-profile-tab";
 import { LiquefactionProfileTab } from "@/components/liquefaction-profile-tab";
@@ -21,10 +28,19 @@ import { SptProfileTab } from "@/components/spt-profile-tab";
 import { StressDistributionVisual } from "@/components/stress-distribution-visual";
 import { Tabs } from "@/components/tabs";
 import { useToolUnitSystem } from "@/components/tool-unit-provider";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { calculateBySlug } from "@/lib/tool-calculations";
 import { getEquationDescriptions } from "@/lib/tool-equation-descriptions";
 import { getEquationParameters } from "@/lib/tool-equation-parameters";
-import type { CalculationResult, ToolDefinition, ToolInformation } from "@/lib/types";
+import {
+  getActiveImportBoreholes,
+  readActiveProjectBorehole,
+  type ActiveProjectBorehole,
+  type SelectedBoreholeSummary,
+} from "@/lib/project-boreholes";
+import { syncProjectParametersForResult } from "@/lib/project-parameters";
+import type { CalculationResult, ToolDefinition, ToolInformation, UnitSystem } from "@/lib/types";
 import {
   convertInputToMetric,
   convertInputValueBetweenSystems,
@@ -37,6 +53,31 @@ interface ToolCalculatorProps {
 }
 
 type FormErrors = Record<string, string>;
+
+const PROFILE_FIRST_TOOL_SLUGS = new Set([
+  "modulus-from-cu",
+  "spt-corrections",
+  "gmax-from-vs",
+  "eoed-from-mv",
+  "eu-from-spt-butler-1975",
+  "eprime-from-spt-cohesionless",
+  "effective-modulus-eprime-cohesive",
+  "ocr-calculator",
+  "cu-from-pi-and-spt",
+  "cprime-from-cu",
+  "cu-from-pressuremeter",
+  "friction-angle-from-spt",
+  "friction-angle-from-pi",
+  "k0-earth-pressure",
+  "seed-idriss-liquefaction-screening",
+  "post-liquefaction-settlement",
+]);
+
+const SITE_CHARACTERIZATION_CATEGORIES = new Set([
+  "Mechanical Tools",
+  "Rigidity / Deformation Tools",
+  "Stress Related Tools",
+]);
 
 const modulusFromCuGuidance = [
   {
@@ -63,6 +104,53 @@ const genericWarningMessages = new Set([
   "Simplified output only. Do not use directly for final design.",
   "Project-specific investigation, engineering judgement, and code checks remain required.",
 ]);
+
+const SAVED_ANALYSIS_STORAGE_KEY = "gih:load-saved-analysis";
+
+interface SavedAnalysisEnvelope {
+  id?: string;
+  toolSlug?: string;
+  unitSystem?: UnitSystem | null;
+  payload?: unknown;
+}
+
+interface ActiveProjectParameter {
+  boreholeLabel: string;
+  sampleDepth: number | null;
+  parameterCode: string;
+  value: number;
+  createdAt: string | null;
+  sourceToolSlug: string | null;
+}
+
+function sanitiseBoreholeLabel(value: string | null | undefined): string {
+  const cleaned = (value ?? "")
+    .replace(/[▼▾▿▲△]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "BH not set";
+}
+
+function normaliseBoreholeLabelKey(value: string | null | undefined): string {
+  return sanitiseBoreholeLabel(value).toLowerCase();
+}
+
+function depthKey(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(4) : "na";
+}
+
+function isUnitSystemValue(value: unknown): value is UnitSystem {
+  return value === "metric" || value === "american";
+}
+
+function isCalculationResultPayload(value: unknown): value is CalculationResult {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<CalculationResult>;
+  return typeof candidate.title === "string" && Array.isArray(candidate.items);
+}
 
 function buildLiquefactionInformation(
   baseInformation: ToolInformation,
@@ -281,7 +369,10 @@ function EquationBlock({ html }: { html: string }) {
 }
 
 export function ToolCalculator({ tool }: ToolCalculatorProps) {
-  const { unitSystem } = useToolUnitSystem();
+  const { unitSystem, setUnitSystem } = useToolUnitSystem();
+  const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
+  const hasProfileTab = PROFILE_FIRST_TOOL_SLUGS.has(tool.slug);
+  const defaultTab = hasProfileTab ? "profile" : "calculation";
   const [activeTab, setActiveTab] = useState("calculation");
   const [formValues, setFormValues] = useState<Record<string, string>>(() => toInitialValues(tool));
   const [errors, setErrors] = useState<FormErrors>({});
@@ -294,7 +385,24 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     points: CuProfileReportPoint[];
     plotImageDataUrl: string | null;
   } | null>(null);
+  const [genericProfileReportData, setGenericProfileReportData] = useState<{
+    columns: Array<{ header: string; key: string }>;
+    rows: Array<Record<string, string>>;
+    plotImageDataUrl: string | null;
+  } | null>(null);
   const previousUnitSystem = useRef(unitSystem);
+  const profileContainerRef = useRef<HTMLDivElement | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeProjectBorehole, setActiveProjectBorehole] = useState<ActiveProjectBorehole | null>(null);
+  const [activeProjectParameters, setActiveProjectParameters] = useState<ActiveProjectParameter[]>([]);
+  const [isSavingResult, setIsSavingResult] = useState(false);
+  const [saveResultMessage, setSaveResultMessage] = useState<string | null>(null);
+  const [saveResultMessageType, setSaveResultMessageType] = useState<"ok" | "error">("ok");
+  const [isSavingProfileSnapshot, setIsSavingProfileSnapshot] = useState(false);
+  const [profileSnapshotMessage, setProfileSnapshotMessage] = useState<string | null>(null);
+  const [profileSnapshotMessageType, setProfileSnapshotMessageType] = useState<"ok" | "error">("ok");
+  const [savedAnalysisMessage, setSavedAnalysisMessage] = useState<string | null>(null);
+  const [savedAnalysisMessageType, setSavedAnalysisMessageType] = useState<"ok" | "error">("ok");
 
   const disclaimer = useMemo(
     () =>
@@ -305,15 +413,27 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const showBearingVisual =
     tool.slug === "traditional-bearing-capacity-methods" || tool.slug === "eurocode-7-bearing-resistance";
   const showStressDistributionVisual = tool.slug === "stress-distribution-21";
+  const activeImportBoreholes = useMemo<SelectedBoreholeSummary[]>(
+    () => getActiveImportBoreholes(activeProjectBorehole),
+    [activeProjectBorehole],
+  );
   const isModulusFromCu = tool.slug === "modulus-from-cu";
   const isSptCorrections = tool.slug === "spt-corrections";
   const isGmaxFromVs = tool.slug === "gmax-from-vs";
   const isEoedFromMv = tool.slug === "eoed-from-mv";
+  const isEuFromSpt = tool.slug === "eu-from-spt-butler-1975";
+  const isEprimeFromSptCohesionless = tool.slug === "eprime-from-spt-cohesionless";
+  const isEprimeFromEuCohesive = tool.slug === "effective-modulus-eprime-cohesive";
   const isOcrCalculator = tool.slug === "ocr-calculator";
   const isCuFromPiAndSpt = tool.slug === "cu-from-pi-and-spt";
+  const isCprimeFromCu = tool.slug === "cprime-from-cu";
+  const isCuFromPressuremeter = tool.slug === "cu-from-pressuremeter";
   const isFrictionAngleFromSpt = tool.slug === "friction-angle-from-spt";
+  const isFrictionAngleFromPi = tool.slug === "friction-angle-from-pi";
+  const isEarthPressureCoefficients = tool.slug === "k0-earth-pressure";
   const isLiquefactionScreening = tool.slug === "seed-idriss-liquefaction-screening";
   const isPostLiquefactionSettlement = tool.slug === "post-liquefaction-settlement";
+  const isSiteCharacterizationTool = SITE_CHARACTERIZATION_CATEGORIES.has(tool.category);
   const liquefactionMethod =
     isLiquefactionScreening && formValues.method === "idriss-boulanger-2008"
       ? "idriss-boulanger-2008"
@@ -343,6 +463,573 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const isAutoRatioMode = (formValues.manualRatioMode ?? "auto") === "auto";
   const recommendedModulusFromCuRatio = String(selectedModulusFromCuRow.recommendedRatio);
 
+  const getControlValue = (control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) => {
+    if (control instanceof HTMLInputElement) {
+      if (control.type === "checkbox" || control.type === "radio") {
+        return control.checked ? "true" : "false";
+      }
+      return control.value ?? "";
+    }
+    return control.value ?? "";
+  };
+
+  const getTableControlLabel = (
+    control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  ): string => {
+    const table = control.closest("table");
+    const row = control.closest("tr");
+    const cell = control.closest("td,th");
+    if (!table || !row || !cell) {
+      return "";
+    }
+
+    const rowElement = row as HTMLTableRowElement;
+    const cellElement = cell as HTMLTableCellElement;
+    const cellIndex = Array.from(rowElement.cells).indexOf(cellElement);
+    if (cellIndex < 0) {
+      return "";
+    }
+
+    const headerCell =
+      (table.querySelector(`thead tr:last-child th:nth-child(${cellIndex + 1})`) as HTMLElement | null) ??
+      (table.querySelector(`thead tr:last-child td:nth-child(${cellIndex + 1})`) as HTMLElement | null);
+
+    const headerText = headerCell?.innerText?.replace(/\s+/g, " ").trim() ?? "";
+    const firstCellText = rowElement.cells[0]?.innerText?.replace(/\s+/g, " ").trim() ?? "";
+    const rowGroup = firstCellText && firstCellText !== headerText ? firstCellText : "";
+
+    const rowParent = rowElement.parentElement;
+    const rowIndex =
+      rowParent
+        ? Array.from(rowParent.children)
+            .filter((child) => child.tagName.toLowerCase() === "tr")
+            .indexOf(rowElement) + 1
+        : 0;
+
+    if (headerText && rowGroup) {
+      return `${headerText} (${rowGroup})`;
+    }
+
+    if (headerText && rowIndex > 0) {
+      return `${headerText} (row ${rowIndex})`;
+    }
+
+    if (rowGroup) {
+      return `Profile field (${rowGroup})`;
+    }
+
+    if (rowIndex > 0) {
+      return `Profile field (row ${rowIndex})`;
+    }
+
+    return "";
+  };
+
+  const collectProfileInputsSnapshot = () => {
+    const root = profileContainerRef.current;
+    if (!root) {
+      return [];
+    }
+
+    const controls = Array.from(
+      root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea"),
+    ).filter((control) => {
+      if (control instanceof HTMLInputElement) {
+        return !["button", "submit", "hidden"].includes(control.type);
+      }
+      return true;
+    });
+
+    return controls.map((control, index) => {
+      const id = control.id || "";
+      const name = control.getAttribute("name") || "";
+      const type = control instanceof HTMLInputElement ? control.type : control.tagName.toLowerCase();
+      const labelFromFor = id
+        ? (root.querySelector(`label[for="${id.replace(/"/g, '\\"')}"]`) as HTMLLabelElement | null)?.innerText
+        : "";
+      const labelFromClosest = control.closest("label")?.innerText ?? "";
+      const labelFromTable = getTableControlLabel(control);
+      const label =
+        labelFromFor?.trim() ||
+        labelFromClosest?.trim() ||
+        labelFromTable ||
+        control.getAttribute("aria-label") ||
+        control.getAttribute("placeholder") ||
+        name ||
+        id ||
+        `field-${index + 1}`;
+
+      return {
+        label,
+        id,
+        name,
+        type,
+        value: getControlValue(control),
+      };
+    });
+  };
+
+  const collectProfileTablesSnapshot = () => {
+    const root = profileContainerRef.current;
+    if (!root) {
+      return [];
+    }
+
+    const getTableCellValue = (cell: HTMLTableCellElement) => {
+      const control = cell.querySelector("input, select, textarea") as
+        | HTMLInputElement
+        | HTMLSelectElement
+        | HTMLTextAreaElement
+        | null;
+      if (control) {
+        if (control instanceof HTMLSelectElement) {
+          const selectedText = control.selectedOptions?.[0]?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+          return selectedText || control.value?.trim() || "";
+        }
+        if (control instanceof HTMLInputElement && (control.type === "checkbox" || control.type === "radio")) {
+          return control.checked ? "1" : "0";
+        }
+        return (control.value ?? "").replace(/\s+/g, " ").trim();
+      }
+      return cell.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    };
+
+    const tables = Array.from(root.querySelectorAll<HTMLTableElement>("table"));
+    return tables
+      .map((table, index) => {
+        const headerRow = Array.from(table.querySelectorAll("thead tr")).pop() ?? table.querySelector("tr");
+        const headers = headerRow
+          ? Array.from(headerRow.querySelectorAll("th,td"))
+              .map((cell) => getTableCellValue(cell as HTMLTableCellElement))
+              .filter(Boolean)
+          : [];
+
+        const bodyRows = Array.from(table.querySelectorAll("tbody tr")).map((row) =>
+          Array.from(row.querySelectorAll("td,th")).map((cell) => getTableCellValue(cell as HTMLTableCellElement)),
+        );
+
+        const rows = bodyRows.filter((row) => row.some((cell) => cell));
+        if (!headers.length || !rows.length) {
+          return null;
+        }
+
+        const wrapper = table.closest("section,article,div");
+        const title =
+          wrapper?.querySelector("h2,h3,h4")?.textContent?.replace(/\s+/g, " ").trim() || `Profile Table ${index + 1}`;
+
+        return {
+          title,
+          headers,
+          rows,
+        };
+      })
+      .filter((item): item is { title: string; headers: string[]; rows: string[][] } => Boolean(item));
+  };
+
+  const svgToPngDataUrl = async (svg: SVGSVGElement): Promise<string | null> => {
+    try {
+      const rect = svg.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width || 900));
+      const height = Math.max(1, Math.round(rect.height || 500));
+      const scale = 3;
+      if (width < 120 || height < 100) {
+        return null;
+      }
+
+      const serialized = new XMLSerializer().serializeToString(svg);
+      const source = serialized.includes("xmlns=")
+        ? serialized
+        : serialized.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+      const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+
+      const image = new window.Image();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        image.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              reject(new Error("Canvas context is not available."));
+              return;
+            }
+            ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(image, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/png"));
+          } catch (error) {
+            reject(error instanceof Error ? error : new Error("Failed to rasterize SVG."));
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("Failed to load SVG image."));
+        };
+        image.src = url;
+      });
+
+      return dataUrl;
+    } catch {
+      return null;
+    }
+  };
+
+  const collectProfilePlotsSnapshot = async () => {
+    const root = profileContainerRef.current;
+    if (!root) {
+      return [];
+    }
+
+    const snapshots: Array<{
+      kind: "svg" | "canvas";
+      title: string;
+      width: number;
+      height: number;
+      dataUrl: string;
+    }> = [];
+
+    const svgNodes = Array.from(root.querySelectorAll<SVGSVGElement>("svg"));
+    for (const svg of svgNodes) {
+      if (snapshots.length >= 12) {
+        break;
+      }
+      const rect = svg.getBoundingClientRect();
+      if (rect.width < 120 || rect.height < 100) {
+        continue;
+      }
+      const pngDataUrl = await svgToPngDataUrl(svg);
+      if (!pngDataUrl) {
+        continue;
+      }
+      snapshots.push({
+        kind: "svg",
+        title: svg.getAttribute("aria-label") || svg.getAttribute("data-title") || "Profile plot",
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        dataUrl: pngDataUrl,
+      });
+    }
+
+    const canvasNodes = Array.from(root.querySelectorAll<HTMLCanvasElement>("canvas"));
+    for (const canvas of canvasNodes) {
+      if (snapshots.length >= 12) {
+        break;
+      }
+      if (canvas.width < 120 || canvas.height < 100) {
+        continue;
+      }
+      let dataUrl = "";
+      try {
+        dataUrl = canvas.toDataURL("image/png");
+      } catch {
+        dataUrl = "";
+      }
+      if (!dataUrl) {
+        continue;
+      }
+      snapshots.push({
+        kind: "canvas",
+        title: canvas.getAttribute("aria-label") || canvas.getAttribute("data-title") || "Profile plot",
+        width: canvas.width,
+        height: canvas.height,
+        dataUrl,
+      });
+    }
+
+    return snapshots;
+  };
+
+  const buildGenericReportRowsFromProfileInputs = () => {
+    const inputs = collectProfileInputsSnapshot();
+    const rows = inputs
+      .map((item) => {
+        const label = (item.label ?? "").replace(/\s+/g, " ").trim();
+        if (!label || /^field-\d+$/i.test(label)) {
+          return null;
+        }
+        const value = String(item.value ?? "").trim();
+        return {
+          Field: label,
+          Value: value || "-",
+        };
+      })
+      .filter((item): item is { Field: string; Value: string } => Boolean(item));
+
+    return rows.length ? rows : [{ Field: "Info", Value: "No profile inputs were available in this snapshot." }];
+  };
+
+  const captureGenericProfileReportData = async () => {
+    const rows = buildGenericReportRowsFromProfileInputs();
+    const plots = await collectProfilePlotsSnapshot();
+    const firstPlot = plots.find((plot) => Boolean(plot.dataUrl));
+
+    setGenericProfileReportData({
+      columns: [
+        { header: "Field", key: "Field" },
+        { header: "Value", key: "Value" },
+      ],
+      rows,
+      plotImageDataUrl: firstPlot?.dataUrl ?? null,
+    });
+  };
+
+  const saveProfileSnapshotToProject = async () => {
+    setProfileSnapshotMessage(null);
+    if (!supabaseReady) {
+      setProfileSnapshotMessage("Supabase is not configured.");
+      setProfileSnapshotMessageType("error");
+      return;
+    }
+    if (!isAuthenticated) {
+      setProfileSnapshotMessage("Sign in to save profile analyses.");
+      setProfileSnapshotMessageType("error");
+      return;
+    }
+    if (!activeProjectBorehole?.projectId) {
+      setProfileSnapshotMessage("Select a project from Projects and Boreholes first.");
+      setProfileSnapshotMessageType("error");
+      return;
+    }
+
+    setIsSavingProfileSnapshot(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setProfileSnapshotMessage("Sign in to save profile analyses.");
+        setProfileSnapshotMessageType("error");
+        return;
+      }
+
+      const profileInputs = collectProfileInputsSnapshot();
+      const profileTables = collectProfileTablesSnapshot();
+      const profilePlots = await collectProfilePlotsSnapshot();
+
+      const payload = {
+        snapshotType: "profile-analysis",
+        savedAt: new Date().toISOString(),
+        unitSystem,
+        calculationInputs: formValues,
+        calculationResult: displayResult,
+        activeSelection: activeProjectBorehole,
+        profileSnapshot: {
+          inputs: profileInputs,
+          tables: profileTables,
+          plots: profilePlots,
+        },
+      };
+
+      const { data: insertedResult, error } = await supabase
+        .from("tool_results")
+        .insert({
+          user_id: user.id,
+          project_id: activeProjectBorehole.projectId,
+          borehole_id: activeProjectBorehole.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole.boreholeId,
+          tool_slug: tool.slug,
+          tool_title: tool.title,
+          result_title: `${tool.title} - Profile Snapshot`,
+          result_payload: payload,
+          unit_system: unitSystem,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        setProfileSnapshotMessage(error.message);
+        setProfileSnapshotMessageType("error");
+        return;
+      }
+
+      let integratedCount = 0;
+      try {
+        const integrated = await syncProjectParametersForResult({
+          supabase,
+          userId: user.id,
+          projectId: activeProjectBorehole.projectId,
+          sourceResultId: insertedResult.id,
+          toolSlug: tool.slug,
+          payload,
+        });
+        integratedCount = integrated.insertedCount;
+      } catch (integrationError) {
+        const reason =
+          integrationError instanceof Error
+            ? integrationError.message
+            : "Integrated-parameter indexing failed.";
+        setProfileSnapshotMessage(`Profile analysis saved, but parameter indexing failed: ${reason}`);
+        setProfileSnapshotMessageType("error");
+        return;
+      }
+
+      setProfileSnapshotMessage(
+        `Profile analysis saved. Captured ${profileInputs.length} input fields, ${profileTables.length} tables, and ${profilePlots.length} plot images. Indexed ${integratedCount} parameters.`,
+      );
+      setProfileSnapshotMessageType("ok");
+    } catch {
+      setProfileSnapshotMessage("Saving profile analysis failed. Please try again.");
+      setProfileSnapshotMessageType("error");
+    } finally {
+      setIsSavingProfileSnapshot(false);
+    }
+  };
+
+  const renderProfileSavePanel = () => (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Save Profile Analysis</p>
+      <p className="mt-1 text-sm text-slate-600">
+        Save current profile inputs and plot images to the active project folder.
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        {activeProjectBorehole
+          ? `Target: ${activeProjectBorehole.projectName}${activeProjectBorehole.boreholeLabel ? ` / ${activeProjectBorehole.boreholeLabel}` : ""}`
+          : "Select a project/borehole from the top-right dropdown first."}
+      </p>
+      {activeProjectBorehole ? (
+        <p className="mt-1 text-xs text-slate-500">
+          Active imported samples: {activeImportBoreholes.length}
+        </p>
+      ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            void saveProfileSnapshotToProject();
+          }}
+          className="btn-base px-3 py-1.5 text-sm"
+          disabled={isSavingProfileSnapshot}
+        >
+          {isSavingProfileSnapshot ? "Saving..." : "Save Analysis to Project"}
+        </button>
+      </div>
+      {profileSnapshotMessage ? (
+        <div
+          className={`mt-2 rounded-md border px-2.5 py-1.5 text-xs ${
+            profileSnapshotMessageType === "ok"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-red-200 bg-red-50 text-red-800"
+          }`}
+        >
+          <p>{profileSnapshotMessage}</p>
+          {profileSnapshotMessageType === "ok" ? (
+            <div className="mt-2">
+              <Link href="/account" className="btn-base px-3 py-1.5 text-sm">
+                Go to Projects
+              </Link>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const saveResultToProject = async () => {
+    if (!displayResult) {
+      return;
+    }
+
+    setSaveResultMessage(null);
+    if (!supabaseReady) {
+      setSaveResultMessage("Supabase is not configured.");
+      setSaveResultMessageType("error");
+      return;
+    }
+    if (!isAuthenticated) {
+      setSaveResultMessage("Sign in to save tool results.");
+      setSaveResultMessageType("error");
+      return;
+    }
+    if (!activeProjectBorehole?.projectId) {
+      setSaveResultMessage("Select a project from Projects and Boreholes first.");
+      setSaveResultMessageType("error");
+      return;
+    }
+
+    setIsSavingResult(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setSaveResultMessage("Sign in to save tool results.");
+        setSaveResultMessageType("error");
+        return;
+      }
+
+      const payload = {
+        snapshotType: "calculation-result",
+        savedAt: new Date().toISOString(),
+        unitSystem,
+        calculationInputs: formValues,
+        calculationResult: displayResult,
+        activeSelection: activeProjectBorehole,
+      };
+
+      const { data: insertedResult, error } = await supabase
+        .from("tool_results")
+        .insert({
+          user_id: user.id,
+          project_id: activeProjectBorehole.projectId,
+          borehole_id: activeProjectBorehole.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole.boreholeId,
+          tool_slug: tool.slug,
+          tool_title: tool.title,
+          result_title: displayResult.title,
+          result_payload: payload,
+          unit_system: unitSystem,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        setSaveResultMessage(error.message);
+        setSaveResultMessageType("error");
+        return;
+      }
+
+      let integratedCount = 0;
+      try {
+        const integrated = await syncProjectParametersForResult({
+          supabase,
+          userId: user.id,
+          projectId: activeProjectBorehole.projectId,
+          sourceResultId: insertedResult.id,
+          toolSlug: tool.slug,
+          payload,
+        });
+        integratedCount = integrated.insertedCount;
+      } catch (integrationError) {
+        const reason =
+          integrationError instanceof Error
+            ? integrationError.message
+            : "Integrated-parameter indexing failed.";
+        setSaveResultMessage(`Result saved, but parameter indexing failed: ${reason}`);
+        setSaveResultMessageType("error");
+        return;
+      }
+
+      setSaveResultMessage(`Result saved to the selected project. Indexed ${integratedCount} parameters.`);
+      setSaveResultMessageType("ok");
+    } catch {
+      setSaveResultMessage("Saving failed. Please try again.");
+      setSaveResultMessageType("error");
+    } finally {
+        setIsSavingResult(false);
+      }
+  };
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab, tool.slug]);
+
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
@@ -361,6 +1048,210 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
 
     previousUnitSystem.current = unitSystem;
   }, [tool.inputs, unitSystem]);
+
+  useEffect(() => {
+    setActiveProjectBorehole(readActiveProjectBorehole());
+
+    function syncActiveProjectBorehole() {
+      setActiveProjectBorehole(readActiveProjectBorehole());
+    }
+
+    window.addEventListener("storage", syncActiveProjectBorehole);
+    window.addEventListener("gih:active-project-changed", syncActiveProjectBorehole);
+
+    return () => {
+      window.removeEventListener("storage", syncActiveProjectBorehole);
+      window.removeEventListener("gih:active-project-changed", syncActiveProjectBorehole);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabaseReady) {
+      setIsAuthenticated(false);
+      return;
+    }
+
+    const supabase = createSupabaseBrowserClient();
+
+    const syncAuth = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setIsAuthenticated(Boolean(user));
+    };
+
+    void syncAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void syncAuth();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabaseReady]);
+
+  useEffect(() => {
+    if (!supabaseReady || !isAuthenticated || !activeProjectBorehole?.projectId) {
+      setActiveProjectParameters([]);
+      return;
+    }
+
+    let isCancelled = false;
+    const supabase = createSupabaseBrowserClient();
+
+    const loadProjectParameters = async () => {
+      const { data, error } = await supabase
+        .from("project_parameters")
+        .select("borehole_label,sample_depth,parameter_code,value,created_at,source_tool_slug")
+        .eq("project_id", activeProjectBorehole.projectId)
+        .order("created_at", { ascending: false });
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (error) {
+        setActiveProjectParameters([]);
+        return;
+      }
+
+      const rows = ((data ?? []) as Array<Record<string, unknown>>)
+        .map((row) => {
+          const value = typeof row.value === "number" ? row.value : Number(row.value);
+          if (!Number.isFinite(value)) {
+            return null;
+          }
+
+          const sampleDepth =
+            typeof row.sample_depth === "number"
+              ? row.sample_depth
+              : row.sample_depth === null
+                ? null
+                : Number(row.sample_depth);
+
+          return {
+            boreholeLabel: sanitiseBoreholeLabel(
+              typeof row.borehole_label === "string" ? row.borehole_label : null,
+            ),
+            sampleDepth: Number.isFinite(sampleDepth) ? sampleDepth : null,
+            parameterCode: String(row.parameter_code ?? "").trim(),
+            value,
+            createdAt: typeof row.created_at === "string" ? row.created_at : null,
+            sourceToolSlug: typeof row.source_tool_slug === "string" ? row.source_tool_slug : null,
+          } satisfies ActiveProjectParameter;
+        })
+        .filter((item): item is ActiveProjectParameter => Boolean(item));
+
+      const deduped = new Map<string, ActiveProjectParameter>();
+      rows.forEach((item) => {
+        const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleDepth)}|${item.parameterCode}`;
+        if (!deduped.has(key)) {
+          deduped.set(key, item);
+        }
+      });
+
+      setActiveProjectParameters(Array.from(deduped.values()));
+    };
+
+    void loadProjectParameters();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeProjectBorehole?.projectId, isAuthenticated, supabaseReady]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const raw = window.localStorage.getItem(SAVED_ANALYSIS_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    let parsed: SavedAnalysisEnvelope | null = null;
+    try {
+      parsed = JSON.parse(raw) as SavedAnalysisEnvelope;
+    } catch {
+      window.localStorage.removeItem(SAVED_ANALYSIS_STORAGE_KEY);
+      setSavedAnalysisMessage("Saved analysis data could not be read.");
+      setSavedAnalysisMessageType("error");
+      return;
+    }
+
+    if (!parsed || parsed.toolSlug !== tool.slug) {
+      return;
+    }
+
+    window.localStorage.removeItem(SAVED_ANALYSIS_STORAGE_KEY);
+    setSavedAnalysisMessage(null);
+
+    if (isUnitSystemValue(parsed.unitSystem) && parsed.unitSystem !== unitSystem) {
+      // Avoid unit-conversion re-mapping while we restore values saved in the target unit system.
+      previousUnitSystem.current = parsed.unitSystem;
+      setUnitSystem(parsed.unitSystem);
+    }
+
+    const payload = parsed.payload;
+    const payloadObject = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
+    const calculationInputs =
+      payloadObject && payloadObject.calculationInputs && typeof payloadObject.calculationInputs === "object"
+        ? (payloadObject.calculationInputs as Record<string, unknown>)
+        : null;
+    const calculationResult =
+      payloadObject && isCalculationResultPayload(payloadObject.calculationResult)
+        ? (payloadObject.calculationResult as CalculationResult)
+        : isCalculationResultPayload(payload)
+          ? (payload as CalculationResult)
+          : null;
+
+    let restoredInputCount = 0;
+    if (calculationInputs) {
+      const restoredValues = tool.inputs.reduce<Record<string, string>>((acc, input) => {
+        const value = calculationInputs[input.name];
+        if (value === null || value === undefined) {
+          acc[input.name] = String(input.defaultValue);
+          return acc;
+        }
+        restoredInputCount += 1;
+        acc[input.name] = String(value);
+        return acc;
+      }, {});
+
+      setFormValues(restoredValues);
+      setErrors({});
+      setGlobalError(null);
+    }
+
+    if (calculationResult) {
+      setResult(calculationResult);
+    } else if (calculationInputs) {
+      setResult(null);
+    }
+
+    if (!calculationInputs && !calculationResult) {
+      setSavedAnalysisMessage("Saved record loaded, but no reusable calculation snapshot was found.");
+      setSavedAnalysisMessageType("error");
+      return;
+    }
+
+    const messageParts: string[] = [];
+    if (restoredInputCount > 0) {
+      messageParts.push(`${restoredInputCount} input field${restoredInputCount === 1 ? "" : "s"} restored`);
+    }
+    if (calculationResult) {
+      messageParts.push("saved result restored");
+    }
+
+    setSavedAnalysisMessage(
+      `Saved analysis applied${messageParts.length ? `: ${messageParts.join(", ")}.` : "."}`,
+    );
+    setSavedAnalysisMessageType("ok");
+  }, [setUnitSystem, tool.inputs, tool.slug, unitSystem]);
 
   const validate = (): FormErrors => {
     const nextErrors: FormErrors = {};
@@ -437,6 +1328,13 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     }
   };
 
+  const handleTabChange = (nextTab: string) => {
+    if (nextTab === "report" && isSiteCharacterizationTool && !isCuFromPiAndSpt && activeTab === "profile") {
+      void captureGenericProfileReportData();
+    }
+    setActiveTab(nextTab);
+  };
+
   return (
     <div className="space-y-5">
       <Tabs
@@ -446,17 +1344,36 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           ...(isSptCorrections ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isGmaxFromVs ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isEoedFromMv ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isEuFromSpt ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isEprimeFromSptCohesionless ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isEprimeFromEuCohesive ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isOcrCalculator ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isCuFromPiAndSpt ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
-          ...(isCuFromPiAndSpt ? [{ id: "report", label: "Report" }] : []),
+          ...(isCprimeFromCu ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isCuFromPressuremeter ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isSiteCharacterizationTool ? [{ id: "report", label: "Report" }] : []),
           ...(isFrictionAngleFromSpt ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isFrictionAngleFromPi ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
+          ...(isEarthPressureCoefficients ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           { id: "information", label: "Information" },
         ]}
         activeTab={activeTab}
-        onChange={setActiveTab}
+        onChange={handleTabChange}
       />
+
+      {savedAnalysisMessage ? (
+        <div
+          className={`rounded-lg border px-3 py-2 text-sm ${
+            savedAnalysisMessageType === "ok"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-red-200 bg-red-50 text-red-800"
+          }`}
+        >
+          {savedAnalysisMessage}
+        </div>
+      ) : null}
 
       {activeTab === "calculation" ? (
         <section className="space-y-5">
@@ -464,6 +1381,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Inputs</h2>
               <p className="mt-1 text-sm text-slate-600">Enter values and run the calculator.</p>
+
               <div className="mt-4 space-y-4">
                 {tool.inputs.map((input) => {
                   const id = `input-${input.name}`;
@@ -603,6 +1521,42 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                     </p>
                   </div>
 
+                  {isAuthenticated ? (
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                        Send Result to Project
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {activeProjectBorehole
+                          ? `Target: ${activeProjectBorehole.projectName}${activeProjectBorehole.boreholeLabel ? ` / ${activeProjectBorehole.boreholeLabel}` : ""}`
+                          : "Select a project/borehole from the top-right dropdown first."}
+                      </p>
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void saveResultToProject();
+                          }}
+                          className="btn-base px-3 py-1.5 text-sm"
+                          disabled={isSavingResult}
+                        >
+                          {isSavingResult ? "Saving..." : "Send to Project"}
+                        </button>
+                      </div>
+                      {saveResultMessage ? (
+                        <p
+                          className={`mt-2 rounded-md border px-2.5 py-1.5 text-xs ${
+                            saveResultMessageType === "ok"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : "border-red-200 bg-red-50 text-red-800"
+                          }`}
+                        >
+                          {saveResultMessage}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   {visibleWarnings.length ? (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                       <p className="font-semibold">Important caveat</p>
@@ -627,35 +1581,117 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           ) : null}
         </section>
       ) : activeTab === "profile" && isModulusFromCu ? (
-        <ModulusFromCuProfileTab unitSystem={unitSystem} />
+        <div ref={profileContainerRef} className="space-y-4">
+          <ModulusFromCuProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
       ) : activeTab === "profile" && isSptCorrections ? (
-        <SptProfileTab unitSystem={unitSystem} />
+        <div ref={profileContainerRef} className="space-y-4">
+          <SptProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
       ) : activeTab === "profile" && isGmaxFromVs ? (
-        <GmaxProfileTab unitSystem={unitSystem} />
+        <div ref={profileContainerRef} className="space-y-4">
+          <GmaxProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
       ) : activeTab === "profile" && isEoedFromMv ? (
-        <EoedProfileTab unitSystem={unitSystem} />
+        <div ref={profileContainerRef} className="space-y-4">
+          <EoedProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
+      ) : activeTab === "profile" && isEuFromSpt ? (
+        <div ref={profileContainerRef} className="space-y-4">
+          <EuFromSptProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
+      ) : activeTab === "profile" && isEprimeFromSptCohesionless ? (
+        <div ref={profileContainerRef} className="space-y-4">
+          <EprimeFromSptCohesionlessProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
+      ) : activeTab === "profile" && isEprimeFromEuCohesive ? (
+        <div ref={profileContainerRef} className="space-y-4">
+          <EprimeFromEuProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
       ) : activeTab === "profile" && isOcrCalculator ? (
-        <OcrProfileTab
-          unitSystem={unitSystem}
-          globalGroundwaterDepth={formValues.groundwaterDepth ?? ""}
-          globalUnitWeight={formValues.unitWeight ?? ""}
-        />
+        <div ref={profileContainerRef} className="space-y-4">
+          <OcrProfileTab
+            unitSystem={unitSystem}
+            importRows={activeImportBoreholes}
+            globalGroundwaterDepth={formValues.groundwaterDepth ?? ""}
+            globalUnitWeight={formValues.unitWeight ?? ""}
+          />
+          {renderProfileSavePanel()}
+        </div>
       ) : activeTab === "profile" && isCuFromPiAndSpt ? (
-        <CuFromSptProfileTab unitSystem={unitSystem} onReportDataChange={setCuProfileReportData} />
-      ) : activeTab === "report" && isCuFromPiAndSpt ? (
+        <div ref={profileContainerRef} className="space-y-4">
+          <CuFromSptProfileTab
+            unitSystem={unitSystem}
+            importRows={activeImportBoreholes}
+            projectParameters={activeProjectParameters}
+            onReportDataChange={setCuProfileReportData}
+          />
+          {renderProfileSavePanel()}
+        </div>
+      ) : activeTab === "profile" && isCprimeFromCu ? (
+        <div ref={profileContainerRef} className="space-y-4">
+          <CprimeFromCuProfileTab
+            unitSystem={unitSystem}
+            importRows={activeImportBoreholes}
+            projectParameters={activeProjectParameters}
+          />
+          {renderProfileSavePanel()}
+        </div>
+      ) : activeTab === "profile" && isCuFromPressuremeter ? (
+        <div ref={profileContainerRef} className="space-y-4">
+          <CuFromPressuremeterProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
+      ) : activeTab === "report" && isSiteCharacterizationTool ? (
         <CuProfileReportTab
+          toolSlug={tool.slug}
           toolTitle={tool.title}
           depthUnit={cuProfileReportData?.depthUnit ?? getDisplayUnit("m", unitSystem) ?? "m"}
           stressUnit={cuProfileReportData?.stressUnit ?? getDisplayUnit("kPa", unitSystem) ?? "kPa"}
-          points={cuProfileReportData?.points ?? []}
-          plotImageDataUrl={cuProfileReportData?.plotImageDataUrl ?? null}
+          points={isCuFromPiAndSpt ? cuProfileReportData?.points ?? [] : []}
+          columns={!isCuFromPiAndSpt ? genericProfileReportData?.columns : undefined}
+          rows={!isCuFromPiAndSpt ? genericProfileReportData?.rows : undefined}
+          plotImageDataUrl={
+            isCuFromPiAndSpt ? (cuProfileReportData?.plotImageDataUrl ?? null) : (genericProfileReportData?.plotImageDataUrl ?? null)
+          }
+          getFreshPlotImageDataUrl={!isCuFromPiAndSpt ? async () => {
+            const plots = await collectProfilePlotsSnapshot();
+            const firstPlot = plots.find((plot) => Boolean(plot.dataUrl));
+            return firstPlot?.dataUrl ?? null;
+          } : undefined}
         />
       ) : activeTab === "profile" && isFrictionAngleFromSpt ? (
-        <FrictionAngleProfileTab unitSystem={unitSystem} />
+        <div ref={profileContainerRef} className="space-y-4">
+          <FrictionAngleProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
+      ) : activeTab === "profile" && isFrictionAngleFromPi ? (
+        <div ref={profileContainerRef} className="space-y-4">
+          <FrictionAngleFromPiProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
+      ) : activeTab === "profile" && isEarthPressureCoefficients ? (
+        <div ref={profileContainerRef} className="space-y-4">
+          <EarthPressureProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
       ) : activeTab === "profile" && isLiquefactionScreening ? (
-        <LiquefactionProfileTab unitSystem={unitSystem} initialMethod={liquefactionMethod} />
+        <div ref={profileContainerRef} className="space-y-4">
+          <LiquefactionProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} initialMethod={liquefactionMethod} />
+          {renderProfileSavePanel()}
+        </div>
       ) : activeTab === "profile" && isPostLiquefactionSettlement ? (
-        <PostLiquefactionSettlementProfileTab unitSystem={unitSystem} />
+        <div ref={profileContainerRef} className="space-y-4">
+          <PostLiquefactionSettlementProfileTab unitSystem={unitSystem} importRows={activeImportBoreholes} />
+          {renderProfileSavePanel()}
+        </div>
       ) : (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           {isLiquefactionScreening ? (

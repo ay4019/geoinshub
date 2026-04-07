@@ -4,11 +4,13 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import type { UnitSystem } from "@/lib/types";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 
 interface SptProfileTabProps {
   unitSystem: UnitSystem;
+  importRows?: SelectedBoreholeSummary[];
 }
 
 interface SptProfileRow {
@@ -434,7 +436,7 @@ function renderScatterChart({
   );
 }
 
-export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
+export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
   const [rows, setRows] = useState<SptProfileRow[]>(initialRows);
   const [globalHammerType, setGlobalHammerType] = useState("safety");
   const [globalBoreholeFactor, setGlobalBoreholeFactor] = useState("lt115");
@@ -468,6 +470,31 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
 
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
+
+  useEffect(() => {
+    if (!importRows || importRows.length === 0) {
+      return;
+    }
+
+    setRows((current) => {
+      const template = current[0] ?? initialRows[0];
+      return importRows.map((item, index) => {
+        const depth =
+          item.sampleTopDepth === null
+            ? template.topDepth
+            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem);
+        const nField = item.nValue === null ? template.nField : String(item.nValue);
+
+        return {
+          ...template,
+          id: index + 1,
+          boreholeId: item.boreholeLabel || template.boreholeId,
+          topDepth: depth,
+          nField,
+        };
+      });
+    });
+  }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<SptProfileRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -954,7 +981,12 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
                     Add Sample
                   </button>
                 </td>
-                <td colSpan={10} />
+                <td colSpan={9} />
+                <td className="px-2 py-3 text-right align-top">
+                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={handleExportExcel}>
+                    Export Excel
+                  </button>
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -979,23 +1011,7 @@ export function SptProfileTab({ unitSystem }: SptProfileTabProps) {
           </div>
         ) : null}
 
-        <div className="mt-4 flex justify-end">
-          <button type="button" className="btn-base btn-md" onClick={handleExportExcel}>
-            Export Excel
-          </button>
-        </div>
-
       </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Vertical effective stress is not entered manually in this Plot. It is calculated using the Sample Depth column
-          with GWT and bulk unit weight for each row. C<sub>r</sub> is assigned automatically from sample-depth ranges
-          (&lt;3: 0.75, 3-4: 0.80, 4-6: 0.85, 6-10: 0.95, 10-30: 1.00, &gt;30 m: 0.95 screening). The scatter plots below
-          show BH-based points only (no line interpolation) for N<sub>60</sub> and (N<sub>1</sub>)<sub>60</sub>.
-        </p>
-      </div>
-    </section>
+</section>
   );
 }

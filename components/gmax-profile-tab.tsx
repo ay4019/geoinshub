@@ -1,14 +1,16 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface GmaxProfileTabProps {
   unitSystem: UnitSystem;
+  importRows?: SelectedBoreholeSummary[];
 }
 
 type DensityInputMode = "unit-weight" | "mass-density";
@@ -152,9 +154,9 @@ function buildChartSvgMarkup({
   rows: ProfilePoint[];
   valueKey: "vs" | "gmax";
 }) {
-  const width = 520;
-  const height = 340;
-  const margin = { top: 54, right: 24, bottom: 22, left: 78 };
+  const width = 560;
+  const height = 360;
+  const margin = { top: 54, right: 20, bottom: 24, left: 72 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   const maxDepth = Math.max(...rows.map((row) => row.bottomDepth), 1);
@@ -479,9 +481,9 @@ function ProfileChart({
   rows: ProfilePoint[];
   valueKey: "vs" | "gmax";
 }) {
-  const width = 520;
-  const height = 340;
-  const margin = { top: 54, right: 24, bottom: 22, left: 78 };
+  const width = 560;
+  const height = 360;
+  const margin = { top: 54, right: 20, bottom: 24, left: 72 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   const maxDepth = Math.max(...rows.map((row) => row.bottomDepth), 1);
@@ -673,7 +675,7 @@ function ProfileChart({
   );
 }
 
-export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
+export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) {
   const [densityInputMode, setDensityInputMode] = useState<DensityInputMode>("unit-weight");
   const [rows, setRows] = useState<GmaxProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
@@ -702,6 +704,24 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
 
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
+
+  useEffect(() => {
+    if (!importRows || importRows.length === 0) {
+      return;
+    }
+    setRows((current) => {
+      const template = current[0] ?? initialRows[0];
+      return importRows.map((item, index) => ({
+        ...template,
+        id: index + 1,
+        boreholeId: item.boreholeLabel || template.boreholeId,
+        topDepth:
+          item.sampleTopDepth === null
+            ? template.topDepth
+            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+      }));
+    });
+  }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<GmaxProfileRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -1186,18 +1206,7 @@ export function GmaxProfileTab({ unitSystem }: GmaxProfileTabProps) {
           valueKey="gmax"
         />
       </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          The selected density mode applies to the full profile. When unit weight (kN/m3) is the active input, mass
-          density (kg/m3) is calculated automatically for each layer; when mass density (kg/m3) is active, unit weight
-          (kN/m3) is back-calculated before <span className="font-medium text-slate-700">G<sub>max</sub></span> is
-          formed from <span className="font-medium text-slate-700">rho V<sub>s</sub>
-          <sup>2</sup></span>.
-        </p>
-      </div>
-    </section>
+</section>
   );
 }
 

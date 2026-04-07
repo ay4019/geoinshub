@@ -1,15 +1,18 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import { computeLiquefactionScreening, type LiquefactionMethod } from "@/lib/liquefaction-screening";
 import type { UnitSystem } from "@/lib/types";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 
 interface LiquefactionProfileTabProps {
   unitSystem: UnitSystem;
+  importRows?: SelectedBoreholeSummary[];
   initialMethod?: LiquefactionMethod;
 }
 
@@ -42,7 +45,11 @@ function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
   );
 }
 
-export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-boulanger-2008" }: LiquefactionProfileTabProps) {
+export function LiquefactionProfileTab({
+  unitSystem,
+  importRows,
+  initialMethod = "idriss-boulanger-2008",
+}: LiquefactionProfileTabProps) {
   const [method, setMethod] = useState<LiquefactionMethod>(initialMethod);
   const [magnitude, setMagnitude] = useState("7.5");
   const [peakGroundAcceleration, setPeakGroundAcceleration] = useState("0.30");
@@ -76,6 +83,24 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
 
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
+
+  useEffect(() => {
+    if (!importRows || importRows.length === 0) {
+      return;
+    }
+    setRows((current) => {
+      const template = current[0] ?? initialRows[0];
+      return importRows.map((item, index) => ({
+        ...template,
+        id: index + 1,
+        boreholeId: item.boreholeLabel || template.boreholeId,
+        topDepth:
+          item.sampleTopDepth === null
+            ? template.topDepth
+            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+      }));
+    });
+  }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<LiquefactionProfileRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -115,9 +140,20 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
               liquefaction method.
             </p>
           </div>
-          <button type="button" className="btn-base btn-md" onClick={addRow}>
-            Add Sample
-          </button>
+          <div className="flex items-center gap-3">
+            <button type="button" className="btn-base btn-md" onClick={addRow}>
+              Add Sample
+            </button>
+            <button
+              type="button"
+              className="btn-base btn-md"
+              onClick={(event) => {
+                void exportProfileExcelFromSection(event.currentTarget);
+              }}
+            >
+              Export Excel
+            </button>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-4">
@@ -162,32 +198,32 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
                 <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">(N<sub>1</sub>)<sub>60</sub></span></th>
                 {method === "tbdy-2018" ? (
                   <>
-                    <th className="px-2 py-3 text-center font-semibold"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 bg-white font-serif text-base text-slate-800">α</span></th>
-                    <th className="px-2 py-3 text-center font-semibold"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 bg-white font-serif text-base text-slate-800">β</span></th>
+                    <th className="px-2 py-3 text-center font-semibold"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 bg-white font-serif text-base text-slate-800">?</span></th>
+                    <th className="px-2 py-3 text-center font-semibold"><span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 bg-white font-serif text-base text-slate-800">�</span></th>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">(N<sub>1</sub>)<sub>60f</sub></span></th>
                   </>
                 ) : (
                   <>
-                    <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">ΔN<sub>(1,60)</sub></span></th>
+                    <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">?N<sub>(1,60)</sub></span></th>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">(N<sub>1</sub>)<sub>60,cs</sub></span></th>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">CRR<sub>7.5</sub></span></th>
                   </>
                 )}
-                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>σ<sub>v0</sub></span>} unit="kPa" /></th>
+                <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>?<sub>v0</sub></span>} unit="kPa" /></th>
                 <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">Check<sup>1</sup></span></th>
                 {method === "tbdy-2018" ? (
                   <>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">C<sub>M</sub></span></th>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">CRR<sub>7.5</sub></span></th>
-                    <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>σ′<sub>v0</sub></span>} unit="kPa" /></th>
+                    <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>?'<sub>v0</sub></span>} unit="kPa" /></th>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">r<sub>d</sub></span></th>
-                    <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>τ<sub>R</sub></span>} unit="kPa" /></th>
-                    <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>τ<sub>eq</sub></span>} unit="kPa" /></th>
+                    <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>?<sub>R</sub></span>} unit="kPa" /></th>
+                    <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>?<sub>eq</sub></span>} unit="kPa" /></th>
                   </>
                 ) : (
                   <>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">MSF</span></th>
-                    <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>σ′<sub>v0</sub></span>} unit="kPa" /></th>
+                    <th className="px-2 py-3 text-left font-semibold"><HeaderCell title={<span>?'<sub>v0</sub></span>} unit="kPa" /></th>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">r<sub>d</sub></span></th>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">CSR</span></th>
                     <th className="px-2 py-3 text-left font-semibold"><span className="block leading-tight">CRR<sub>M</sub></span></th>
@@ -301,16 +337,7 @@ export function LiquefactionProfileTab({ unitSystem, initialMethod = "idriss-bou
         </p>
 
       </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot note</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          This tab uses one shared PGA input to screen multiple sample intervals. The check column only advances to{" "}
-          <strong>Analysis</strong> when the depth, groundwater, and SPT resistance conditions remain within the
-          simplified screening range for the selected method.
-        </p>
-      </div>
-    </section>
+</section>
   );
 }
 

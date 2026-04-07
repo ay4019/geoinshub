@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -9,30 +9,46 @@ import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
-interface FrictionAngleProfileTabProps {
+interface EarthPressureProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
 }
 
-interface FrictionAngleRow {
+interface EarthPressureProfileRow {
   id: number;
   boreholeId: string;
   sampleDepth: string;
-  n60: string;
+  frictionAngle: string;
+  ocr: string;
+  verticalStress: string;
 }
 
-interface PlotPoint {
+interface EarthPressurePlotPoint {
   boreholeId: string;
   depth: number;
-  n60: number;
-  phi: number;
+  k0oc: number;
+  sigmaH0: number;
 }
 
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
 
-const initialRows: FrictionAngleRow[] = [
-  { id: 1, boreholeId: "", sampleDepth: "1.5", n60: "12" },
-  { id: 2, boreholeId: "", sampleDepth: "3.0", n60: "18" },
+const initialRows: EarthPressureProfileRow[] = [
+  {
+    id: 1,
+    boreholeId: "",
+    sampleDepth: "2",
+    frictionAngle: "30",
+    ocr: "1.2",
+    verticalStress: "75",
+  },
+  {
+    id: 2,
+    boreholeId: "",
+    sampleDepth: "5",
+    frictionAngle: "32",
+    ocr: "1.8",
+    verticalStress: "130",
+  },
 ];
 
 function parse(value: string): number {
@@ -40,8 +56,27 @@ function parse(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function estimatePhiFromN60(n60: number): number {
-  return 27.1 + 0.3 * n60 - 0.00054 * n60 ** 2;
+function degToRad(value: number): number {
+  return (value * Math.PI) / 180;
+}
+
+function computeEarthPressureValues(phiDeg: number, ocr: number, sigmaV: number) {
+  const phi = degToRad(Math.max(0, phiDeg));
+  const safeOcr = Math.max(1, ocr);
+  const safeSigmaV = Math.max(0, sigmaV);
+
+  const k0nc = 1 - Math.sin(phi);
+  const k0oc = k0nc * safeOcr ** Math.sin(phi);
+  const ka = Math.tan(Math.PI / 4 - phi / 2) ** 2;
+  const kp = Math.tan(Math.PI / 4 + phi / 2) ** 2;
+
+  return {
+    k0nc,
+    k0oc,
+    ka,
+    kp,
+    sigmaH0: k0oc * safeSigmaV,
+  };
 }
 
 function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
@@ -86,12 +121,14 @@ function renderScatterChart({
   points,
   valueKey,
   depthUnit,
+  xTickFormatter,
 }: {
   title: string;
   xLabel: string;
-  points: PlotPoint[];
-  valueKey: "n60" | "phi";
+  points: EarthPressurePlotPoint[];
+  valueKey: "k0oc" | "sigmaH0";
   depthUnit: string;
+  xTickFormatter?: (value: number) => string;
 }) {
   const width = 560;
   const height = 360;
@@ -136,7 +173,7 @@ function renderScatterChart({
             <g key={`x-${value}`}>
               <line x1={x} y1={margin.top} x2={x} y2={margin.top + innerHeight} stroke="#dbe5f1" strokeWidth={1} />
               <text x={x} y={margin.top - 10} textAnchor="middle" fontSize={11} fill="#36557f" fontWeight={600}>
-                {Math.round(value)}
+                {xTickFormatter ? xTickFormatter(value) : Math.round(value)}
               </text>
             </g>
           );
@@ -198,11 +235,12 @@ function renderScatterChart({
   );
 }
 
-export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngleProfileTabProps) {
-  const [rows, setRows] = useState<FrictionAngleRow[]>(initialRows);
+export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressureProfileTabProps) {
+  const [rows, setRows] = useState<EarthPressureProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
+  const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
 
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
@@ -213,6 +251,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
       current.map((row) => ({
         ...row,
         sampleDepth: convertInputValueBetweenSystems(row.sampleDepth, "m", previousUnitSystem.current, unitSystem),
+        verticalStress: convertInputValueBetweenSystems(row.verticalStress, "kPa", previousUnitSystem.current, unitSystem),
       })),
     );
 
@@ -237,7 +276,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
     });
   }, [importRows, unitSystem]);
 
-  const updateRow = (id: number, patch: Partial<FrictionAngleRow>) => {
+  const updateRow = (id: number, patch: Partial<EarthPressureProfileRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   };
 
@@ -250,8 +289,10 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
         {
           id: nextId,
           boreholeId: "",
-          sampleDepth: String(parse(lastDepth) + 1.5),
-          n60: "15",
+          sampleDepth: String(parse(lastDepth) + 2),
+          frictionAngle: "30",
+          ocr: "1.2",
+          verticalStress: "100",
         },
       ];
     });
@@ -261,42 +302,50 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
     setRows((current) => (current.length > 1 ? current.filter((row) => row.id !== id) : current));
   };
 
-  const plotPoints: PlotPoint[] = rows
+  const plotPoints: EarthPressurePlotPoint[] = rows
     .map((row) => {
-      const depthDisplay = parse(row.sampleDepth);
-      const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
-      if (!Number.isFinite(depthMetric) || depthMetric < 0) {
+      const depth = parse(row.sampleDepth);
+      const phiDeg = parse(row.frictionAngle);
+      const ocr = parse(row.ocr);
+      const sigmaV = parse(row.verticalStress);
+      const { k0oc, sigmaH0 } = computeEarthPressureValues(phiDeg, ocr, sigmaV);
+
+      if (!Number.isFinite(depth) || depth < 0) {
         return null;
       }
-      const n60 = Math.max(0, parse(row.n60));
-      const phi = estimatePhiFromN60(n60);
+
       return {
         boreholeId: row.boreholeId?.trim() || "BH not set",
-        depth: depthDisplay,
-        n60,
-        phi,
+        depth,
+        k0oc,
+        sigmaH0,
       };
     })
-    .filter((point): point is PlotPoint => point !== null);
+    .filter((point): point is EarthPressurePlotPoint => point !== null);
 
   return (
     <section className="space-y-5">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Soil Layer Profile</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Enter corrected SPT resistance by depth and the tool computes effective friction angle using
-          &phi;&prime; &asymp; 27.1 + 0.3N<sub>60</sub> - 0.00054N<sub>60</sub>
-          <sup>2</sup>.
+          Enter layer-wise friction angle, OCR, and vertical effective stress by depth to compute K<sub>0,NC</sub>,
+          K<sub>0,OC</sub>, K<sub>a</sub>, K<sub>p</sub>, and the corresponding lateral effective stress profile.
         </p>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-white">
           <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
             <colgroup>
-              <col className="w-[18%]" />
-              <col className="w-[18%]" />
-              <col className="w-[16%]" />
-              <col className="w-[22%]" />
               <col className="w-[14%]" />
+              <col className="w-[12%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
+              <col className="w-[12%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[8%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
@@ -307,10 +356,28 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
                   <HeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
                 <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="N60" />
+                  <HeaderCell title={<span>&phi;&prime;</span>} unit="deg" />
                 </th>
                 <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>&phi;&prime;</span>} unit="deg" />
+                  <HeaderCell title="OCR" />
+                </th>
+                <th className="px-2 py-3 text-left font-semibold">
+                  <HeaderCell title={<span>&sigma;&prime;<sub>v</sub></span>} unit={stressUnit} />
+                </th>
+                <th className="px-2 py-3 text-left font-semibold">
+                  <HeaderCell title={<span>K<sub>0,NC</sub></span>} />
+                </th>
+                <th className="px-2 py-3 text-left font-semibold">
+                  <HeaderCell title={<span>K<sub>0,OC</sub></span>} />
+                </th>
+                <th className="px-2 py-3 text-left font-semibold">
+                  <HeaderCell title={<span>K<sub>a</sub></span>} />
+                </th>
+                <th className="px-2 py-3 text-left font-semibold">
+                  <HeaderCell title={<span>K<sub>p</sub></span>} />
+                </th>
+                <th className="px-2 py-3 text-left font-semibold">
+                  <HeaderCell title={<span>&sigma;&prime;<sub>h,0</sub></span>} unit={stressUnit} />
                 </th>
                 <th className="px-2 py-3 text-left font-semibold">
                   <span className="block leading-tight">Action</span>
@@ -319,8 +386,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
             </thead>
             <tbody>
               {rows.map((row) => {
-                const n60 = Math.max(0, parse(row.n60));
-                const phi = estimatePhiFromN60(n60);
+                const values = computeEarthPressureValues(parse(row.frictionAngle), parse(row.ocr), parse(row.verticalStress));
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
@@ -346,13 +412,46 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
                         type="number"
                         step="0.1"
                         min="0"
-                        value={row.n60}
-                        onChange={(event) => updateRow(row.id, { n60: event.target.value })}
+                        max="50"
+                        value={row.frictionAngle}
+                        onChange={(event) => updateRow(row.id, { frictionAngle: event.target.value })}
                         className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
                       />
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={phi.toFixed(2)} />
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        value={row.ocr}
+                        onChange={(event) => updateRow(row.id, { ocr: event.target.value })}
+                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                      />
+                    </td>
+                    <td className="px-2 py-3">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={row.verticalStress}
+                        onChange={(event) => updateRow(row.id, { verticalStress: event.target.value })}
+                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                      />
+                    </td>
+                    <td className="px-2 py-3">
+                      <OutputCell value={values.k0nc.toFixed(3)} />
+                    </td>
+                    <td className="px-2 py-3">
+                      <OutputCell value={values.k0oc.toFixed(3)} />
+                    </td>
+                    <td className="px-2 py-3">
+                      <OutputCell value={values.ka.toFixed(3)} />
+                    </td>
+                    <td className="px-2 py-3">
+                      <OutputCell value={values.kp.toFixed(3)} />
+                    </td>
+                    <td className="px-2 py-3">
+                      <OutputCell value={values.sigmaH0.toFixed(2)} />
                     </td>
                     <td className="px-2 py-3">
                       <button
@@ -375,7 +474,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
                     Add Layer
                   </button>
                 </td>
-                <td colSpan={3} />
+                <td colSpan={9} />
                 <td className="px-2 py-3 text-right align-top">
                   <button
                     type="button"
@@ -395,18 +494,20 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
         {plotPoints.length ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
             {renderScatterChart({
-              title: "Depth vs N\u2086\u2080",
-              xLabel: "N\u2086\u2080",
+              title: "Depth vs K₀,OC",
+              xLabel: "K₀,OC",
               points: plotPoints,
-              valueKey: "n60",
+              valueKey: "k0oc",
               depthUnit,
+              xTickFormatter: (value) => value.toFixed(2),
             })}
             {renderScatterChart({
-              title: "Depth vs \u03c6'",
-              xLabel: "\u03c6' (deg)",
+              title: "Depth vs σ′ₕ,₀",
+              xLabel: `σ′ₕ,₀ (${stressUnit})`,
               points: plotPoints,
-              valueKey: "phi",
+              valueKey: "sigmaH0",
               depthUnit,
+              xTickFormatter: (value) => Math.round(value).toString(),
             })}
           </div>
         ) : null}

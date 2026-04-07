@@ -8,6 +8,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type AuthMode = "login" | "signup";
+type AccountAuthPanelProps = {
+  initialMode?: AuthMode;
+};
 
 function isStrongPassword(value: string): boolean {
   if (value.length < 8) return false;
@@ -28,20 +31,22 @@ function getPasswordChecks(value: string) {
   };
 }
 
-export function AccountAuthPanel() {
+export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProps) {
   const router = useRouter();
   const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const passwordChecks = getPasswordChecks(password);
 
   const resetStateForMode = (nextMode: AuthMode) => {
     setMode(nextMode);
     setPassword("");
+    setHasAcceptedTerms(false);
     setMessage(null);
     setIsSuccess(false);
   };
@@ -114,6 +119,11 @@ export function AccountAuthPanel() {
 
     if (!password) {
       setMessage("Please enter your password.");
+      return;
+    }
+
+    if (mode === "signup" && !hasAcceptedTerms) {
+      setMessage("Please confirm that you have read and understood the legal terms before signing up.");
       return;
     }
 
@@ -195,9 +205,37 @@ export function AccountAuthPanel() {
           )}
         </div>
 
+        {mode === "signup" ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3">
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={hasAcceptedTerms}
+                onChange={(event) => setHasAcceptedTerms(event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+              />
+              <span>
+                I have read and understood the{" "}
+                <Link href="/terms" target="_blank" className="font-semibold underline underline-offset-4">
+                  Terms of Use
+                </Link>
+                ,{" "}
+                <Link href="/disclaimer" target="_blank" className="font-semibold underline underline-offset-4">
+                  Disclaimer
+                </Link>
+                , and{" "}
+                <Link href="/privacy-policy" target="_blank" className="font-semibold underline underline-offset-4">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+          </div>
+        ) : null}
+
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || (mode === "signup" && !hasAcceptedTerms)}
           className="btn-base btn-md"
         >
           {isPending ? (mode === "login" ? "Logging in..." : "Creating account...") : mode === "login" ? "Log In" : "Sign Up"}
@@ -214,13 +252,13 @@ export function AccountAuthPanel() {
         ) : null}
 
         <p className="pt-1 text-sm text-slate-700">
-          {mode === "login" ? "No account?" : "Already have an account?"}{" "}
+          {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
           <button
             type="button"
             onClick={() => resetStateForMode(mode === "login" ? "signup" : "login")}
             className="font-semibold text-slate-900 underline-offset-4 hover:underline"
           >
-            {mode === "login" ? "Sign up" : "Log in"}
+            {mode === "login" ? "Register now." : "Log in"}
           </button>
         </p>
       </form>
