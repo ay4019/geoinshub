@@ -1,12 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { useEffect, useId, useMemo, useState, useTransition } from "react";
 
 import { interpretProfileReportAction } from "@/app/actions/ai-report";
 import { consumeReportGenerationAction } from "@/app/actions/subscription";
 import { useSubscription } from "@/components/subscription-context";
-import { tierAllowsAiAnalysis } from "@/lib/subscription";
+import { tierAllowsAiAnalysis, tierAllowsReports } from "@/lib/subscription";
 import { createToolReportPdf } from "@/lib/tool-report-pdf";
 import {
   CU_REPORT_FIGURE_2_CAPTION,
@@ -29,6 +30,8 @@ export interface CuProfileReportPoint {
 interface CuProfileReportTabProps {
   toolSlug: string;
   toolTitle: string;
+  /** Guests cannot open the on-page report preview (Create report). */
+  isAuthenticated: boolean;
   unitSystem?: string;
   projectName?: string | null;
   boreholeIds?: string[];
@@ -48,6 +51,9 @@ const AI_ANALYZE_BUTTON_CLASS =
   "inline-flex min-h-[2.75rem] w-full items-center justify-center rounded-xl border border-[#d7c28a] bg-[linear-gradient(180deg,#fff8e7_0%,#f7ebc4_100%)] px-4 py-3 text-[0.95rem] font-semibold text-[#5f4718] shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_10px_24px_-20px_rgba(161,98,7,0.45)] transition hover:border-[#c9af68] hover:bg-[linear-gradient(180deg,#fff4d8_0%,#f3e2ad_100%)] hover:text-[#4a3510] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_14px_28px_-22px_rgba(161,98,7,0.5)] disabled:cursor-not-allowed disabled:opacity-60";
 const AI_INTERPRETATION_STORAGE_PREFIX = "gih:ai-interpretation";
 const AI_INTERPRETATION_PROMPT_VERSION = "v2";
+
+const PDF_MEMBERSHIP_TITLE =
+  "PDF export and cloud save require Bronze membership or higher. You can keep using the tools with manual inputs.";
 
 /** Matches PDF Figure 1 / Table 1 / Figure 2 caption typography. */
 const CU_REPORT_CAPTION_TEXT_CLASS =
@@ -217,6 +223,7 @@ function shouldPersistAiInterpretation(text: string): boolean {
 export function CuProfileReportTab({
   toolSlug,
   toolTitle,
+  isAuthenticated,
   unitSystem,
   projectName,
   boreholeIds,
@@ -229,7 +236,24 @@ export function CuProfileReportTab({
   getFreshPlotImageDataUrl,
 }: CuProfileReportTabProps) {
   const { effectiveTier, loading: subscriptionLoading } = useSubscription();
+  const reportsOk = tierAllowsReports(effectiveTier);
   const aiTierOk = tierAllowsAiAnalysis(effectiveTier);
+
+  const aiButtonTitle = useMemo(() => {
+    if (!AI_EVALUATION_REPORT_ENABLED) {
+      return "AI evaluation is not available until the AI add-on is configured.";
+    }
+    if (subscriptionLoading) {
+      return undefined;
+    }
+    if (aiTierOk) {
+      return undefined;
+    }
+    if (effectiveTier === "none") {
+      return "AI analysis requires Silver or Gold membership. Sign up; new accounts start on Bronze, then you can upgrade.";
+    }
+    return "AI analysis requires Silver or Gold membership.";
+  }, [aiTierOk, effectiveTier, subscriptionLoading]);
   const [isPending, startTransition] = useTransition();
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [aiText, setAiText] = useState("");
@@ -238,6 +262,14 @@ export function CuProfileReportTab({
   const [status, setStatus] = useState<string | null>(null);
   const [reportPanelOpen, setReportPanelOpen] = useState(false);
   const reportPanelContentId = useId();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setReportPanelOpen(false);
+      setIsAiPanelVisible(false);
+      setIsAiPanelDismissed(true);
+    }
+  }, [isAuthenticated]);
 
   const template = useMemo(() => getToolReportTemplate(toolSlug), [toolSlug]);
   const resolvedDepthUnit = depthUnit ?? "m";
@@ -362,6 +394,10 @@ export function CuProfileReportTab({
       setReportPanelOpen(false);
       return;
     }
+    if (!isAuthenticated) {
+      setStatus("Rapor önizlemesi için önce giriş yapın veya kayıt olun.");
+      return;
+    }
 
     setReportPanelOpen(true);
     if (aiText.trim()) {
@@ -412,6 +448,12 @@ export function CuProfileReportTab({
   };
 
   const handleReportPdf = async () => {
+    if (!reportsOk) {
+      setStatus(
+        "PDF export and cloud save require Bronze membership or higher. You can keep using the tools with manual inputs.",
+      );
+      return;
+    }
     const currentPlot = await resolvePlotImage();
     if (!currentPlot) {
       setStatus("No profile plot is ready yet. Please complete Soil Profile Plot first.");
@@ -485,58 +527,78 @@ export function CuProfileReportTab({
 
   return (
     <section className="space-y-5">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-900">Report</h2>
-        <p className="mt-1 text-justify text-sm text-slate-600">
-          <span className="font-bold text-slate-800">Create report</span> builds the draft report for this tool and
-          opens it in the panel below; press it again to hide only that preview.{" "}
-          <span className="font-bold text-slate-800">Download PDF</span> is inside the panel once the Soil Profile Plot
-          is ready. For a quick AI interpretation of the tabulated values and the profile plot, use{" "}
-          <span className="font-bold text-slate-800">Analyze with AI</span>.
-        </p>
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-lg font-bold text-slate-900">Report</h2>
+            <p className="text-left text-sm leading-relaxed text-slate-600 sm:text-[15px] sm:leading-7">
+              <span className="font-bold text-slate-800">Create report</span> builds the draft report for this tool and
+              opens it in the panel below; press it again to hide only that preview.{" "}
+              <span className="font-bold text-slate-800">Download PDF</span> is inside the panel once the Soil Profile Plot
+              is ready. For a quick AI interpretation of the tabulated values and the profile plot, use{" "}
+              <span className="font-bold text-slate-800">Analyze with AI</span>.
+            </p>
+          </div>
 
-        <div className="mt-4 flex flex-col items-center gap-3">
-          <button
-            type="button"
-            className="btn-base btn-md w-full max-w-[280px]"
-            aria-expanded={reportPanelOpen}
-            aria-controls={reportPanelContentId}
-            onClick={handleToggleReportPanel}
-          >
-            {reportPanelOpen ? "Close report" : "Create report"}
-          </button>
-          <button
-            type="button"
-            className={`${AI_ANALYZE_BUTTON_CLASS} max-w-[280px]`}
-            onClick={handleAiReport}
-            disabled={
-              !AI_EVALUATION_REPORT_ENABLED ||
-              isPending ||
-              isExportingPdf ||
-              !aiTierOk ||
-              subscriptionLoading
-            }
-            title={
-              !AI_EVALUATION_REPORT_ENABLED
-                ? "AI evaluation is not available until the AI add-on is configured."
-                : !aiTierOk
-                  ? "AI analysis requires Silver or Gold membership."
+          {!reportsOk ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-relaxed text-amber-950 sm:px-5 sm:py-5">
+              <p className="break-words">
+                To create projects and boreholes, save analyses, generate reports, and run AI analysis,{" "}
+                <Link
+                  href="/account?mode=signup"
+                  className="font-semibold text-amber-900 underline decoration-amber-700/60 underline-offset-2 hover:text-amber-950"
+                >
+                  sign up
+                </Link>{" "}
+                and choose a membership tier that fits you. Without signing up, you can still use the tools with manual
+                inputs only.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col items-center gap-4">
+            <button
+              type="button"
+              className="btn-base btn-md w-full max-w-[280px]"
+              aria-expanded={reportPanelOpen}
+              aria-controls={reportPanelContentId}
+              onClick={handleToggleReportPanel}
+              disabled={!isAuthenticated && !reportPanelOpen}
+              title={
+                !isAuthenticated && !reportPanelOpen
+                  ? "Rapor önizlemesi için giriş yapın veya kayıt olun."
                   : undefined
-            }
-          >
-            {isPending ? "Analyzing..." : "Analyze with AI"}
-          </button>
+              }
+            >
+              {reportPanelOpen ? "Close report" : "Create report"}
+            </button>
+            <button
+              type="button"
+              className={`${AI_ANALYZE_BUTTON_CLASS} max-w-[280px]`}
+              onClick={handleAiReport}
+              disabled={
+                !AI_EVALUATION_REPORT_ENABLED ||
+                isPending ||
+                isExportingPdf ||
+                !aiTierOk ||
+                subscriptionLoading
+              }
+              title={aiButtonTitle}
+            >
+              {isPending ? "Analyzing..." : "Analyze with AI"}
+            </button>
+          </div>
         </div>
 
         {reportPanelOpen ? (
           <div
             id={reportPanelContentId}
-            className="mt-4 rounded-xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm sm:p-5"
+            className="mt-8 rounded-xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm sm:mt-10 sm:p-5"
             role="region"
             aria-label="Report preview"
           >
             <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Report narrative</h3>
-            <div className="mt-3 space-y-3 pr-1 text-justify text-sm leading-7 text-slate-800 sm:text-[15px] sm:leading-8">
+            <div className="mt-4 space-y-4 pr-0.5 text-left text-sm leading-7 text-slate-800 sm:mt-5 sm:text-[15px] sm:leading-8">
               {narrativeBlocks.map((block, i) => {
                 if (block.trim() === CU_REPORT_STROUD_FIGURE_PLACEHOLDER) {
                   return (
@@ -647,7 +709,13 @@ export function CuProfileReportTab({
 
             <div className="mt-6 flex flex-col items-center border-t border-slate-200 pt-5">
               <div className="flex w-full max-w-[280px] flex-col items-center gap-3">
-                <button type="button" className={isAiPanelVisible && !isAiPanelDismissed && aiText.trim() ? "hidden" : "btn-base btn-md w-full"} onClick={handleReportPdf} disabled={isExportingPdf}>
+                <button
+                  type="button"
+                  className={isAiPanelVisible && !isAiPanelDismissed && aiText.trim() ? "hidden" : "btn-base btn-md w-full"}
+                  onClick={handleReportPdf}
+                  disabled={isExportingPdf || !reportsOk}
+                  title={!reportsOk ? PDF_MEMBERSHIP_TITLE : undefined}
+                >
                   {isExportingPdf ? "Preparing PDF…" : "Download PDF"}
                 </button>
                 <button
@@ -656,6 +724,12 @@ export function CuProfileReportTab({
                   aria-expanded={reportPanelOpen}
                   aria-controls={reportPanelContentId}
                   onClick={handleToggleReportPanel}
+                  disabled={!isAuthenticated && !reportPanelOpen}
+                  title={
+                    !isAuthenticated && !reportPanelOpen
+                      ? "Rapor önizlemesi için giriş yapın veya kayıt olun."
+                      : undefined
+                  }
                 >
                   {reportPanelOpen ? "Close report" : "Create report"}
                 </button>
@@ -670,13 +744,7 @@ export function CuProfileReportTab({
                     !aiTierOk ||
                     subscriptionLoading
                   }
-                  title={
-                    !AI_EVALUATION_REPORT_ENABLED
-                      ? "AI evaluation is not available until the AI add-on is configured."
-                      : !aiTierOk
-                        ? "AI analysis requires Silver or Gold membership."
-                        : undefined
-                  }
+                  title={aiButtonTitle}
                 >
                   {isPending ? "Analyzing..." : "Analyze with AI"}
                 </button>
@@ -686,7 +754,7 @@ export function CuProfileReportTab({
         ) : null}
 
         {isAiPanelVisible && !isAiPanelDismissed && aiText.trim() ? (
-          <div className="mt-4">
+          <div className="mt-8 sm:mt-10">
             <div className="rounded-xl border border-amber-300 bg-[linear-gradient(135deg,#fff8e6,#fff2c7)] p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-bold uppercase tracking-[0.08em] text-amber-900">AI Interpretation</h3>
@@ -697,7 +765,13 @@ export function CuProfileReportTab({
               <p className="mt-3 text-sm leading-7 text-slate-800">{aiText}</p>
             </div>
             <div className="mx-auto mt-4 flex w-full max-w-[280px] flex-col gap-3">
-              <button type="button" className="btn-base btn-md w-full" onClick={handleReportPdf} disabled={isExportingPdf}>
+              <button
+                type="button"
+                className="btn-base btn-md w-full"
+                onClick={handleReportPdf}
+                disabled={isExportingPdf || !reportsOk}
+                title={!reportsOk ? PDF_MEMBERSHIP_TITLE : undefined}
+              >
                 {isExportingPdf ? "Preparing PDF…" : "Download PDF"}
               </button>
               <button
@@ -714,20 +788,22 @@ export function CuProfileReportTab({
         ) : null}
 
         {status ? (
-          <p className="mt-4 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{status}</p>
+          <p className="mt-6 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-relaxed text-slate-700">
+            {status}
+          </p>
         ) : null}
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:mt-10 sm:p-5">
           <h3 className="text-sm font-bold uppercase tracking-[0.08em] text-slate-500">Report types</h3>
-          <ul className="mt-2 space-y-1 text-justify text-sm text-slate-700">
+          <ul className="mt-3 space-y-3 text-left text-sm leading-relaxed text-slate-700">
             <li className="flex gap-2">
               <span aria-hidden="true" className="text-slate-400">
                 -
               </span>
               <span>
-                <strong className="font-bold">Create report:</strong> Opens the on-page draft below the buttons (narrative, then Table 1 data, then Figure 2 profile plot). Use{" "}
-                <span className="font-bold">Download PDF</span> inside the panel to save the file, with Stroud figure
-                and equation formatting.
+                <strong className="font-bold">Create report:</strong> Opens an on-page draft that presents your
+                project- and borehole-specific analysis results together with relevant literature notes and references
+                (narrative, parameter table, and profile plot).
               </span>
             </li>
             <li className="flex gap-2">

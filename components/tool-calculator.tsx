@@ -9,6 +9,7 @@ import { useSubscription } from "@/components/subscription-context";
 import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
 import { CprimeFromCuProfileTab } from "@/components/cprime-from-cu-profile-tab";
 import { CuProfileReportTab, type CuProfileReportPoint } from "@/components/cu-profile-report-tab";
+import { ReportGuestPanel } from "@/components/report-guest-panel";
 import { CuFromPressuremeterProfileTab } from "@/components/cu-from-pressuremeter-profile-tab";
 import { CuFromSptProfileTab } from "@/components/cu-from-spt-profile-tab";
 import { EarthPressureProfileTab } from "@/components/earth-pressure-profile-tab";
@@ -32,11 +33,11 @@ import { Tabs } from "@/components/tabs";
 import { useToolUnitSystem } from "@/components/tool-unit-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { tierAllowsReports } from "@/lib/subscription";
 import { calculateBySlug } from "@/lib/tool-calculations";
 import { getEquationDescriptions } from "@/lib/tool-equation-descriptions";
 import { getEquationParameters } from "@/lib/tool-equation-parameters";
 import {
+  clearActiveProjectBorehole,
   getActiveImportBoreholes,
   readActiveProjectBorehole,
   type ActiveProjectBorehole,
@@ -375,7 +376,6 @@ function EquationBlock({ html }: { html: string }) {
 export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const { unitSystem, setUnitSystem } = useToolUnitSystem();
   const { effectiveTier, loading: subscriptionLoading } = useSubscription();
-  const reportsAllowed = tierAllowsReports(effectiveTier);
   const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
   const hasProfileTab = PROFILE_FIRST_TOOL_SLUGS.has(tool.slug);
   const hideCalculationTab = tool.category === "Settlement";
@@ -911,7 +911,14 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
       </p>
       {effectiveTier === "none" ? (
         <p className="mt-2 text-sm text-amber-800">
-          Cloud save is available from Bronze upward. You can still use tools with manual inputs.
+          Cloud save is available from Bronze upward.{" "}
+          <Link
+            href="/account?mode=signup"
+            className="font-semibold text-amber-900 underline decoration-amber-700/50 underline-offset-2 hover:text-amber-950"
+          >
+            Register
+          </Link>{" "}
+          for an account to use cloud save. You can still use tools with manual inputs.
         </p>
       ) : null}
       <p className="mt-1 text-xs text-slate-500">
@@ -984,45 +991,47 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   }, [tool.inputs, unitSystem]);
 
   useEffect(() => {
-    setActiveProjectBorehole(readActiveProjectBorehole());
-
-    function syncActiveProjectBorehole() {
-      setActiveProjectBorehole(readActiveProjectBorehole());
-    }
-
-    window.addEventListener("storage", syncActiveProjectBorehole);
-    window.addEventListener("gih:active-project-changed", syncActiveProjectBorehole);
-
-    return () => {
-      window.removeEventListener("storage", syncActiveProjectBorehole);
-      window.removeEventListener("gih:active-project-changed", syncActiveProjectBorehole);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!supabaseReady) {
       setIsAuthenticated(false);
+      setActiveProjectBorehole(null);
       return;
     }
 
     const supabase = createSupabaseBrowserClient();
 
-    const syncAuth = async () => {
+    /** Cloud project/borehole selection is stored in localStorage; only apply it for a signed-in user. */
+    const applyAuthAndProjectSelection = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      setIsAuthenticated(Boolean(user));
+      if (!user) {
+        clearActiveProjectBorehole();
+        setActiveProjectBorehole(null);
+        setIsAuthenticated(false);
+        return;
+      }
+      setIsAuthenticated(true);
+      setActiveProjectBorehole(readActiveProjectBorehole());
     };
 
-    void syncAuth();
+    void applyAuthAndProjectSelection();
+
+    const onProjectSelectionSignal = () => {
+      void applyAuthAndProjectSelection();
+    };
+
+    window.addEventListener("storage", onProjectSelectionSignal);
+    window.addEventListener("gih:active-project-changed", onProjectSelectionSignal);
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      void syncAuth();
+      void applyAuthAndProjectSelection();
     });
 
     return () => {
+      window.removeEventListener("storage", onProjectSelectionSignal);
+      window.removeEventListener("gih:active-project-changed", onProjectSelectionSignal);
       subscription.unsubscribe();
     };
   }, [supabaseReady]);
@@ -1279,12 +1288,6 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     setActiveTab(nextTab);
   };
 
-  useEffect(() => {
-    if (activeTab === "report" && isSiteCharacterizationTool && !reportsAllowed) {
-      setActiveTab("profile");
-    }
-  }, [activeTab, isSiteCharacterizationTool, reportsAllowed]);
-
   return (
     <div className="space-y-5">
       <Tabs
@@ -1307,7 +1310,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isIntegratedSettlement ? [{ id: "profile", label: "Soil Profile" }] : []),
-          ...(isSiteCharacterizationTool && reportsAllowed ? [{ id: "report", label: "Report" }] : []),
+          ...(isSiteCharacterizationTool ? [{ id: "report", label: "Report" }] : []),
           { id: "information", label: "Information" },
         ]}
         activeTab={activeTab}
@@ -1696,6 +1699,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             <CuProfileReportTab
               toolSlug={tool.slug}
               toolTitle={tool.title}
+              isAuthenticated={isAuthenticated}
               unitSystem={unitSystem}
               projectName={activeProjectBorehole?.projectName ?? null}
               boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
@@ -1705,6 +1709,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
               rows={cuProfileReportData?.tableRows}
               plotImageDataUrl={cuProfileReportData?.plotImageDataUrl ?? null}
             />
+          ) : !isAuthenticated ? (
+            <ReportGuestPanel />
           ) : (
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Report</p>
@@ -1962,11 +1968,14 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         </section>
       )}
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="font-semibold">Important disclaimer</p>
-        <p className="mt-1">
+      <div className="rounded-md border border-amber-100/90 bg-amber-50/60 px-2.5 py-2 text-[11px] leading-snug text-amber-950/85 sm:text-xs sm:leading-relaxed">
+        <p className="font-medium text-amber-900/95">Important disclaimer</p>
+        <p className="mt-0.5">
           These results are simplified and indicative only. Please review the site-wide{" "}
-          <Link href="/disclaimer" className="font-semibold underline underline-offset-2 transition-colors hover:text-amber-950">
+          <Link
+            href="/disclaimer"
+            className="font-medium text-amber-900 underline decoration-amber-700/40 underline-offset-2 transition-colors hover:text-amber-950"
+          >
             Disclaimer
           </Link>{" "}
           before using this tool in any engineering workflow.

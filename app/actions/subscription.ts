@@ -199,20 +199,33 @@ export async function adminSetUserSubscriptionTierAction(
   try {
     const admin = createSupabaseAdminClient();
     const id = targetUserId.trim();
-    const { error } = await admin.from("profiles").upsert(
-      {
-        id,
-        subscription_tier: tier,
-        tier_source: "manual",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" },
-    );
+    const { data: written, error } = await admin
+      .from("profiles")
+      .upsert(
+        {
+          id,
+          subscription_tier: tier,
+          tier_source: "manual",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      )
+      .select("subscription_tier")
+      .maybeSingle();
 
     if (error) {
       return { ok: false, message: error.message };
     }
-    return { ok: true, message: `Tier set to ${tier}.` };
+
+    const persisted = normaliseSubscriptionTier((written as { subscription_tier?: string } | null)?.subscription_tier);
+    if (persisted !== tier) {
+      return {
+        ok: false,
+        message: `Save did not persist (DB has "${persisted ?? "missing"}", expected "${tier}"). Check that the user UUID exists in Authentication and that SUPABASE_SERVICE_ROLE_KEY is set on the server.`,
+      };
+    }
+
+    return { ok: true, message: `Tier set to ${tier} (verified in database).` };
   } catch {
     return { ok: false, message: "Server could not update profile (service role missing?)." };
   }

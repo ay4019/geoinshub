@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { MembershipTierColumns } from "@/components/membership-tier-columns";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -179,21 +180,21 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
             />
           </div>
           {mode === "signup" ? (
-            <div className="mt-2 space-y-1 text-sm">
+            <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-px text-[11px] leading-tight sm:text-xs">
               <p className={passwordChecks.minLength ? "text-emerald-700" : "text-slate-600"}>
-                {passwordChecks.minLength ? "✓" : "•"} At least 8 characters
+                {passwordChecks.minLength ? "✓" : "•"} 8+ characters
               </p>
               <p className={passwordChecks.hasUpper ? "text-emerald-700" : "text-slate-600"}>
-                {passwordChecks.hasUpper ? "✓" : "•"} One uppercase letter
+                {passwordChecks.hasUpper ? "✓" : "•"} Uppercase
               </p>
               <p className={passwordChecks.hasLower ? "text-emerald-700" : "text-slate-600"}>
-                {passwordChecks.hasLower ? "✓" : "•"} One lowercase letter
+                {passwordChecks.hasLower ? "✓" : "•"} Lowercase
               </p>
               <p className={passwordChecks.hasNumber ? "text-emerald-700" : "text-slate-600"}>
-                {passwordChecks.hasNumber ? "✓" : "•"} One number
+                {passwordChecks.hasNumber ? "✓" : "•"} Number
               </p>
               <p className={passwordChecks.hasSymbol ? "text-emerald-700" : "text-slate-600"}>
-                {passwordChecks.hasSymbol ? "✓" : "•"} One symbol
+                {passwordChecks.hasSymbol ? "✓" : "•"} Symbol
               </p>
             </div>
           ) : (
@@ -261,6 +262,16 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
             {mode === "login" ? "Register now." : "Log in"}
           </button>
         </p>
+
+        {mode === "signup" ? (
+          <div className="space-y-4 border-t border-slate-200 pt-8">
+            <p className="text-sm leading-relaxed text-slate-600">
+              Compare membership tiers. New accounts start on Bronze; Silver and Gold unlock higher limits when you
+              upgrade.
+            </p>
+            <MembershipTierColumns effectiveTier="none" tierLoading={false} />
+          </div>
+        ) : null}
       </form>
     </section>
   );
