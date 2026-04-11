@@ -45,7 +45,7 @@ export default async function HomePage() {
           <p className="text-xs text-slate-600 sm:text-sm">
             Need help getting started?{" "}
             <Link
-              href="/docs/kullanim-kilavuzu"
+              href="/docs/guide"
               className="font-semibold text-slate-800 underline underline-offset-4 transition-colors hover:text-slate-950"
             >
               Guide

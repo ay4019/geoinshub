@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { incrementToolUseAction } from "@/app/actions/analytics";
+import { useSubscription } from "@/components/subscription-context";
 import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
 import { CprimeFromCuProfileTab } from "@/components/cprime-from-cu-profile-tab";
 import { CuProfileReportTab, type CuProfileReportPoint } from "@/components/cu-profile-report-tab";
@@ -31,6 +32,7 @@ import { Tabs } from "@/components/tabs";
 import { useToolUnitSystem } from "@/components/tool-unit-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { tierAllowsReports } from "@/lib/subscription";
 import { calculateBySlug } from "@/lib/tool-calculations";
 import { getEquationDescriptions } from "@/lib/tool-equation-descriptions";
 import { getEquationParameters } from "@/lib/tool-equation-parameters";
@@ -372,6 +374,8 @@ function EquationBlock({ html }: { html: string }) {
 
 export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const { unitSystem, setUnitSystem } = useToolUnitSystem();
+  const { tier: subscriptionTier, loading: subscriptionLoading } = useSubscription();
+  const reportsAllowed = tierAllowsReports(subscriptionTier);
   const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
   const hasProfileTab = PROFILE_FIRST_TOOL_SLUGS.has(tool.slug);
   const hideCalculationTab = tool.category === "Settlement";
@@ -802,6 +806,11 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
       setProfileSnapshotMessageType("error");
       return;
     }
+    if (subscriptionTier === "none") {
+      setProfileSnapshotMessage("Saving analyses to a project requires Bronze or higher membership.");
+      setProfileSnapshotMessageType("error");
+      return;
+    }
     if (!activeProjectBorehole?.projectId) {
       setProfileSnapshotMessage("Select a project from Projects and Boreholes first.");
       setProfileSnapshotMessageType("error");
@@ -900,6 +909,11 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
       <p className="mt-1 text-sm text-slate-600">
         Save current profile inputs and plot images to the active project folder.
       </p>
+      {subscriptionTier === "none" ? (
+        <p className="mt-2 text-sm text-amber-800">
+          Cloud save is available from Bronze upward. You can still use tools with manual inputs.
+        </p>
+      ) : null}
       <p className="mt-1 text-xs text-slate-500">
         {activeProjectBorehole
           ? `Target: ${activeProjectBorehole.projectName}${activeProjectBorehole.boreholeLabel ? ` / ${activeProjectBorehole.boreholeLabel}` : ""}`
@@ -917,7 +931,9 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             void saveProfileSnapshotToProject();
           }}
           className="btn-base px-3 py-1.5 text-sm"
-          disabled={isSavingProfileSnapshot}
+          disabled={
+            isSavingProfileSnapshot || subscriptionTier === "none" || subscriptionLoading
+          }
         >
           {isSavingProfileSnapshot ? "Saving..." : "Save Analysis to Project"}
         </button>
@@ -1263,6 +1279,12 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     setActiveTab(nextTab);
   };
 
+  useEffect(() => {
+    if (activeTab === "report" && isSiteCharacterizationTool && !reportsAllowed) {
+      setActiveTab("profile");
+    }
+  }, [activeTab, isSiteCharacterizationTool, reportsAllowed]);
+
   return (
     <div className="space-y-5">
       <Tabs
@@ -1285,7 +1307,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isIntegratedSettlement ? [{ id: "profile", label: "Soil Profile" }] : []),
-          ...(isSiteCharacterizationTool ? [{ id: "report", label: "Report" }] : []),
+          ...(isSiteCharacterizationTool && reportsAllowed ? [{ id: "report", label: "Report" }] : []),
           { id: "information", label: "Information" },
         ]}
         activeTab={activeTab}

@@ -20,7 +20,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/terms",
     "/privacy-policy",
     "/disclaimer",
-    "/docs/kullanim-kilavuzu",
+    "/docs/guide",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: now,

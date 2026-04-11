@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { useSubscription } from "@/components/subscription-context";
+import { tierUi } from "@/lib/subscription";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -41,6 +43,7 @@ function CloseIcon() {
 export function Header() {
   const pathname = usePathname();
   const supabaseReady = isSupabaseConfigured();
+  const { isAdmin: isSubscriptionAdmin, loading: subscriptionLoading, tier } = useSubscription();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -81,7 +84,12 @@ export function Header() {
       dense
         ? "block rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base"
         : "rounded-md px-2.5 py-1.5 text-sm font-medium transition-all duration-200 md:px-3 md:py-2 md:text-[15px] lg:px-3.5 lg:py-2.5";
-    const activeCls = active ? "nav-link-active bg-slate-800 text-white hover:font-bold" : "text-slate-800 hover:font-bold hover:text-slate-950";
+    const activeCls =
+      active
+        ? item.href === "/account"
+          ? `nav-link-active ${tierUi(tier).tabActiveClass} hover:font-bold`
+          : "nav-link-active bg-slate-800 text-white hover:font-bold"
+        : "text-slate-800 hover:font-bold hover:text-slate-950";
     return (
       <Link
         key={item.href}
@@ -146,6 +154,18 @@ export function Header() {
 
         <nav aria-label="Primary" className="hidden items-center gap-1 md:flex md:gap-2 lg:gap-3.5">
           {navItems.map((item) => renderNavLink(item, false))}
+          {supabaseReady && isAuthenticated && isSubscriptionAdmin && !subscriptionLoading ? (
+            <Link
+              href="/admin"
+              className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-all duration-200 md:px-3 md:py-2 md:text-[15px] lg:px-3.5 lg:py-2.5 ${
+                pathname.startsWith("/admin")
+                  ? "nav-link-active bg-amber-800 text-white hover:font-bold"
+                  : "text-amber-900 hover:font-bold hover:text-amber-950"
+              }`}
+            >
+              Admin
+            </Link>
+          ) : null}
         </nav>
       </div>
 
@@ -156,6 +176,19 @@ export function Header() {
         >
           <nav aria-label="Primary mobile" className="mx-auto flex max-w-[1600px] flex-col px-3 py-2">
             {navItems.map((item) => renderNavLink(item, true))}
+            {supabaseReady && isAuthenticated && isSubscriptionAdmin && !subscriptionLoading ? (
+              <Link
+                href="/admin"
+                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base ${
+                  pathname.startsWith("/admin")
+                    ? "nav-link-active bg-amber-800 text-white hover:font-bold"
+                    : "text-amber-900 hover:font-bold hover:text-amber-950"
+                }`}
+                onClick={() => setMenuOpen(false)}
+              >
+                Admin
+              </Link>
+            ) : null}
           </nav>
         </div>
       ) : null}

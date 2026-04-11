@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import { useEffect, useId, useMemo, useState, useTransition } from "react";
 
 import { interpretProfileReportAction } from "@/app/actions/ai-report";
+import { consumeReportGenerationAction } from "@/app/actions/subscription";
+import { useSubscription } from "@/components/subscription-context";
+import { tierAllowsAiAnalysis } from "@/lib/subscription";
 import { createToolReportPdf } from "@/lib/tool-report-pdf";
 import {
   CU_REPORT_FIGURE_2_CAPTION,
@@ -225,6 +228,8 @@ export function CuProfileReportTab({
   plotImageDataUrl,
   getFreshPlotImageDataUrl,
 }: CuProfileReportTabProps) {
+  const { tier: subscriptionTier, loading: subscriptionLoading } = useSubscription();
+  const aiTierOk = tierAllowsAiAnalysis(subscriptionTier);
   const [isPending, startTransition] = useTransition();
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [aiText, setAiText] = useState("");
@@ -416,6 +421,11 @@ export function CuProfileReportTab({
     setStatus(null);
     setIsExportingPdf(true);
     try {
+      const quota = await consumeReportGenerationAction();
+      if (!quota.ok) {
+        setStatus(quota.message);
+        return;
+      }
       await createToolReportPdf({
         toolTitle,
         toolSlug,
@@ -499,11 +509,19 @@ export function CuProfileReportTab({
             type="button"
             className={`${AI_ANALYZE_BUTTON_CLASS} max-w-[280px]`}
             onClick={handleAiReport}
-            disabled={!AI_EVALUATION_REPORT_ENABLED || isPending || isExportingPdf}
+            disabled={
+              !AI_EVALUATION_REPORT_ENABLED ||
+              isPending ||
+              isExportingPdf ||
+              !aiTierOk ||
+              subscriptionLoading
+            }
             title={
-              AI_EVALUATION_REPORT_ENABLED
-                ? undefined
-                : "AI evaluation is not available until the AI add-on is configured."
+              !AI_EVALUATION_REPORT_ENABLED
+                ? "AI evaluation is not available until the AI add-on is configured."
+                : !aiTierOk
+                  ? "AI analysis requires Silver or Gold membership."
+                  : undefined
             }
           >
             {isPending ? "Analyzing..." : "Analyze with AI"}
@@ -645,11 +663,19 @@ export function CuProfileReportTab({
                   type="button"
                   className={AI_ANALYZE_BUTTON_CLASS}
                   onClick={handleAiReport}
-                  disabled={!AI_EVALUATION_REPORT_ENABLED || isPending || isExportingPdf}
+                  disabled={
+                    !AI_EVALUATION_REPORT_ENABLED ||
+                    isPending ||
+                    isExportingPdf ||
+                    !aiTierOk ||
+                    subscriptionLoading
+                  }
                   title={
-                    AI_EVALUATION_REPORT_ENABLED
-                      ? undefined
-                      : "AI evaluation is not available until the AI add-on is configured."
+                    !AI_EVALUATION_REPORT_ENABLED
+                      ? "AI evaluation is not available until the AI add-on is configured."
+                      : !aiTierOk
+                        ? "AI analysis requires Silver or Gold membership."
+                        : undefined
                   }
                 >
                   {isPending ? "Analyzing..." : "Analyze with AI"}
@@ -672,7 +698,7 @@ export function CuProfileReportTab({
             </div>
             <div className="mx-auto mt-4 flex w-full max-w-[280px] flex-col gap-3">
               <button type="button" className="btn-base btn-md w-full" onClick={handleReportPdf} disabled={isExportingPdf}>
-                {isExportingPdf ? "Preparing PDFâ€¦" : "Download PDF"}
+                {isExportingPdf ? "Preparing PDF…" : "Download PDF"}
               </button>
               <button
                 type="button"

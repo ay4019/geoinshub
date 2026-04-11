@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { consumeReportGenerationAction } from "@/app/actions/subscription";
 import { tools as TOOL_DEFINITIONS } from "@/data/tools";
+import { useSubscription } from "@/components/subscription-context";
 import { downloadElementAsPdf } from "@/lib/download-user-guide-pdf";
 import { EXCEL_TABLE_BLOCK_CSS, buildMhtmlMultipartDocument, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -21,12 +23,8 @@ import {
   type ProjectRecord,
   writeActiveProjectBorehole,
 } from "@/lib/project-boreholes";
-import {
-  MAX_BOREHOLES_PER_PROJECT,
-  MAX_PROJECTS_PER_USER,
-  countDistinctBoreholeLabels,
-  wouldExceedBoreholeLimit,
-} from "@/lib/project-limits";
+import { countDistinctBoreholeLabels, validateBoreholeSampleAdd } from "@/lib/project-limits";
+import { getTierLimits, tierAllowsReports } from "@/lib/subscription";
 import type { SoilBehavior } from "@/lib/soil-behavior-policy";
 
 interface SavedToolResultRecord {
@@ -438,8 +436,9 @@ function normaliseBoreholeLabelKey(value: string | null | undefined): string {
   return sanitiseBoreholeLabel(value).toLowerCase();
 }
 
+/** PostgREST errors when geotech columns are missing from schema cache or DB. */
 function isExtendedBoreholeColumnError(message: string): boolean {
-  return /pi_value|gwt_depth|unit_weight|column/i.test(message);
+  return /pi_value|gwt_depth|unit_weight|soil_behavior|column/i.test(message);
 }
 
 function isMissingBoreholesTableError(message: string): boolean {
@@ -506,6 +505,9 @@ export function AccountProjectsPanel() {
   const analysesSectionRef = useRef<HTMLElement | null>(null);
   const matrixSectionRef = useRef<HTMLElement | null>(null);
 
+  const { tier: subscriptionTier, loading: subscriptionLoading } = useSubscription();
+  const tierLimits = useMemo(() => getTierLimits(subscriptionTier), [subscriptionTier]);
+
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
   const distinctBoreholeCount = useMemo(
@@ -521,15 +523,17 @@ export function AccountProjectsPanel() {
   );
 
   useEffect(() => {
+    const maxBh = tierLimits.maxBoreholesPerProject;
     if (
       boreholeEntryMode === "new" &&
-      distinctBoreholeCount >= MAX_BOREHOLES_PER_PROJECT &&
+      Number.isFinite(maxBh) &&
+      distinctBoreholeCount >= maxBh &&
       existingBoreholeIds.length > 0
     ) {
       setBoreholeEntryMode("existing");
       setExistingBoreholeId((prev) => prev || existingBoreholeIds[0] || "");
     }
-  }, [boreholeEntryMode, distinctBoreholeCount, existingBoreholeIds]);
+  }, [boreholeEntryMode, distinctBoreholeCount, existingBoreholeIds, tierLimits.maxBoreholesPerProject]);
 
   const visibleBoreholes = useMemo(() => selectedProject?.boreholes ?? [], [selectedProject]);
   const integratedMatrixRows = useMemo(() => {
@@ -643,6 +647,17 @@ export function AccountProjectsPanel() {
 
   const generateReportPdf = async () => {
     if (!selectedProject || !supabaseReady) {
+      return;
+    }
+    if (!tierAllowsReports(subscriptionTier)) {
+      setMessage("Integrated reports require Bronze or higher membership.");
+      setMessageType("error");
+      return;
+    }
+    const quota = await consumeReportGenerationAction();
+    if (!quota.ok) {
+      setMessage(quota.message);
+      setMessageType("error");
       return;
     }
     setIsGeneratingReport(true);
@@ -863,7 +878,9 @@ export function AccountProjectsPanel() {
 
     const extendedBoreholesQuery = await supabase
       .from("boreholes")
-      .select("id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,pi_value,gwt_depth,unit_weight,created_at")
+      .select(
+        "id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,pi_value,gwt_depth,unit_weight,soil_behavior,created_at",
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
 
@@ -885,6 +902,7 @@ export function AccountProjectsPanel() {
             pi_value: null,
             gwt_depth: null,
             unit_weight: null,
+            soil_behavior: null,
           }));
         }
       } else if (!isMissingBoreholesTableError(extendedBoreholesQuery.error.message)) {
@@ -1040,8 +1058,15 @@ export function AccountProjectsPanel() {
       return;
     }
 
-    if (projects.length >= MAX_PROJECTS_PER_USER) {
-      setMessage(`You can create at most ${MAX_PROJECTS_PER_USER} projects.`);
+    if (subscriptionTier === "none") {
+      setMessage("Creating projects requires Bronze or higher membership.");
+      setMessageType("error");
+      return;
+    }
+
+    const maxP = tierLimits.maxProjects;
+    if (Number.isFinite(maxP) && projects.length >= maxP) {
+      setMessage(`You can create at most ${maxP} projects on your plan.`);
       setMessageType("error");
       return;
     }
@@ -1104,11 +1129,16 @@ export function AccountProjectsPanel() {
       return;
     }
 
+    if (subscriptionTier === "none") {
+      setMessage("Saving borehole samples requires Bronze or higher membership.");
+      setMessageType("error");
+      return;
+    }
+
     const projectSamples = selectedProject?.boreholes ?? [];
-    if (wouldExceedBoreholeLimit(projectSamples, boreholeId)) {
-      setMessage(
-        `Each project can have at most ${MAX_BOREHOLES_PER_PROJECT} boreholes. Add a sample under an existing borehole ID, or remove samples until fewer than ${MAX_BOREHOLES_PER_PROJECT} IDs remain.`,
-      );
+    const sampleCheck = validateBoreholeSampleAdd(projectSamples, boreholeId, tierLimits);
+    if (!sampleCheck.ok) {
+      setMessage(sampleCheck.message);
       setMessageType("error");
       return;
     }
@@ -1148,13 +1178,14 @@ export function AccountProjectsPanel() {
           pi_value: piForStore,
           gwt_depth: toNullableNumber(newGwtDepth),
           unit_weight: toNullableNumber(newUnitWeight),
+          soil_behavior: newSoilBehavior === "" ? null : newSoilBehavior,
         })
         .select("id")
         .maybeSingle();
       error = extendedInsert.error ? { message: extendedInsert.error.message } : null;
       insertedSampleId = (extendedInsert.data as { id?: string } | null)?.id ?? null;
 
-      if (error && /pi_value|gwt_depth|unit_weight|column/i.test(error.message)) {
+      if (error && isExtendedBoreholeColumnError(error.message)) {
         const legacyInsert = await supabase.from("boreholes").insert({
           project_id: selectedProjectId,
           user_id: user.id,
@@ -1391,13 +1422,14 @@ export function AccountProjectsPanel() {
           pi_value: piForStore,
           gwt_depth: toNullableNumber(editGwtDepth),
           unit_weight: toNullableNumber(editUnitWeight),
+          soil_behavior: editSoilBehavior === "" ? null : editSoilBehavior,
         })
         .eq("id", editingSampleId)
         .select("id");
       error = extendedUpdate.error ? { message: extendedUpdate.error.message } : null;
       affectedRows = extendedUpdate.data?.length ?? 0;
 
-      if (error && /pi_value|gwt_depth|unit_weight|column/i.test(error.message)) {
+      if (error && isExtendedBoreholeColumnError(error.message)) {
         const legacyUpdate = await supabase
           .from("boreholes")
           .update({
@@ -1724,6 +1756,12 @@ export function AccountProjectsPanel() {
                 type="button"
                 className="btn-base btn-md shrink-0"
                 onClick={() => setIsNewProjectOpen((prev) => !prev)}
+                disabled={subscriptionTier === "none" || subscriptionLoading}
+                title={
+                  subscriptionTier === "none"
+                    ? "Upgrade to Bronze or higher to create cloud projects."
+                    : undefined
+                }
               >
                 New Project
               </button>
@@ -1772,17 +1810,26 @@ export function AccountProjectsPanel() {
                 value={newProjectName}
                 onChange={(event) => setNewProjectName(event.target.value)}
                 placeholder="Project name"
-                disabled={projects.length >= MAX_PROJECTS_PER_USER}
+                disabled={
+                  subscriptionTier === "none" ||
+                  (Number.isFinite(tierLimits.maxProjects) && projects.length >= tierLimits.maxProjects)
+                }
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs text-slate-500">
-                  {projects.length}/{MAX_PROJECTS_PER_USER} projects
+                  {Number.isFinite(tierLimits.maxProjects)
+                    ? `${projects.length}/${tierLimits.maxProjects} projects`
+                    : `${projects.length} projects (unlimited)`}
                 </p>
                 <button
                   type="submit"
                   className="btn-base btn-md"
-                  disabled={isSavingProject || projects.length >= MAX_PROJECTS_PER_USER}
+                  disabled={
+                    isSavingProject ||
+                    subscriptionTier === "none" ||
+                    (Number.isFinite(tierLimits.maxProjects) && projects.length >= tierLimits.maxProjects)
+                  }
                 >
                   {isSavingProject ? "Creating..." : "Create"}
                 </button>
@@ -1795,7 +1842,7 @@ export function AccountProjectsPanel() {
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1 text-sm text-red-900">
-                <p className="font-semibold">Remove project "{selectedProject.name}"?</p>
+                <p className="font-semibold">Remove project &quot;{selectedProject.name}&quot;?</p>
                 <p className="text-red-800">
                   This will permanently delete all boreholes, samples, and saved analyses linked to this project. This
                   cannot be undone.
@@ -2148,8 +2195,11 @@ export function AccountProjectsPanel() {
                   the ID and those fields fill from the project; add further sample depths below.
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {distinctBoreholeCount}/{MAX_BOREHOLES_PER_PROJECT} boreholes in this project
-                  {distinctBoreholeCount >= MAX_BOREHOLES_PER_PROJECT
+                  {Number.isFinite(tierLimits.maxBoreholesPerProject)
+                    ? `${distinctBoreholeCount}/${tierLimits.maxBoreholesPerProject} boreholes in this project`
+                    : `${distinctBoreholeCount} boreholes (unlimited)`}
+                  {Number.isFinite(tierLimits.maxBoreholesPerProject) &&
+                  distinctBoreholeCount >= tierLimits.maxBoreholesPerProject
                     ? " — new borehole IDs are not allowed; add samples under an existing ID."
                     : null}
                 </p>
@@ -2169,7 +2219,13 @@ export function AccountProjectsPanel() {
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
                     aria-label="New or existing borehole"
                   >
-                    <option value="new" disabled={distinctBoreholeCount >= MAX_BOREHOLES_PER_PROJECT}>
+                    <option
+                      value="new"
+                      disabled={
+                        Number.isFinite(tierLimits.maxBoreholesPerProject) &&
+                        distinctBoreholeCount >= tierLimits.maxBoreholesPerProject
+                      }
+                    >
                       New Borehole ID
                     </option>
                     <option value="existing" disabled={!existingBoreholeIds.length}>
@@ -2265,8 +2321,15 @@ export function AccountProjectsPanel() {
                     className="btn-base btn-md"
                     disabled={
                       isSavingBorehole ||
-                      (boreholeEntryMode === "new" &&
-                        wouldExceedBoreholeLimit(selectedProject?.boreholes ?? [], newBoreholeId))
+                      subscriptionTier === "none" ||
+                      subscriptionLoading ||
+                      (() => {
+                        const proposal = (boreholeEntryMode === "new" ? newBoreholeId : existingBoreholeId).trim();
+                        if (!proposal) {
+                          return false;
+                        }
+                        return !validateBoreholeSampleAdd(selectedProject?.boreholes ?? [], proposal, tierLimits).ok;
+                      })()
                     }
                   >
                     {isSavingBorehole ? "Saving..." : "Add Sample"}
@@ -2386,8 +2449,19 @@ export function AccountProjectsPanel() {
                       onClick={() => {
                         void generateReportPdf();
                       }}
-                      disabled
-                      title="Report generation is temporarily disabled."
+                      disabled={
+                        !reportReady ||
+                        isGeneratingReport ||
+                        !tierAllowsReports(subscriptionTier) ||
+                        subscriptionLoading
+                      }
+                      title={
+                        !tierAllowsReports(subscriptionTier)
+                          ? "Reports require Bronze or higher."
+                          : !reportReady
+                            ? "Save analyses and build the matrix first."
+                            : undefined
+                      }
                     >
                       {isGeneratingReport ? "Preparing report..." : "Generate report"}
                     </button>

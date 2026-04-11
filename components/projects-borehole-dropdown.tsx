@@ -49,7 +49,7 @@ function groupProjectBoreholes(project: ProjectRecord | null | undefined) {
 }
 
 function isExtendedBoreholeColumnError(message: string): boolean {
-  return /pi_value|gwt_depth|unit_weight|column/i.test(message);
+  return /pi_value|gwt_depth|unit_weight|soil_behavior|column/i.test(message);
 }
 
 function isMissingBoreholesTableError(message: string): boolean {
@@ -126,7 +126,9 @@ export function ProjectsBoreholeDropdown() {
 
     const extendedBoreholesQuery = await supabase
       .from("boreholes")
-      .select("id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,pi_value,gwt_depth,unit_weight,created_at")
+      .select(
+        "id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,pi_value,gwt_depth,unit_weight,soil_behavior,created_at",
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
 
@@ -147,6 +149,7 @@ export function ProjectsBoreholeDropdown() {
             pi_value: null,
             gwt_depth: null,
             unit_weight: null,
+            soil_behavior: null,
           }));
         }
       } else if (!isMissingBoreholesTableError(extendedBoreholesQuery.error.message)) {

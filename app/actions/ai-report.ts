@@ -1,5 +1,7 @@
 "use server";
 
+import { consumeAiAnalysisAction } from "@/app/actions/subscription";
+
 interface ProfileReportAiRequest {
   toolSlug: string;
   toolTitle: string;
@@ -410,6 +412,11 @@ export async function interpretProfileReportAction(request: ProfileReportAiReque
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return "AI analysis is enabled, but GEMINI_API_KEY is missing on the server.";
+    }
+
+    const quota = await consumeAiAnalysisAction();
+    if (!quota.ok) {
+      return quota.message;
     }
 
     const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";

@@ -7,14 +7,73 @@ import { useState } from "react";
 import { deleteCurrentUserAccountAction } from "@/app/actions/account";
 import { AccountProjectsPanel } from "@/components/account-projects-panel";
 import { LogoutButton } from "@/components/logout-button";
+import { useSubscription } from "@/components/subscription-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  BRONZE_MAX_BOREHOLES_PER_PROJECT,
+  BRONZE_MAX_PROJECTS,
+  BRONZE_MAX_REPORTS_PER_DAY,
+  BRONZE_MAX_SAMPLES_PER_BOREHOLE,
+  SILVER_MAX_AI_ANALYSES_PER_DAY,
+  tierUi,
+  type SubscriptionTier,
+} from "@/lib/subscription";
 
 type MainAccountTab = "projects" | "personal" | "subscription";
 type PersonalTab = "information" | "password" | "privacy";
 
 interface AccountDashboardPanelProps {
   email: string;
+}
+
+function SubscriptionPlanColumn({
+  tierId,
+  currentTier,
+  title,
+  subtitle,
+  className,
+  titleClass,
+  features,
+}: {
+  tierId: SubscriptionTier;
+  currentTier: SubscriptionTier;
+  title: string;
+  subtitle: string;
+  className: string;
+  titleClass: string;
+  features: string[];
+}) {
+  const isCurrent = currentTier === tierId;
+  return (
+    <div
+      className={`flex flex-col rounded-2xl border-2 p-4 shadow-sm transition-shadow sm:p-5 ${className} ${
+        isCurrent ? "ring-2 ring-offset-2 ring-offset-slate-50 ring-slate-900/80 shadow-md" : ""
+      }`}
+    >
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className={`text-lg font-bold tracking-tight ${titleClass}`}>{title}</p>
+          <p className="mt-0.5 text-xs font-medium opacity-90">{subtitle}</p>
+        </div>
+        {isCurrent ? (
+          <span className="shrink-0 rounded-full bg-black/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-900">
+            Your plan
+          </span>
+        ) : null}
+      </div>
+      <ul className="mt-1 flex flex-1 flex-col gap-2.5 text-xs leading-snug sm:text-[13px]">
+        {features.map((line) => (
+          <li key={line} className="flex gap-2">
+            <span className="mt-0.5 shrink-0 text-emerald-800/90" aria-hidden>
+              ✓
+            </span>
+            <span className="text-left opacity-95">{line}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 const mainTabItems: Array<{ id: MainAccountTab; label: string }> = [
@@ -31,6 +90,8 @@ const personalTabItems: Array<{ id: PersonalTab; label: string }> = [
 
 export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
   const router = useRouter();
+  const { tier, isAdmin, loading: tierLoading } = useSubscription();
+  const tierStyle = tierUi(tier);
   const [activeMainTab, setActiveMainTab] = useState<MainAccountTab>("projects");
   const [activePersonalTab, setActivePersonalTab] = useState<PersonalTab>("information");
   const [newPassword, setNewPassword] = useState("");
@@ -112,7 +173,10 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
   };
 
   return (
-    <section className="mx-auto max-w-[1200px] rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7">
+    <section
+      className={`mx-auto max-w-[1200px] rounded-[1.5rem] border-2 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7 ${tierStyle.borderClass}`}
+      style={tierStyle.ringStyle}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Account</h1>
@@ -130,7 +194,11 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
             type="button"
             onClick={() => setActiveMainTab(tab.id)}
             className={`btn-base btn-md ${
-              activeMainTab === tab.id ? "bg-slate-900 text-white hover:bg-slate-800" : ""
+              activeMainTab === tab.id
+                ? tab.id === "subscription"
+                  ? tierStyle.tabActiveClass
+                  : "bg-slate-900 text-white hover:bg-slate-800"
+                : ""
             }`}
           >
             {tab.label}
@@ -144,10 +212,107 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
           <AccountProjectsPanel />
         </div>
       ) : activeMainTab === "subscription" ? (
-        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-          <div className="space-y-2 text-sm text-slate-700">
-            <p className="font-medium text-slate-900">Subscription Status</p>
-            <p>Subscription features are not active yet.</p>
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
+          <div className="space-y-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Subscription</h2>
+              {tierLoading ? (
+                <p className="text-sm text-slate-500">Loading…</p>
+              ) : (
+                <div className="text-sm text-slate-600">
+                  <p>
+                    Your plan:{" "}
+                    <span
+                      className={`font-semibold ${
+                        tier === "none" ? "text-slate-700" : tier === "bronze" ? "text-[#5c2e12]" : "text-slate-900"
+                      }`}
+                    >
+                      {tier === "none" ? "No membership" : tier === "bronze" ? "Bronze" : tierStyle.label}
+                    </span>
+                    {tier === "silver" || tier === "gold" ? (
+                      <span className="text-slate-500"> — includes everything in Bronze, plus more.</span>
+                    ) : null}
+                    {tier === "none" ? (
+                      <span className="text-slate-500"> — sign up or upgrade to start with Bronze.</span>
+                    ) : null}
+                  </p>
+                  {tier === "bronze" ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Members join on <span className="font-medium text-[#5c2e12]">Bronze</span> — the default paid tier
+                      with cloud projects and reports.
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {tierLoading ? (
+              <p className="text-sm text-slate-600">Loading plan details…</p>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <SubscriptionPlanColumn
+                    tierId="bronze"
+                    currentTier={tier}
+                    title="Bronze"
+                    subtitle="Default membership — copper tier"
+                    className="border-[#6B4423] bg-gradient-to-b from-[#f6ece3] via-[#e9d4c0] to-[#d4b896] text-[#2a1810] ring-[#8B5A2B]/35"
+                    titleClass="text-[#3d2314]"
+                    features={[
+                      `Up to ${BRONZE_MAX_PROJECTS} projects`,
+                      `Up to ${BRONZE_MAX_BOREHOLES_PER_PROJECT} borehole IDs per project`,
+                      `Up to ${BRONZE_MAX_SAMPLES_PER_BOREHOLE} samples per borehole`,
+                      `Integrated parameter reports — max ${BRONZE_MAX_REPORTS_PER_DAY} PDFs per day (Europe/Istanbul)`,
+                      "Save analyses and matrix to the cloud",
+                      "AI profile interpretation — not included",
+                    ]}
+                  />
+                  <SubscriptionPlanColumn
+                    tierId="silver"
+                    currentTier={tier}
+                    title="Silver"
+                    subtitle="Full analysis capacity"
+                    className="border-slate-400/70 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200/70 text-slate-900 ring-slate-500/30"
+                    titleClass="text-slate-900"
+                    features={[
+                      "Unlimited projects and boreholes",
+                      "Unlimited integrated reports and PDF exports",
+                      `AI analysis — max ${SILVER_MAX_AI_ANALYSES_PER_DAY} runs per day (Europe/Istanbul)`,
+                      "All Bronze features included",
+                    ]}
+                  />
+                  <SubscriptionPlanColumn
+                    tierId="gold"
+                    currentTier={tier}
+                    title="Gold"
+                    subtitle="No limits"
+                    className="border-amber-400/80 bg-gradient-to-b from-amber-50 via-yellow-50 to-amber-100/80 text-amber-950 ring-amber-500/35"
+                    titleClass="text-amber-950"
+                    features={[
+                      "Unlimited projects, reports, and AI analyses",
+                      "Priority use of new features as they ship",
+                      "All Silver features included",
+                    ]}
+                  />
+                </div>
+
+                <p className="text-center text-xs text-slate-500">
+                  Daily quotas reset on the Europe/Istanbul calendar day. Payment checkout (e.g. Stripe) can be connected
+                  later to assign tiers automatically.
+                </p>
+                {isAdmin ? (
+                  <p className="text-center text-sm text-slate-600">
+                    <Link
+                      href="/admin"
+                      className="font-semibold text-amber-900 underline decoration-amber-700/50 underline-offset-4 hover:text-amber-950"
+                    >
+                      Admin panel
+                    </Link>{" "}
+                    — search users by email and set tiers.
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       ) : (
