@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   ProfileTableHeaderCell,
@@ -13,6 +14,7 @@ import {
   profileTableRemoveButtonClass,
   profileTableThClass,
 } from "@/components/profile-table-mobile";
+import { profilePlotItemClass, profilePlotsSectionClass } from "@/lib/profile-plot-layout";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { matchImportSummaryForProfileRow } from "@/lib/soil-behavior-policy";
@@ -614,23 +616,27 @@ export function EarthPressureProfileTab({
         </ProfileTableScroll>
 
         {plotPoints.length ? (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            {renderScatterChart({
-              title: "Depth vs K₀,OC",
-              xLabel: "K₀,OC",
-              points: plotPoints,
-              valueKey: "k0oc",
-              depthUnit,
-              xTickFormatter: (value) => value.toFixed(2),
-            })}
-            {renderScatterChart({
-              title: "Depth vs σ′ₕ,₀",
-              xLabel: `σ′ₕ,₀ (${stressUnit})`,
-              points: plotPoints,
-              valueKey: "sigmaH0",
-              depthUnit,
-              xTickFormatter: (value) => Math.round(value).toString(),
-            })}
+          <div className={profilePlotsSectionClass(2)}>
+            <ExpandableProfilePlot className={profilePlotItemClass(2)}>
+              {renderScatterChart({
+                title: "Depth vs K₀,OC",
+                xLabel: "K₀,OC",
+                points: plotPoints,
+                valueKey: "k0oc",
+                depthUnit,
+                xTickFormatter: (value) => value.toFixed(2),
+              })}
+            </ExpandableProfilePlot>
+            <ExpandableProfilePlot className={profilePlotItemClass(2)}>
+              {renderScatterChart({
+                title: "Depth vs σ′ₕ,₀",
+                xLabel: `σ′ₕ,₀ (${stressUnit})`,
+                points: plotPoints,
+                valueKey: "sigmaH0",
+                depthUnit,
+                xTickFormatter: (value) => Math.round(value).toString(),
+              })}
+            </ExpandableProfilePlot>
           </div>
         ) : null}
       </div>

@@ -46,7 +46,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
         <div className="flex flex-col gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.08em] text-slate-500">{tool.category}</p>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-900">
+            <h1 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">
               <EngineeringText text={tool.title} />
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">

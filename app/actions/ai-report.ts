@@ -1,6 +1,7 @@
 "use server";
 
 import { consumeAiAnalysisAction } from "@/app/actions/subscription";
+import { isSuccessfulAiInterpretationBody, sanitizeAiInterpretationText } from "@/lib/ai-interpretation-sanitize";
 
 interface ProfileReportAiRequest {
   toolSlug: string;
@@ -10,6 +11,8 @@ interface ProfileReportAiRequest {
   resolvedNarrative: string;
   tableRows: Array<Record<string, string>>;
   plotImageDataUrl?: string | null;
+  /** Second profile figure (e.g. SPT (N1)60 vs depth). Sent after the first image to Gemini. */
+  plotImageDataUrl2?: string | null;
   aiPromptHint?: string;
 }
 
@@ -62,16 +65,11 @@ function buildSystemPrompt(): string {
     "Include at least one cautionary statement recommending review by a qualified engineer.",
     "",
     "Avoid repetition and unnecessary verbosity. Prioritise technical clarity over length.",
+    "",
+    "Use plain ASCII for symbols where relevant: c_u, N60, N1_60 or (N1)60, and f1 (avoid Unicode subscripts and markdown formatting).",
+    "",
+    "When two profile plots are provided (e.g. SPT N60-depth and normalized (N1)60-depth), compare both: comment on energy-corrected blow count versus stress-normalized trends and any divergence between them.",
   ].join("\n");
-}
-
-function getWordCount(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
-
-function isSubstantiveInterpretation(text: string): boolean {
-  const wordCount = getWordCount(text);
-  return wordCount >= 220 && wordCount <= 400;
 }
 
 function extractGeminiText(payload: GeminiGenerateContentResponse): string {
@@ -272,18 +270,30 @@ function buildTableSummary(toolData: ProfileReportAiRequest): TableSummaryResult
 }
 
 function buildPlotSummary(toolData: ProfileReportAiRequest, tableSummary: TableSummaryResult): string {
-  if (!toolData.plotImageDataUrl) {
+  const hasFirst = Boolean(toolData.plotImageDataUrl);
+  const hasSecond = Boolean(toolData.plotImageDataUrl2);
+  if (!hasFirst && !hasSecond) {
     return "No plot description provided.";
   }
 
-  const parts = ["Plot image provided."];
+  const parts: string[] = [];
+
+  if (toolData.toolSlug === "spt-corrections" && hasFirst && hasSecond) {
+    parts.push(
+      "Two plot images are attached in order: (1) N60 versus depth; (2) normalized blow count (N1)60 versus depth.",
+    );
+  } else if (hasFirst && hasSecond) {
+    parts.push("Two plot images are attached in order; interpret both together with the table.");
+  } else {
+    parts.push("Plot image provided.");
+  }
 
   if (tableSummary.primaryValueKey) {
     parts.push(
-      `The plot is expected to represent ${tableSummary.primaryValueKey} against depth-related records for ${tableSummary.recordCount} samples.`,
+      `The primary plot is expected to represent ${tableSummary.primaryValueKey} against depth-related records for ${tableSummary.recordCount} samples.`,
     );
   } else {
-    parts.push(`The plot is associated with ${tableSummary.recordCount} tabulated records.`);
+    parts.push(`The plot(s) are associated with ${tableSummary.recordCount} tabulated records.`);
   }
 
   if (tableSummary.depthMin !== null && tableSummary.depthMax !== null) {
@@ -298,9 +308,9 @@ function buildPlotSummary(toolData: ProfileReportAiRequest, tableSummary: TableS
     );
   }
 
-  if (tableSummary.primaryValueKey) {
+  if (tableSummary.primaryValueKey || hasSecond) {
     parts.push(
-      `Use the attached plot as visual support for trend confirmation, but rely only on values evidenced by the table and the image.`,
+      `Use the attached plot${hasSecond ? "s" : ""} as visual support for trend confirmation, but rely only on values evidenced by the table and the image${hasSecond ? "s" : ""}.`,
     );
   }
 
@@ -346,6 +356,11 @@ function buildUserPrompt(toolData: ProfileReportAiRequest): string {
     "",
     "Instructions:",
     "Review the tabulated values and the plot description together.",
+    ...(toolData.toolSlug === "spt-corrections" && toolData.plotImageDataUrl2
+      ? [
+          "Both SPT profile plots are attached: relate N60 trends to (N1)60 after overburden normalization where the data supports it.",
+        ]
+      : []),
     "Use the base report text only as supporting context and avoid repetition.",
     "Focus on engineering interpretation, variability, and design relevance.",
     "If the data is inconsistent or limited, explicitly state uncertainty.",
@@ -357,12 +372,12 @@ async function requestGeminiInterpretation(
   model: string,
   systemPrompt: string,
   userPrompt: string,
-  imagePart: { mimeType: string; data: string } | null,
+  imageParts: ReadonlyArray<{ mimeType: string; data: string }>,
   maxOutputTokens: number,
   thinkingBudget: number,
 ) {
   const userParts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [{ text: userPrompt }];
-  if (imagePart) {
+  for (const imagePart of imageParts) {
     userParts.push({
       inline_data: {
         mime_type: imagePart.mimeType,
@@ -404,9 +419,20 @@ export async function interpretProfileReportAction(request: ProfileReportAiReque
       return "No profile table data was found. Please prepare profile rows first.";
     }
 
-    const imagePart = request.plotImageDataUrl ? parseDataUrl(request.plotImageDataUrl) : null;
-    if (request.plotImageDataUrl && !imagePart) {
-      return "Profile plot image format is invalid. Please regenerate the plot and try again.";
+    const imageParts: Array<{ mimeType: string; data: string }> = [];
+    if (request.plotImageDataUrl) {
+      const parsed = parseDataUrl(request.plotImageDataUrl);
+      if (!parsed) {
+        return "Profile plot image format is invalid. Please regenerate the plot and try again.";
+      }
+      imageParts.push({ mimeType: parsed.mimeType, data: parsed.data });
+    }
+    if (request.plotImageDataUrl2) {
+      const parsed2 = parseDataUrl(request.plotImageDataUrl2);
+      if (!parsed2) {
+        return "Second profile plot image format is invalid. Please regenerate the plot and try again.";
+      }
+      imageParts.push({ mimeType: parsed2.mimeType, data: parsed2.data });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -423,7 +449,7 @@ export async function interpretProfileReportAction(request: ProfileReportAiReque
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt(request);
 
-    let response = await requestGeminiInterpretation(apiKey, model, systemPrompt, userPrompt, imagePart, 640, 0);
+    let response = await requestGeminiInterpretation(apiKey, model, systemPrompt, userPrompt, imageParts, 640, 0);
     if (!response.ok) {
       return `Gemini AI request failed (${response.status}).`;
     }
@@ -432,14 +458,17 @@ export async function interpretProfileReportAction(request: ProfileReportAiReque
     let text = extractGeminiText(payload);
     const finishReason = payload.candidates?.[0]?.finishReason;
 
-    if (!isSubstantiveInterpretation(text) || finishReason === "MAX_TOKENS") {
-      response = await requestGeminiInterpretation(apiKey, model, systemPrompt, userPrompt, imagePart, 760, 0);
+    if (!isSuccessfulAiInterpretationBody(text) || finishReason === "MAX_TOKENS") {
+      response = await requestGeminiInterpretation(apiKey, model, systemPrompt, userPrompt, imageParts, 760, 0);
       if (response.ok) {
         payload = (await response.json()) as GeminiGenerateContentResponse;
         text = extractGeminiText(payload);
       }
     }
 
+    if (isSuccessfulAiInterpretationBody(text)) {
+      return sanitizeAiInterpretationText(text);
+    }
     return text || "Gemini returned no text. Please try again.";
   } catch {
     return "Gemini AI is temporarily unavailable. Please try again.";

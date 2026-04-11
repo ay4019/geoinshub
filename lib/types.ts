@@ -1,5 +1,5 @@
 export const TOOL_CATEGORIES = [
-  "Mechanical Tools",
+  "Shear Strength Tools",
   "Rigidity / Deformation Tools",
   "Stress Related Tools",
   "Soil Parameters",

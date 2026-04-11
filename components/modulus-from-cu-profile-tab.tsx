@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   ProfileTableHeaderCell,
@@ -13,6 +14,7 @@ import {
 } from "@/components/profile-table-mobile";
 import { EngineeringText } from "@/components/engineering-text";
 import { isActiveProjectToolLocked, type SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { profilePlotItemClass, profilePlotsSectionClass } from "@/lib/profile-plot-layout";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import {
   matchImportSummaryForProfileRow,
@@ -619,21 +621,25 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows, soilPolicyTool
         </ProfileTableScroll>
 
         {plotPoints.length ? (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            {renderProfileChart({
-              title: "Depth vs cᵤ",
-              xLabel: `cᵤ (${stressUnit})`,
-              points: plotPoints,
-              valueKey: "cu",
-              depthUnit,
-            })}
-            {renderProfileChart({
-              title: "Depth vs Eᵤ",
-              xLabel: `Eᵤ (${stressUnit})`,
-              points: plotPoints,
-              valueKey: "eu",
-              depthUnit,
-            })}
+          <div className={profilePlotsSectionClass(2)}>
+            <ExpandableProfilePlot className={profilePlotItemClass(2)}>
+              {renderProfileChart({
+                title: "Depth vs cᵤ",
+                xLabel: `cᵤ (${stressUnit})`,
+                points: plotPoints,
+                valueKey: "cu",
+                depthUnit,
+              })}
+            </ExpandableProfilePlot>
+            <ExpandableProfilePlot className={profilePlotItemClass(2)}>
+              {renderProfileChart({
+                title: "Depth vs Eᵤ",
+                xLabel: `Eᵤ (${stressUnit})`,
+                points: plotPoints,
+                valueKey: "eu",
+                depthUnit,
+              })}
+            </ExpandableProfilePlot>
           </div>
         ) : null}
       </div>

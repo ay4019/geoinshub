@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   ProfileTableHeaderCell,
@@ -408,9 +409,10 @@ function ProfileChart({
   const yTickCount = Math.max(Math.floor(yAxisMax / yStep), 2);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-      <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 w-full">
+    <ExpandableProfilePlot>
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+        <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 w-full">
         <rect x="0" y="0" width={width} height={height} rx="14" fill="#ffffff" />
         <rect
           x={margin.left}
@@ -513,7 +515,8 @@ function ProfileChart({
           );
         })}
       </div>
-    </div>
+      </div>
+    </ExpandableProfilePlot>
   );
 }
 

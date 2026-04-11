@@ -13,7 +13,7 @@ export function ToolCard({ tool }: ToolCardProps) {
       <p className="text-[10px] uppercase tracking-[0.08em] text-slate-500 sm:text-xs" style={{ fontFamily: "var(--font-sans), sans-serif" }}>
         {tool.category}
       </p>
-      <h3 className="mt-1.5 text-base font-semibold text-slate-900 sm:mt-2 sm:text-lg" style={{ fontFamily: "var(--font-serif), serif" }}>
+      <h3 className="mt-1.5 text-base font-semibold text-slate-900 sm:mt-2 sm:text-lg">
         <EngineeringText text={tool.title} />
       </h3>
       <p className="mt-1.5 flex-1 text-xs leading-5 text-slate-600 sm:mt-2 sm:text-sm sm:leading-6" style={{ fontFamily: "var(--font-sans), sans-serif" }}>

@@ -337,7 +337,7 @@ function bearingCapacityCore(
 
   return {
     title: `${method.charAt(0).toUpperCase() + method.slice(1)} Bearing Capacity`,
-    summary: `Simplified rectangular footing check with phi' = ${round(phiDeg, 1)} deg and B/L = ${round(
+    summary: `Simplified rectangular footing check with φ′ = ${round(phiDeg, 1)} deg and B/L = ${round(
       b / l,
       2,
     )}.`,
@@ -1399,7 +1399,7 @@ const calculators: Record<string, Calculator> = {
     const phi = 17.6 + 11 * log10(qcKpa / PA);
     return {
       title: "CPT Sand Correlation",
-      items: [{ label: "Estimated phi'", value: round(phi, 2), unit: "deg" }],
+      items: [{ label: "Estimated φ′", value: round(phi, 2), unit: "deg" }],
       notes: ["This is a broad correlation and should be checked against local sand behaviour."],
       warnings: baseWarnings(),
     };

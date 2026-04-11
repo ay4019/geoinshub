@@ -120,7 +120,7 @@ const PARAMETER_METADATA: Record<
   pln: { label: "PLN", defaultUnit: "kPa" },
   cu: { label: "cu", defaultUnit: "kPa" },
   c_prime: { label: "c'", defaultUnit: "kPa" },
-  phi_prime: { label: "phi'", defaultUnit: "deg" },
+  phi_prime: { label: "φ′", defaultUnit: "deg" },
   eu: { label: "Eu", defaultUnit: "kPa" },
   e_prime: { label: "E'", defaultUnit: "kPa" },
   ocr: { label: "OCR", defaultUnit: null },

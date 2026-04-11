@@ -60,6 +60,14 @@ h4 {
   font-family: var(--font-serif), serif;
 }
 
+/* Account / auth: keep headings in the UI sans stack (Lora on dashboard looked off) */
+.account-ui-sans h1,
+.account-ui-sans h2,
+.account-ui-sans h3,
+.account-ui-sans h4 {
+  font-family: var(--font-sans), sans-serif;
+}
+
 a {
   color: inherit;
   text-decoration: none;

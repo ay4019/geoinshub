@@ -5,10 +5,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   BRONZE_MAX_REPORTS_PER_DAY,
   effectiveSubscriptionTier,
+  MATRIX_AI_REPORTS_PER_WEEK,
   normaliseSubscriptionTier,
-  SILVER_MAX_AI_ANALYSES_PER_DAY,
   type SubscriptionTier,
+  tierAllowsAiAnalysis,
   usageDateKeyEuropeIstanbul,
+  usageWeekMondayKeyEuropeIstanbul,
 } from "@/lib/subscription";
 
 export interface SubscriptionProfile {
@@ -120,7 +122,7 @@ export async function consumeReportGenerationAction(): Promise<QuotaResult> {
   return { ok: true, message: "ok", remaining: BRONZE_MAX_REPORTS_PER_DAY - current - 1 };
 }
 
-/** Silver: max AI analyses per day. Gold: unlimited. Bronze/none: blocked before calling this. */
+/** Gold: unlimited AI analyses (tool “Analyze with AI”). Other tiers blocked before calling this. */
 export async function consumeAiAnalysisAction(): Promise<QuotaResult> {
   const auth = await requireUserId();
   if ("error" in auth) {
@@ -130,53 +132,107 @@ export async function consumeAiAnalysisAction(): Promise<QuotaResult> {
   if (tier === "gold") {
     return { ok: true, message: "ok" };
   }
-  if (tier !== "silver") {
-    return { ok: false, message: "AI analysis requires Silver or Gold." };
+  return { ok: false, message: "AI analysis requires Gold membership." };
+}
+
+export interface MatrixAiWeeklyQuotaPayload {
+  isAdmin: boolean;
+  /** Weekly cap for Gold (non-admin); admins are exempt. */
+  limit: number;
+  used: number;
+  remaining: number;
+  weekStart: string;
+}
+
+/** Weekly matrix AI report quota (Gold 5/week in Europe/Istanbul; admins unlimited). */
+export async function getMatrixAiWeeklyQuotaAction(): Promise<
+  { ok: true; data: MatrixAiWeeklyQuotaPayload } | { ok: false; message: string }
+> {
+  const auth = await requireUserId();
+  if ("error" in auth) {
+    return { ok: false, message: auth.error };
   }
 
   const supabase = await createSupabaseServerClient();
-  const today = usageDateKeyEuropeIstanbul();
-  const { data: row, error: selErr } = await supabase
-    .from("usage_daily")
-    .select("id, ai_analyses")
-    .eq("user_id", auth.userId)
-    .eq("usage_date", today)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("subscription_tier, is_admin")
+    .eq("id", auth.userId)
     .maybeSingle();
+  const row = profile as { subscription_tier?: string; is_admin?: boolean } | null;
+  const isAdmin = Boolean(row?.is_admin);
+  const tier = effectiveSubscriptionTier(normaliseSubscriptionTier(row?.subscription_tier), isAdmin);
+  const weekStart = usageWeekMondayKeyEuropeIstanbul();
 
-  if (selErr) {
-    return { ok: false, message: selErr.message };
-  }
-
-  const current = (row as { id?: string; ai_analyses?: number } | null)?.ai_analyses ?? 0;
-  if (current >= SILVER_MAX_AI_ANALYSES_PER_DAY) {
+  if (!tierAllowsAiAnalysis(tier, isAdmin)) {
     return {
-      ok: false,
-      message: `Daily AI analysis limit reached (${SILVER_MAX_AI_ANALYSES_PER_DAY} per day on Silver). Gold has unlimited AI analyses.`,
+      ok: true,
+      data: {
+        isAdmin: false,
+        limit: MATRIX_AI_REPORTS_PER_WEEK,
+        used: 0,
+        remaining: 0,
+        weekStart,
+      },
     };
   }
 
-  if (!row) {
-    const { error: insErr } = await supabase.from("usage_daily").insert({
-      user_id: auth.userId,
-      usage_date: today,
-      reports_generated: 0,
-      ai_analyses: 1,
-    });
-    if (insErr) {
-      return { ok: false, message: insErr.message };
-    }
-    return { ok: true, message: "ok", remaining: SILVER_MAX_AI_ANALYSES_PER_DAY - 1 };
+  if (isAdmin) {
+    return {
+      ok: true,
+      data: {
+        isAdmin: true,
+        limit: MATRIX_AI_REPORTS_PER_WEEK,
+        used: 0,
+        remaining: MATRIX_AI_REPORTS_PER_WEEK,
+        weekStart,
+      },
+    };
   }
 
-  const { error: upErr } = await supabase
-    .from("usage_daily")
-    .update({ ai_analyses: current + 1 })
-    .eq("id", (row as { id: string }).id);
+  const { data: usageRow } = await supabase
+    .from("usage_weekly_matrix_ai")
+    .select("report_generations")
+    .eq("user_id", auth.userId)
+    .eq("week_start", weekStart)
+    .maybeSingle();
 
-  if (upErr) {
-    return { ok: false, message: upErr.message };
+  const used = (usageRow as { report_generations?: number } | null)?.report_generations ?? 0;
+  return {
+    ok: true,
+    data: {
+      isAdmin: false,
+      limit: MATRIX_AI_REPORTS_PER_WEEK,
+      used,
+      remaining: Math.max(0, MATRIX_AI_REPORTS_PER_WEEK - used),
+      weekStart,
+    },
+  };
+}
+
+/** Used by integrated-matrix-ai server action after a successful generation. */
+export async function incrementMatrixAiReportUsage(userId: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const weekStart = usageWeekMondayKeyEuropeIstanbul();
+  const { data: existing } = await supabase
+    .from("usage_weekly_matrix_ai")
+    .select("report_generations")
+    .eq("user_id", userId)
+    .eq("week_start", weekStart)
+    .maybeSingle();
+
+  const next = ((existing as { report_generations?: number } | null)?.report_generations ?? 0) + 1;
+  const { error } = await supabase.from("usage_weekly_matrix_ai").upsert(
+    {
+      user_id: userId,
+      week_start: weekStart,
+      report_generations: next,
+    },
+    { onConflict: "user_id,week_start" },
+  );
+  if (error) {
+    console.error("incrementMatrixAiReportUsage", error.message);
   }
-  return { ok: true, message: "ok", remaining: SILVER_MAX_AI_ANALYSES_PER_DAY - current - 1 };
 }
 
 /** Updates `public.profiles.subscription_tier` (canonical column; legacy `plan` is dropped by migration). */

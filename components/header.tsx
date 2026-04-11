@@ -14,8 +14,10 @@ const navItems = [
   { href: "/tools", label: "Tools" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
-  { href: "/account", label: "Account" },
-];
+] as const;
+
+const accountNav = { href: "/account", label: "Account" } as const;
+const projectsNav = { href: "/projects", label: "Projects" } as const;
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") {
@@ -78,15 +80,24 @@ export function Header() {
     };
   }, [supabaseReady]);
 
-  const renderNavLink = (item: (typeof navItems)[number], dense: boolean) => {
+  type NavItem = { href: string; label: string };
+
+  const renderNavLink = (
+    item: NavItem,
+    dense: boolean,
+    options?: { inlineRow?: boolean; accountExtras?: boolean },
+  ) => {
     const active = isActive(pathname, item.href);
-    const base =
-      dense
+    const inlineRow = Boolean(options?.inlineRow && dense);
+    const base = inlineRow
+      ? "inline-flex rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base"
+      : dense
         ? "block rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base"
         : "rounded-md px-2.5 py-1.5 text-sm font-medium transition-all duration-200 md:px-3 md:py-2 md:text-[15px] lg:px-3.5 lg:py-2.5";
+    const showAccountChrome = options?.accountExtras && item.href === "/account";
     const activeCls =
       active
-        ? item.href === "/account"
+        ? showAccountChrome
           ? `nav-link-active ${tierUi(tier, isSubscriptionAdmin).tabActiveClass} hover:font-bold`
           : "nav-link-active bg-slate-800 text-white hover:font-bold"
         : "text-slate-800 hover:font-bold hover:text-slate-950";
@@ -97,7 +108,7 @@ export function Header() {
         className={`${base} ${activeCls}`}
         onClick={() => setMenuOpen(false)}
       >
-        {item.href === "/account" ? (
+        {showAccountChrome ? (
           <span className="relative inline-flex items-center">
             <span>{item.label}</span>
             {supabaseReady && isAuthenticated ? (
@@ -154,6 +165,17 @@ export function Header() {
 
         <nav aria-label="Primary" className="hidden items-center gap-1 md:flex md:gap-2 lg:gap-3.5">
           {navItems.map((item) => renderNavLink(item, false))}
+          <div className="flex items-center gap-1.5 lg:gap-2">
+            {renderNavLink(accountNav, false, { accountExtras: true })}
+            {supabaseReady && isAuthenticated ? (
+              <>
+                <span className="select-none text-slate-400" aria-hidden="true">
+                  |
+                </span>
+                {renderNavLink(projectsNav, false)}
+              </>
+            ) : null}
+          </div>
           {supabaseReady && isAuthenticated && isSubscriptionAdmin && !subscriptionLoading ? (
             <Link
               href="/admin"
@@ -176,6 +198,17 @@ export function Header() {
         >
           <nav aria-label="Primary mobile" className="mx-auto flex max-w-[1600px] flex-col px-3 py-2">
             {navItems.map((item) => renderNavLink(item, true))}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              {renderNavLink(accountNav, true, { inlineRow: true, accountExtras: true })}
+              {supabaseReady && isAuthenticated ? (
+                <>
+                  <span className="select-none text-slate-400" aria-hidden="true">
+                    |
+                  </span>
+                  {renderNavLink(projectsNav, true, { inlineRow: true })}
+                </>
+              ) : null}
+            </div>
             {supabaseReady && isAuthenticated && isSubscriptionAdmin && !subscriptionLoading ? (
               <Link
                 href="/admin"

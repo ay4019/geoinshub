@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   ProfileTableHeaderCell,
@@ -382,12 +383,14 @@ function OutputCell({ value }: { value: string }) {
 
 function ProfileImageCard({ title, imageSrc }: { title: ReactNode; imageSrc: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
-        {imageSrc ? <img src={imageSrc} alt="Profile plot" className="w-full" /> : null}
+    <ExpandableProfilePlot>
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+          {imageSrc ? <img src={imageSrc} alt="Profile plot" className="w-full" /> : null}
+        </div>
       </div>
-    </div>
+    </ExpandableProfilePlot>
   );
 }
 

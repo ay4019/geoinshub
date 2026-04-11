@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   cnProfileTableInput,
@@ -20,6 +21,7 @@ import {
   profileRowSoilRestricted,
   soilRestrictionUserHint,
 } from "@/lib/soil-behavior-policy";
+import { profilePlotItemClass, profilePlotsSectionClass } from "@/lib/profile-plot-layout";
 import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
 import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
@@ -950,14 +952,16 @@ export function CuFromSptProfileTab({
         </ProfileTableScroll>
 
         {plotPoints.length ? (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            {renderScatterChart({
-              title: "Depth vs c\u1d64",
-              xLabel: `c\u1d64 (${stressUnit})`,
-              points: plotPoints,
-              valueKey: "cu",
-              depthUnit,
-            })}
+          <div className={profilePlotsSectionClass(1)}>
+            <ExpandableProfilePlot className={profilePlotItemClass(1)}>
+              {renderScatterChart({
+                title: "Depth vs c\u1d64",
+                xLabel: `c\u1d64 (${stressUnit})`,
+                points: plotPoints,
+                valueKey: "cu",
+                depthUnit,
+              })}
+            </ExpandableProfilePlot>
           </div>
         ) : null}
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   ProfileTableHeaderCell,
@@ -14,6 +15,8 @@ import {
   profileTableThClass,
 } from "@/components/profile-table-mobile";
 import { isActiveProjectToolLocked, type SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
+import { profilePlotItemClass, profilePlotsSectionClass } from "@/lib/profile-plot-layout";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import {
   matchImportSummaryForProfileRow,
@@ -22,6 +25,13 @@ import {
 } from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
+
+export interface FrictionAngleFromPiReportPayload {
+  depthUnit: string;
+  stressUnit: string;
+  tableRows: Array<Record<string, string>>;
+  plotImageDataUrl: string | null;
+}
 
 interface FrictionAngleFromPiProfileTabProps {
   unitSystem: UnitSystem;
@@ -34,6 +44,7 @@ interface FrictionAngleFromPiProfileTabProps {
     value: number;
     sourceToolSlug?: string | null;
   }>;
+  onReportDataChange?: (payload: FrictionAngleFromPiReportPayload) => void;
 }
 
 interface FrictionAngleFromPiRow {
@@ -221,11 +232,146 @@ function renderScatterChart({
   );
 }
 
+function drawCanvasTitleDepthVsPhi(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#0f172a";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  const mainPx = 38;
+  ctx.font = `700 ${mainPx}px Georgia, "Times New Roman", serif`;
+  ctx.fillText("Depth vs φ′", x, y);
+}
+
+function drawCanvasAxisLabelPhiDeg(ctx: CanvasRenderingContext2D, centerX: number, y: number) {
+  ctx.fillStyle = "#1e3a5f";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  const mainPx = 28;
+  ctx.font = `700 ${mainPx}px Inter, Arial, sans-serif`;
+  const label = "φ′ (deg)";
+  const w = ctx.measureText(label).width;
+  ctx.fillText(label, centerX - w / 2, y);
+}
+
+function buildFrictionAngleFromPiPlotPngDataUri({
+  points,
+  depthUnit,
+}: {
+  points: PlotPoint[];
+  depthUnit: string;
+}): string | null {
+  if (!points.length || typeof document === "undefined") {
+    return null;
+  }
+
+  const width = 1680;
+  const height = 1080;
+  const margin = { top: 120, right: 64, bottom: 132, left: 152 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+  const maxDepth = Math.max(...points.map((point) => point.depth), 1);
+  const maxValue = Math.max(...points.map((point) => point.phi), 1);
+  const xStep = getNiceTickStep(maxValue / 6);
+  const xIntervals = Math.max(Math.floor(maxValue / xStep) + 1, 2);
+  const xAxisMax = xStep * xIntervals;
+  const yStep = getNiceTickStep(maxDepth / 7);
+  const yIntervals = Math.max(Math.floor(maxDepth / yStep) + 1, 2);
+  const yAxisMax = yStep * yIntervals;
+  const xScale = (value: number) => margin.left + (value / xAxisMax) * innerWidth;
+  const yScale = (value: number) => margin.top + (value / yAxisMax) * innerHeight;
+  const boreholeIds = Array.from(new Set(points.map((point) => point.boreholeId)));
+  const colourByBorehole = new Map<string, string>();
+  boreholeIds.forEach((id, index) => {
+    colourByBorehole.set(id, BOREHOLE_COLOURS[index % BOREHOLE_COLOURS.length]);
+  });
+
+  const hi = getHiDpiCanvas2D(width, height);
+  if (!hi) {
+    return null;
+  }
+  const { canvas, context } = hi;
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  drawCanvasTitleDepthVsPhi(context, margin.left, 58);
+
+  drawCanvasAxisLabelPhiDeg(context, margin.left + innerWidth / 2, 92);
+
+  context.strokeStyle = "#dbe5f1";
+  context.lineWidth = 2;
+  context.font = "600 24px Inter, Arial, sans-serif";
+  context.fillStyle = "#36557f";
+  for (let index = 0; index <= xIntervals; index += 1) {
+    const value = xStep * index;
+    const x = xScale(value);
+    context.beginPath();
+    context.moveTo(x, margin.top);
+    context.lineTo(x, margin.top + innerHeight);
+    context.stroke();
+    context.textAlign = "center";
+    context.fillText(String(Math.round(value)), x, margin.top - 16);
+  }
+
+  for (let index = 0; index <= yIntervals; index += 1) {
+    const depth = yStep * index;
+    const y = yScale(depth);
+    context.beginPath();
+    context.moveTo(margin.left, y);
+    context.lineTo(margin.left + innerWidth, y);
+    context.stroke();
+    context.textAlign = "right";
+    context.fillText(depth.toFixed(1), margin.left - 22, y + 8);
+  }
+
+  context.strokeStyle = "#7f98ba";
+  context.lineWidth = 3.5;
+  context.beginPath();
+  context.moveTo(margin.left, margin.top);
+  context.lineTo(margin.left, margin.top + innerHeight);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(margin.left, margin.top);
+  context.lineTo(margin.left + innerWidth, margin.top);
+  context.stroke();
+
+  points.forEach((point) => {
+    const colour = colourByBorehole.get(point.boreholeId) ?? BOREHOLE_COLOURS[0];
+    const x = xScale(point.phi);
+    const y = yScale(point.depth);
+    context.beginPath();
+    context.fillStyle = "#ffffff";
+    context.arc(x, y, 9.2, 0, 2 * Math.PI);
+    context.fill();
+
+    context.beginPath();
+    context.strokeStyle = colour;
+    context.lineWidth = 3;
+    context.arc(x, y, 9.2, 0, 2 * Math.PI);
+    context.stroke();
+
+    context.beginPath();
+    context.fillStyle = colour;
+    context.arc(x, y, 4.2, 0, 2 * Math.PI);
+    context.fill();
+  });
+
+  context.save();
+  context.translate(42, margin.top + innerHeight / 2);
+  context.rotate(-Math.PI / 2);
+  context.textAlign = "center";
+  context.fillStyle = "#1e3a5f";
+  context.font = "700 28px Inter, Arial, sans-serif";
+  context.fillText(`Depth (${depthUnit})`, 0, 0);
+  context.restore();
+
+  return canvas.toDataURL("image/png");
+}
+
 export function FrictionAngleFromPiProfileTab({
   unitSystem,
   importRows,
   soilPolicyToolSlug,
   projectParameters,
+  onReportDataChange,
 }: FrictionAngleFromPiProfileTabProps) {
   const [rows, setRows] = useState<FrictionAngleFromPiRow[]>(initialRows);
   const [isProjectLocked, setIsProjectLocked] = useState(() =>
@@ -234,9 +380,10 @@ export function FrictionAngleFromPiProfileTab({
   const previousUnitSystem = useRef(unitSystem);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
+  const stressUnit = "deg";
   const hasImportedSelection = (importRows?.length ?? 0) > 0;
   const shouldLockImportedFields = isProjectLocked && hasImportedSelection;
-  const lockHint = "Locked from Projects and Boreholes. Edit values in Account > Projects.";
+  const lockHint = "Locked from Projects and Boreholes. Edit values on the Projects page.";
 
   useEffect(() => {
     const syncLockState = () => setIsProjectLocked(isActiveProjectToolLocked());
@@ -356,18 +503,77 @@ export function FrictionAngleFromPiProfileTab({
           if (!Number.isFinite(depthMetric) || depthMetric < 0) {
             return null;
           }
-          const pi = Math.max(0.1, parse(row.plasticityIndex));
-          const phi = estimatePhiFromPi(pi);
+          const piRaw = parse(row.plasticityIndex);
+          if (!Number.isFinite(piRaw) || piRaw <= 0) {
+            return null;
+          }
+          const phi = estimatePhiFromPi(piRaw);
           return {
             boreholeId: row.boreholeId?.trim() || "BH not set",
             depth: depthDisplay,
-            pi,
+            pi: piRaw,
             phi,
           };
         })
         .filter((point): point is PlotPoint => point !== null),
     [rows, soilPolicyToolSlug, importRows, unitSystem],
   );
+
+  const reportTableRows: Array<Record<string, string>> = useMemo(
+    () =>
+      rows.map((row) => {
+        const soilRestricted = profileRowSoilRestricted(
+          soilPolicyToolSlug,
+          importRows,
+          row.boreholeId,
+          row.sampleDepth,
+          unitSystem,
+          parse,
+        );
+        const borehole = row.boreholeId?.trim() || "BH not set";
+        const depthDisplay = parse(row.sampleDepth);
+        const depthStr = Number.isFinite(depthDisplay) ? depthDisplay.toFixed(2) : String(row.sampleDepth ?? "").trim() || "—";
+        const depthKey = `Depth (${depthUnit})`;
+        const phiKey = `φ′ (${stressUnit})`;
+        if (soilRestricted) {
+          return {
+            Borehole: borehole,
+            [depthKey]: depthStr,
+            "PI (%)": "—",
+            [phiKey]: "—",
+          };
+        }
+        const piRaw = parse(row.plasticityIndex);
+        if (!Number.isFinite(piRaw) || piRaw <= 0) {
+          return {
+            Borehole: borehole,
+            [depthKey]: depthStr,
+            "PI (%)": Number.isFinite(piRaw) ? piRaw.toFixed(2) : "—",
+            [phiKey]: "—",
+          };
+        }
+        const phi = estimatePhiFromPi(piRaw);
+        return {
+          Borehole: borehole,
+          [depthKey]: depthStr,
+          "PI (%)": piRaw.toFixed(2),
+          [phiKey]: phi.toFixed(2),
+        };
+      }),
+    [rows, depthUnit, stressUnit, soilPolicyToolSlug, importRows, unitSystem],
+  );
+
+  useEffect(() => {
+    if (!onReportDataChange) {
+      return;
+    }
+    onReportDataChange({
+      depthUnit,
+      stressUnit,
+      tableRows: reportTableRows,
+      plotImageDataUrl: buildFrictionAngleFromPiPlotPngDataUri({ points: plotPoints, depthUnit }),
+    });
+  }, [depthUnit, onReportDataChange, plotPoints, reportTableRows, stressUnit]);
 
   return (
     <section className="space-y-5">
@@ -378,7 +584,7 @@ export function FrictionAngleFromPiProfileTab({
         </p>
         <p className="mt-1 text-xs leading-5 text-slate-500">
           When samples are imported from <span className="font-semibold">Projects and Boreholes</span> with the project
-          tool lock enabled, sample depth is read-only here (edit under Account &gt; Projects). If available, PI is
+          tool lock enabled, sample depth is read-only here (edit under Projects). If available, PI is
           auto-filled from project data. Manual override is always allowed.
         </p>
 
@@ -429,8 +635,9 @@ export function FrictionAngleFromPiProfileTab({
                 );
                 const restrictionHint = soilRestrictionUserHint(soilPolicyToolSlug, matchedSoil?.soilBehavior ?? null);
                 const rowLocked = shouldLockImportedFields || soilRestricted;
-                const pi = Math.max(0.1, parse(row.plasticityIndex));
-                const phi = estimatePhiFromPi(pi);
+                const piRaw = parse(row.plasticityIndex);
+                const phiOk = Number.isFinite(piRaw) && piRaw > 0;
+                const phi = phiOk ? estimatePhiFromPi(piRaw) : null;
                 const shouldLockPi = shouldLockImportedFields && row.piSource === "auto-project";
                 return (
                   <tr
@@ -486,7 +693,7 @@ export function FrictionAngleFromPiProfileTab({
                       )}
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={soilRestricted ? "—" : phi.toFixed(2)} />
+                      <OutputCell value={soilRestricted ? "—" : phi !== null ? phi.toFixed(2) : "—"} />
                     </td>
                     <td className="px-2 py-3">
                       <button
@@ -527,8 +734,10 @@ export function FrictionAngleFromPiProfileTab({
         </ProfileTableScroll>
 
         {plotPoints.length ? (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            {renderScatterChart({ points: plotPoints, depthUnit })}
+          <div className={profilePlotsSectionClass(1)}>
+            <ExpandableProfilePlot className={profilePlotItemClass(1)}>
+              {renderScatterChart({ points: plotPoints, depthUnit })}
+            </ExpandableProfilePlot>
           </div>
         ) : null}
       </div>

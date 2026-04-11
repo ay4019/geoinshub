@@ -3,7 +3,6 @@ import {
   BRONZE_MAX_PROJECTS,
   BRONZE_MAX_REPORTS_PER_DAY,
   BRONZE_MAX_SAMPLES_PER_BOREHOLE,
-  SILVER_MAX_AI_ANALYSES_PER_DAY,
   type SubscriptionTier,
 } from "@/lib/subscription";
 
@@ -63,17 +62,19 @@ const bronzeFeatures = [
   `Integrated parameter reports — max ${BRONZE_MAX_REPORTS_PER_DAY} PDFs per day (Europe/Istanbul)`,
   "Save analyses and matrix to the cloud",
   "AI profile interpretation — not included",
+  "Further questions in blog research articles — Silver or Gold only",
 ] as const;
 
 const silverFeatures = [
   "Unlimited projects and boreholes",
   "Unlimited integrated reports and PDF exports",
-  `AI analysis — max ${SILVER_MAX_AI_ANALYSES_PER_DAY} runs per day (Europe/Istanbul)`,
+  "Further questions in blog research articles (guided follow-ups)",
   "All Bronze features included",
 ] as const;
 
 const goldFeatures = [
-  "Unlimited projects, reports, and AI analyses",
+  "Unlimited AI analysis for integrated reports and profile tools",
+  "Unlimited projects, reports, and exports",
   "Priority use of new features as they ship",
   "All Silver features included",
 ] as const;

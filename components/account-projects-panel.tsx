@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { consumeReportGenerationAction } from "@/app/actions/subscription";
+import { interpretIntegratedMatrixReportAction } from "@/app/actions/integrated-matrix-ai";
+import { getMatrixAiWeeklyQuotaAction } from "@/app/actions/subscription";
+import { IntegratedMatrixAiReportBody } from "@/components/integrated-matrix-ai-report-body";
 import { tools as TOOL_DEFINITIONS } from "@/data/tools";
 import { useSubscription } from "@/components/subscription-context";
-import { downloadElementAsPdf } from "@/lib/download-user-guide-pdf";
 import { EXCEL_TABLE_BLOCK_CSS, buildMhtmlMultipartDocument, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -24,7 +25,14 @@ import {
   writeActiveProjectBorehole,
 } from "@/lib/project-boreholes";
 import { countDistinctBoreholeLabels, validateBoreholeSampleAdd } from "@/lib/project-limits";
-import { getTierLimits, tierAllowsReports } from "@/lib/subscription";
+import { AI_ANALYZE_BUTTON_CLASS } from "@/lib/report-button-styles";
+import {
+  fingerprintIntegratedMatrixRows,
+  matrixAiReportStorageKey,
+  type MatrixAiReportCachePayload,
+} from "@/lib/matrix-ai-report-cache";
+import { getTierLimits, MATRIX_AI_REPORTS_PER_WEEK, tierAllowsAiAnalysis, tierAllowsReports } from "@/lib/subscription";
+import { isToolReportSnapshotPayload } from "@/lib/tool-report-snapshot";
 import type { SoilBehavior } from "@/lib/soil-behavior-policy";
 
 interface SavedToolResultRecord {
@@ -55,29 +63,6 @@ interface ProjectParameterRecord {
   created_at?: string;
 }
 
-type ToolSlugForReport =
-  | "spt-corrections"
-  | "cu-from-pi-and-spt"
-  | "modulus-from-cu"
-  | "eu-from-spt-butler-1975"
-  | "effective-modulus-eprime-cohesive"
-  | "eprime-from-spt-cohesionless"
-  | "gmax-from-vs"
-  | "eoed-from-mv"
-  | "ocr-calculator"
-  | "k0-earth-pressure";
-
-type ReportToolPayload = {
-  toolSlug: ToolSlugForReport;
-  toolTitle: string;
-  createdAt: string | null;
-  plots: Array<{ title?: string; dataUrl?: string; width?: number; height?: number }>;
-};
-
-function formatTodayEnGb(): string {
-  return new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "2-digit" });
-}
-
 function formatSoilBehaviorLabel(value: SoilBehavior | null | undefined): string {
   if (value === "cohesive") {
     return "Cohesive";
@@ -86,26 +71,6 @@ function formatSoilBehaviorLabel(value: SoilBehavior | null | undefined): string
     return "Granular";
   }
   return "-";
-}
-
-function getToolTitle(slug: string): string {
-  const match = (TOOL_DEFINITIONS ?? []).find((tool) => tool.slug === slug);
-  return match?.title ?? slug;
-}
-
-function extractPlotsFromPayload(
-  payload: unknown,
-): Array<{ title?: string; dataUrl?: string; width?: number; height?: number }> {
-  if (!payload || typeof payload !== "object") {
-    return [];
-  }
-  const obj = payload as {
-    profileSnapshot?: {
-      plots?: Array<{ title?: string; dataUrl?: string; width?: number; height?: number }>;
-    };
-  };
-  const plots = Array.isArray(obj.profileSnapshot?.plots) ? obj.profileSnapshot?.plots : [];
-  return plots.filter((plot) => typeof plot?.dataUrl === "string" && plot.dataUrl.startsWith("data:image/"));
 }
 
 function downloadBlob(filename: string, blob: Blob) {
@@ -120,6 +85,7 @@ function downloadBlob(filename: string, blob: Blob) {
 }
 
 const PARAMETER_COLUMN_ORDER = [
+  "pi",
   "n",
   "n60",
   "n160",
@@ -172,6 +138,14 @@ const PARAMETER_META: Record<
     tooltip: "Overburden-corrected SPT resistance ((N1)60).",
     tools: [{ slug: "spt-corrections", label: "SPT corrections" }],
   },
+  pi: {
+    label: <>PI (%)</>,
+    tooltip: "Plasticity index from borehole samples (project data), or from saved tool outputs when stored as PI.",
+    tools: [
+      { slug: "cu-from-pi-and-spt", label: "cu from PI & SPT" },
+      { slug: "friction-angle-from-pi", label: "φ′ from PI" },
+    ],
+  },
   cu: {
     label: (
       <>
@@ -195,15 +169,11 @@ const PARAMETER_META: Record<
     tools: [{ slug: "cprime-from-cu", label: "c' from cu" }],
   },
   phi_prime: {
-    label: (
-      <>
-        &phi;&apos; (deg)
-      </>
-    ),
-    tooltip: "Effective friction angle (phi').",
+    label: <>φ′ (deg)</>,
+    tooltip: "Effective friction angle (φ′).",
     tools: [
-      { slug: "friction-angle-from-spt", label: "phi' from SPT" },
-      { slug: "friction-angle-from-pi", label: "phi' from PI" },
+      { slug: "friction-angle-from-spt", label: "φ′ from SPT" },
+      { slug: "friction-angle-from-pi", label: "φ′ from PI" },
     ],
   },
   eu: {
@@ -329,6 +299,14 @@ const PARAMETER_META: Record<
     tools: [{ slug: "k0-earth-pressure", label: "K0 earth pressure" }],
   },
 };
+
+/** Plain-text column title for Excel export and PDF matrix (codes otherwise stay as stored). */
+function spreadsheetHeaderForParameterCode(code: string): string {
+  if (code === "pi") {
+    return "PI (%)";
+  }
+  return code;
+}
 
 const ACTIVE_TOOL_SLUGS = new Set(
   (TOOL_DEFINITIONS ?? [])
@@ -494,16 +472,22 @@ export function AccountProjectsPanel() {
   const [isLoadingSavedResultDetails, setIsLoadingSavedResultDetails] = useState(false);
   const [savedResultDetails, setSavedResultDetails] = useState<SavedToolResultDetails | null>(null);
   const [savedResultPlotIndex, setSavedResultPlotIndex] = useState(0);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [reportTools, setReportTools] = useState<ReportToolPayload[]>([]);
-  const reportRootRef = useRef<HTMLDivElement | null>(null);
+  const [isGeneratingMatrixAiReport, setIsGeneratingMatrixAiReport] = useState(false);
+  const [integratedMatrixAiReport, setIntegratedMatrixAiReport] = useState<string | null>(null);
+  const [matrixAiReportTruncated, setMatrixAiReportTruncated] = useState(false);
+  const [matrixReportDataStale, setMatrixReportDataStale] = useState(false);
+  const [matrixAiWeeklyQuota, setMatrixAiWeeklyQuota] = useState<{
+    loaded: boolean;
+    remaining: number;
+    isAdmin: boolean;
+  }>({ loaded: false, remaining: 0, isAdmin: false });
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"ok" | "error">("ok");
-  const [pendingJump, setPendingJump] = useState<"boreholes" | "addSample" | "analyses" | "matrix" | null>(null);
+  const [activeProjectsView, setActiveProjectsView] = useState<"boreholes" | "saved" | "matrix">("boreholes");
   const boreholesSectionRef = useRef<HTMLDivElement | null>(null);
   const addSampleFormRef = useRef<HTMLDetailsElement | null>(null);
-  const analysesSectionRef = useRef<HTMLElement | null>(null);
-  const matrixSectionRef = useRef<HTMLElement | null>(null);
+  const analysesSectionRef = useRef<HTMLDivElement | null>(null);
+  const matrixSectionRef = useRef<HTMLDivElement | null>(null);
 
   const { effectiveTier, loading: subscriptionLoading } = useSubscription();
   const tierLimits = useMemo(() => getTierLimits(effectiveTier), [effectiveTier]);
@@ -547,6 +531,11 @@ export function AccountProjectsPanel() {
       }
     >();
 
+    const formatMatrixNumber = (value: number) =>
+      Math.abs(value) < 1000
+        ? value.toFixed(3).replace(/\.?0+$/, "")
+        : Number(value).toLocaleString("en-GB");
+
     const toDepthKey = (value: number | null | undefined) =>
       typeof value === "number" && Number.isFinite(value) ? value.toFixed(4) : "na";
     const toRowKey = (boreholeLabel: string, sampleDepth: number | null | undefined) =>
@@ -573,11 +562,10 @@ export function AccountProjectsPanel() {
         return;
       }
       if (sample.n_value !== null && sample.n_value !== undefined && Number.isFinite(sample.n_value)) {
-        const nFormatted =
-          Math.abs(sample.n_value) < 1000
-            ? sample.n_value.toFixed(3).replace(/\.?0+$/, "")
-            : Number(sample.n_value).toLocaleString("en-GB");
-        target.values.n = nFormatted;
+        target.values.n = formatMatrixNumber(sample.n_value);
+      }
+      if (sample.pi_value !== null && sample.pi_value !== undefined && Number.isFinite(sample.pi_value)) {
+        target.values.pi = formatMatrixNumber(sample.pi_value);
       }
     });
 
@@ -622,6 +610,23 @@ export function AccountProjectsPanel() {
       target.values[record.parameter_code] = formatted;
     });
 
+    rowMap.forEach((target) => {
+      if (target.values.pi !== undefined) {
+        return;
+      }
+      const match = seedFromProjectBoreholes.find((sample) => {
+        const sampleLabel = sanitiseBoreholeLabel(sample.borehole_id);
+        const sampleTopDepth =
+          typeof sample.sample_top_depth === "number" && Number.isFinite(sample.sample_top_depth)
+            ? sample.sample_top_depth
+            : null;
+        return toRowKey(sampleLabel, sampleTopDepth) === toRowKey(target.boreholeLabel, target.sampleDepth);
+      });
+      if (match?.pi_value != null && Number.isFinite(match.pi_value)) {
+        target.values.pi = formatMatrixNumber(match.pi_value);
+      }
+    });
+
     return Array.from(rowMap.values()).sort((a, b) => {
       const boreholeSort = compareBoreholeIds(a.boreholeLabel, b.boreholeLabel);
       if (boreholeSort !== 0) {
@@ -632,6 +637,68 @@ export function AccountProjectsPanel() {
       return aDepth - bDepth;
     });
   }, [projectParameters, selectedProject]);
+
+  useEffect(() => {
+    if (!selectedProjectId || !authUserId || typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(matrixAiReportStorageKey(authUserId, selectedProjectId));
+      if (!raw) {
+        setIntegratedMatrixAiReport(null);
+        setMatrixAiReportTruncated(false);
+        setMatrixReportDataStale(false);
+        return;
+      }
+      const parsed = JSON.parse(raw) as MatrixAiReportCachePayload;
+      setIntegratedMatrixAiReport(parsed.text);
+      setMatrixAiReportTruncated(parsed.truncated);
+    } catch {
+      setIntegratedMatrixAiReport(null);
+      setMatrixAiReportTruncated(false);
+      setMatrixReportDataStale(false);
+    }
+  }, [selectedProjectId, authUserId]);
+
+  useEffect(() => {
+    if (!selectedProjectId || !authUserId) {
+      return;
+    }
+    if (integratedMatrixRows.length === 0) {
+      setMatrixReportDataStale(false);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(matrixAiReportStorageKey(authUserId, selectedProjectId));
+      if (!raw) {
+        setMatrixReportDataStale(false);
+        return;
+      }
+      const parsed = JSON.parse(raw) as MatrixAiReportCachePayload;
+      const fp = fingerprintIntegratedMatrixRows(integratedMatrixRows);
+      setMatrixReportDataStale(parsed.fingerprint !== fp);
+    } catch {
+      setMatrixReportDataStale(false);
+    }
+  }, [selectedProjectId, authUserId, integratedMatrixRows]);
+
+  useEffect(() => {
+    if (!tierAllowsAiAnalysis(effectiveTier) || subscriptionLoading) {
+      return;
+    }
+    void (async () => {
+      const r = await getMatrixAiWeeklyQuotaAction();
+      if (r.ok) {
+        setMatrixAiWeeklyQuota({
+          loaded: true,
+          remaining: r.data.remaining,
+          isAdmin: r.data.isAdmin,
+        });
+      } else {
+        setMatrixAiWeeklyQuota({ loaded: true, remaining: 0, isAdmin: false });
+      }
+    })();
+  }, [effectiveTier, subscriptionLoading]);
 
   const reportReady = useMemo(() => {
     if (!selectedProject) {
@@ -645,67 +712,99 @@ export function AccountProjectsPanel() {
     return hasAnyToolOutputs && hasNonN;
   }, [integratedMatrixRows, projectParameters, selectedProject]);
 
-  const generateReportPdf = async () => {
+  const matrixGenerationsExhausted = useMemo(
+    () =>
+      tierAllowsAiAnalysis(effectiveTier) &&
+      matrixAiWeeklyQuota.loaded &&
+      !matrixAiWeeklyQuota.isAdmin &&
+      matrixAiWeeklyQuota.remaining <= 0,
+    [effectiveTier, matrixAiWeeklyQuota.isAdmin, matrixAiWeeklyQuota.loaded, matrixAiWeeklyQuota.remaining],
+  );
+
+  const generateIntegratedMatrixAiReport = async () => {
     if (!selectedProject || !supabaseReady) {
       return;
     }
-    if (!tierAllowsReports(effectiveTier)) {
-      setMessage("Integrated reports require Bronze or higher membership.");
+    if (!tierAllowsAiAnalysis(effectiveTier)) {
+      setMessage("AI engineering reports from the integrated matrix require Gold membership.");
       setMessageType("error");
       return;
     }
-    const quota = await consumeReportGenerationAction();
-    if (!quota.ok) {
-      setMessage(quota.message);
+    if (!reportReady) {
+      setMessage("Save analyses and build the matrix before generating an AI report.");
       setMessageType("error");
       return;
     }
-    setIsGeneratingReport(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const toolSlugs: ToolSlugForReport[] = [
-        "spt-corrections",
-        "cu-from-pi-and-spt",
-        "modulus-from-cu",
-        "eu-from-spt-butler-1975",
-        "effective-modulus-eprime-cohesive",
-        "eprime-from-spt-cohesionless",
-        "gmax-from-vs",
-        "eoed-from-mv",
-        "ocr-calculator",
-        "k0-earth-pressure",
-      ];
-
-      const fetched: ReportToolPayload[] = [];
-      for (const slug of toolSlugs) {
-        const { data, error } = await supabase
-          .from("tool_results")
-          .select("created_at,tool_slug,tool_title,result_payload")
-          .eq("project_id", selectedProject.id)
-          .eq("tool_slug", slug)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (error || !data) {
-          continue;
-        }
-        fetched.push({
-          toolSlug: slug,
-          toolTitle: typeof data.tool_title === "string" && data.tool_title.trim() ? data.tool_title : getToolTitle(slug),
-          createdAt: typeof data.created_at === "string" ? data.created_at : null,
-          plots: extractPlotsFromPayload((data as { result_payload?: unknown }).result_payload),
-        });
-      }
-
-      setReportTools(fetched);
-      await new Promise((resolve) => window.setTimeout(resolve, 60));
-      const root = reportRootRef.current;
-      if (!root) {
+    if (integratedMatrixAiReport) {
+      const ok = window.confirm(
+        "Bu proje için rapor zaten oluşturuldu. Tekrar oluşturmak istiyor musunuz?",
+      );
+      if (!ok) {
         return;
       }
-      await downloadElementAsPdf(root, `Geotechnical Parameter Report - ${selectedProject.name}.pdf`);
+    }
+    if (matrixGenerationsExhausted) {
+      setMessage(
+        `Bu haftalık üretim hakkınız doldu (Gold: haftada ${MATRIX_AI_REPORTS_PER_WEEK} rapor; Europe/Istanbul — Pazartesi sıfırlanır).`,
+      );
+      setMessageType("error");
+      return;
+    }
+    setIsGeneratingMatrixAiReport(true);
+    try {
+      const columnHeaders = PARAMETER_COLUMN_ORDER.map(spreadsheetHeaderForParameterCode);
+      const rows = integratedMatrixRows.map((row) => ({
+        boreholeLabel: row.boreholeLabel,
+        soilBehaviorLabel: formatSoilBehaviorLabel(row.soilBehavior),
+        sampleDepth: row.sampleDepth,
+        values: row.values,
+      }));
+      const result = await interpretIntegratedMatrixReportAction({
+        projectName: selectedProject.name,
+        columnOrder: [...PARAMETER_COLUMN_ORDER],
+        columnHeaders,
+        rows,
+      });
+      if (!result.ok) {
+        setMessage(result.message);
+        setMessageType("error");
+        return;
+      }
+      setIntegratedMatrixAiReport(result.text);
+      setMatrixAiReportTruncated(result.truncated);
+      setMatrixReportDataStale(false);
+      const fp = fingerprintIntegratedMatrixRows(integratedMatrixRows);
+      if (authUserId) {
+        try {
+          const payload: MatrixAiReportCachePayload = {
+            text: result.text,
+            truncated: result.truncated,
+            fingerprint: fp,
+            savedAt: Date.now(),
+          };
+          localStorage.setItem(matrixAiReportStorageKey(authUserId, selectedProject.id), JSON.stringify(payload));
+        } catch {
+          /* ignore storage errors */
+        }
+      }
+      void (async () => {
+        const r = await getMatrixAiWeeklyQuotaAction();
+        if (r.ok) {
+          setMatrixAiWeeklyQuota({
+            loaded: true,
+            remaining: r.data.remaining,
+            isAdmin: r.data.isAdmin,
+          });
+        }
+      })();
+      setMessage(
+        result.truncated
+          ? "Report generated; output may be cut at the model limit — scroll the panel below or generate again."
+          : "AI engineering report generated.",
+      );
+      setMessageType("ok");
     } finally {
-      setIsGeneratingReport(false);
+      setIsGeneratingMatrixAiReport(false);
     }
   };
 
@@ -714,7 +813,13 @@ export function AccountProjectsPanel() {
       return;
     }
 
-    const headers = ["#", "Borehole ID", "Soil behavior", "Sample depth", ...PARAMETER_COLUMN_ORDER];
+    const headers = [
+      "#",
+      "Borehole ID",
+      "Soil behavior",
+      "Sample depth",
+      ...PARAMETER_COLUMN_ORDER.map(spreadsheetHeaderForParameterCode),
+    ];
     const headerCells = headers.map((label) => excelTextHeader(label)).join("");
 
     const bodyRows = integratedMatrixRows
@@ -800,38 +905,15 @@ export function AccountProjectsPanel() {
   }, [selectedProjectId]);
 
   useEffect(() => {
+    setActiveProjectsView("boreholes");
+  }, [selectedProjectId]);
+
+  useEffect(() => {
     if (!selectedProject) {
       return;
     }
     setEditProjectName(selectedProject.name);
   }, [selectedProject]);
-
-  useEffect(() => {
-    if (!pendingJump || !selectedProject) {
-      return;
-    }
-    if (pendingJump === "addSample" && addSampleFormRef.current) {
-      addSampleFormRef.current.open = true;
-    }
-    const targetRef =
-      pendingJump === "boreholes"
-        ? boreholesSectionRef.current
-        : pendingJump === "addSample"
-          ? addSampleFormRef.current
-          : pendingJump === "analyses"
-            ? analysesSectionRef.current
-            : matrixSectionRef.current;
-    if (!targetRef) {
-      return;
-    }
-    targetRef.scrollIntoView({ behavior: "smooth", block: "start" });
-    setPendingJump(null);
-  }, [pendingJump, selectedProject, selectedProjectId, visibleBoreholes.length, savedResults.length, integratedMatrixRows.length]);
-
-  const jumpToProjectSection = (projectId: string, target: "boreholes" | "addSample" | "analyses" | "matrix") => {
-    setSelectedProjectId(projectId);
-    setPendingJump(target);
-  };
 
   const refreshProjects = async () => {
     if (!supabaseReady) {
@@ -958,7 +1040,7 @@ export function AccountProjectsPanel() {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
         .from("tool_results")
-        .select("id,created_at,tool_slug,tool_title,result_title,borehole_id,unit_system")
+        .select("id,created_at,tool_slug,tool_title,result_title,borehole_id,unit_system,result_payload")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
 
@@ -969,7 +1051,20 @@ export function AccountProjectsPanel() {
         return;
       }
 
-      setSavedResults((data ?? []) as SavedToolResultRecord[]);
+      const rows =
+        (data ?? []) as Array<
+          SavedToolResultRecord & {
+            result_payload?: unknown;
+          }
+        >;
+      const analysisRows: SavedToolResultRecord[] = [];
+      for (const row of rows) {
+        const { result_payload: payload, ...rest } = row;
+        if (!isToolReportSnapshotPayload(payload)) {
+          analysisRows.push(rest);
+        }
+      }
+      setSavedResults(analysisRows);
     } finally {
       setIsLoadingSavedResults(false);
     }
@@ -1655,6 +1750,14 @@ export function AccountProjectsPanel() {
       return;
     }
 
+    if (isToolReportSnapshotPayload(data.result_payload)) {
+      setMessage(
+        "This record is a saved tool report snapshot. Open the tool and use its Report tab to view it; it cannot be loaded as a calculation.",
+      );
+      setMessageType("error");
+      return;
+    }
+
     const toolSlug = (data.tool_slug ?? "").trim();
     if (!toolSlug) {
       setMessage("This saved item cannot be loaded because the tool slug is missing.");
@@ -1678,7 +1781,7 @@ export function AccountProjectsPanel() {
   };
 
   const removeSavedResult = async (resultId: string) => {
-    const confirmed = window.confirm("Remove this saved analysis record?");
+    const confirmed = window.confirm("Remove this saved record?");
     if (!confirmed) {
       return;
     }
@@ -1708,7 +1811,7 @@ export function AccountProjectsPanel() {
       if (savedResultDetails?.id === resultId) {
         setSavedResultDetails(null);
       }
-      setMessage("Saved analysis removed.");
+      setMessage("Saved record removed.");
       setMessageType("ok");
       if (selectedProjectId) {
         await refreshProjectParameters(selectedProjectId);
@@ -1923,38 +2026,6 @@ export function AccountProjectsPanel() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <span className="mr-1 self-center text-xs font-semibold uppercase tracking-wide text-slate-500">Jump to</span>
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  onClick={() => jumpToProjectSection(selectedProject.id, "boreholes")}
-                >
-                  Borehole table
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  onClick={() => jumpToProjectSection(selectedProject.id, "addSample")}
-                >
-                  Add sample form
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  onClick={() => jumpToProjectSection(selectedProject.id, "analyses")}
-                >
-                  Saved analyses ({savedResults.length})
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  onClick={() => jumpToProjectSection(selectedProject.id, "matrix")}
-                >
-                  Parameter matrix ({integratedMatrixRows.length})
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-base btn-md" onClick={() => setActiveSelectedBoreholes(selectedProject)}>
                   Use Selected in Tools
                 </button>
@@ -1980,7 +2051,92 @@ export function AccountProjectsPanel() {
                 </div>
               ) : null}
 
-              <div ref={boreholesSectionRef} className="overflow-x-auto rounded-lg border border-slate-200">
+              <div className="space-y-3">
+                <div
+                  className="grid grid-cols-2 gap-2 lg:grid-cols-3 sm:gap-4"
+                  role="tablist"
+                  aria-label="Project workspace"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeProjectsView === "boreholes"}
+                    onClick={() => setActiveProjectsView("boreholes")}
+                    className={`flex min-h-[4.5rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-3 text-center shadow-sm transition sm:min-h-[5rem] sm:px-5 sm:py-4 ${
+                      activeProjectsView === "boreholes"
+                        ? "border-slate-800/20 bg-white ring-2 ring-slate-800/10"
+                        : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold leading-snug text-slate-800 sm:text-base">
+                      Boreholes
+                    </span>
+                    {activeProjectsView === "boreholes" ? (
+                      <span className="text-xs font-medium text-emerald-700">Active</span>
+                    ) : (
+                      <span className="text-xs text-slate-400" aria-hidden>
+                        Open
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeProjectsView === "saved"}
+                    onClick={() => setActiveProjectsView("saved")}
+                    className={`flex min-h-[4.5rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-3 text-center shadow-sm transition sm:min-h-[5rem] sm:px-5 sm:py-4 ${
+                      activeProjectsView === "saved"
+                        ? "border-slate-800/20 bg-white ring-2 ring-slate-800/10"
+                        : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold leading-snug text-slate-800 sm:text-base">
+                      Saved Analyses
+                      <span className="tabular-nums"> ({savedResults.length})</span>
+                    </span>
+                    {activeProjectsView === "saved" ? (
+                      <span className="text-xs font-medium text-emerald-700">Active</span>
+                    ) : (
+                      <span className="text-xs text-slate-400" aria-hidden>
+                        Open
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeProjectsView === "matrix"}
+                    onClick={() => setActiveProjectsView("matrix")}
+                    className={`flex min-h-[4.5rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-3 py-3 text-center shadow-sm transition sm:min-h-[5rem] sm:px-5 sm:py-4 ${
+                      activeProjectsView === "matrix"
+                        ? "border-slate-800/20 bg-white ring-2 ring-slate-800/10"
+                        : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span className="text-sm font-bold leading-snug text-slate-900 sm:text-base">
+                      Integrated Parameter Matrix
+                      <span className="tabular-nums"> ({integratedMatrixRows.length})</span>
+                    </span>
+                    {activeProjectsView === "matrix" ? (
+                      <span className="text-xs font-medium text-emerald-700">Active</span>
+                    ) : (
+                      <span className="text-xs text-slate-400" aria-hidden>
+                        Open
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {activeProjectsView === "boreholes" ? (
+                  <div
+                    ref={boreholesSectionRef}
+                    className="flex min-h-[min(75vh,900px)] flex-col overflow-hidden rounded-2xl border-2 border-slate-900/12 bg-white shadow-md"
+                  >
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                      <h3 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Boreholes</h3>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="min-w-full border-collapse text-sm">
                   <thead className="bg-slate-100 text-slate-600">
                     <tr>
@@ -2338,21 +2494,29 @@ export function AccountProjectsPanel() {
                 </form>
                 </div>
               </details>
+                    </div>
+                  </div>
+                ) : null}
 
-              <section ref={analysesSectionRef} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-900">Saved analyses</p>
-                  <button
-                    type="button"
-                    className="btn-base px-3 py-1.5 text-xs"
-                    onClick={() => {
-                      void refreshSavedResults(selectedProject.id);
-                    }}
-                    disabled={isLoadingSavedResults}
+                {activeProjectsView === "saved" ? (
+                  <div
+                    ref={analysesSectionRef}
+                    className="flex min-h-[min(75vh,900px)] flex-col overflow-hidden rounded-2xl border-2 border-slate-900/12 bg-white shadow-md"
                   >
-                    {isLoadingSavedResults ? "Refreshing..." : "Refresh"}
-                  </button>
-                </div>
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                      <h3 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Saved Analyses</h3>
+                      <button
+                        type="button"
+                        className="btn-base px-3 py-1.5 text-xs"
+                        onClick={() => {
+                          void refreshSavedResults(selectedProject.id);
+                        }}
+                        disabled={isLoadingSavedResults}
+                      >
+                        {isLoadingSavedResults ? "Refreshing..." : "Refresh"}
+                      </button>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
 
                 {isLoadingSavedResults ? (
                   <p className="mt-2 text-sm text-slate-600">Loading saved analyses...</p>
@@ -2361,27 +2525,50 @@ export function AccountProjectsPanel() {
                     No saved analyses yet. Use &quot;Save Analysis to Project&quot; in tool profile tabs.
                   </p>
                 ) : (
-                  <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-                    <table className="min-w-max border-collapse text-sm whitespace-nowrap">
+                  <div className="mt-3 min-w-0 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                    <table className="w-full table-fixed border-collapse text-sm">
+                      <colgroup>
+                        <col className="w-[7.25rem] sm:w-[8rem]" />
+                        <col />
+                        <col className="w-[14rem] sm:w-[16.5rem]" />
+                      </colgroup>
                       <thead className="bg-slate-100 text-slate-600">
                         <tr>
                           <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Saved at</th>
-                          <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Tool</th>
-                          <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Action</th>
+                          <th className="min-w-0 px-3 py-2 text-left font-semibold">Tool</th>
+                          <th className="px-2 py-2 text-right font-semibold whitespace-nowrap sm:px-2.5">Action</th>
                         </tr>
                       </thead>
                       <tbody>
                         {savedResults.map((result) => (
                           <tr key={result.id} className="border-t border-slate-200">
-                            <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                              {result.created_at ? new Date(result.created_at).toLocaleString("en-GB") : "-"}
+                            <td
+                              className="px-3 py-2 align-top text-slate-700"
+                              title={
+                                result.created_at ? new Date(result.created_at).toLocaleString("en-GB") : undefined
+                              }
+                            >
+                              {result.created_at ? (
+                                <div className="flex flex-col gap-0.5 leading-tight tabular-nums">
+                                  <span>{new Date(result.created_at).toLocaleDateString("en-GB")}</span>
+                                  <span className="text-slate-500">
+                                    {new Date(result.created_at).toLocaleTimeString("en-GB")}
+                                  </span>
+                                </div>
+                              ) : (
+                                "-"
+                              )}
                             </td>
-                            <td className="px-3 py-2 text-slate-900 whitespace-nowrap">{result.tool_title ?? "-"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              <div className="flex flex-nowrap gap-2">
+                            <td className="min-w-0 max-w-0 px-3 py-2 align-top text-slate-900">
+                              <div className="truncate" title={result.tool_title ?? undefined}>
+                                {result.tool_title ?? "-"}
+                              </div>
+                            </td>
+                            <td className="px-2 py-2 align-top sm:px-2.5">
+                              <div className="flex flex-wrap justify-end gap-1 sm:flex-nowrap sm:justify-end sm:gap-1.5">
                                 <button
                                   type="button"
-                                  className="btn-base px-3 py-1.5 text-xs"
+                                  className="btn-base !rounded-md !border !px-2 !py-1 !text-[11px] !font-semibold !leading-tight !shadow-sm sm:!px-2.5 sm:!py-1 sm:!text-xs"
                                   onClick={() => {
                                     void openSavedResultDetails(result.id);
                                   }}
@@ -2391,16 +2578,17 @@ export function AccountProjectsPanel() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn-base px-3 py-1.5 text-xs"
+                                  className="btn-base !rounded-md !border !px-2 !py-1 !text-[11px] !font-semibold !leading-tight !shadow-sm sm:!px-2.5 sm:!py-1 sm:!text-xs"
                                   onClick={() => {
                                     void loadSavedAnalysisToTool(result.id);
                                   }}
+                                  title="Load analysis into the tool"
                                 >
                                   Load to Tool
                                 </button>
                                 <button
                                   type="button"
-                                  className="btn-base px-3 py-1.5 text-xs"
+                                  className="btn-base !rounded-md !border !px-2 !py-1 !text-[11px] !font-semibold !leading-tight !shadow-sm sm:!px-2.5 sm:!py-1 sm:!text-xs"
                                   onClick={() => {
                                     void removeSavedResult(result.id);
                                   }}
@@ -2416,14 +2604,18 @@ export function AccountProjectsPanel() {
                     </table>
                   </div>
                 )}
-              </section>
+                    </div>
+                  </div>
+                ) : null}
 
-              <section ref={matrixSectionRef} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-lg font-bold tracking-[0.01em] text-slate-900 sm:text-xl">
-                    Integrated Parameter Matrix
-                  </p>
-                  <div className="flex flex-wrap gap-2">
+                {activeProjectsView === "matrix" ? (
+                  <div
+                    ref={matrixSectionRef}
+                    className="flex min-h-[min(75vh,900px)] flex-col overflow-hidden rounded-2xl border-2 border-slate-900/12 bg-white shadow-md"
+                  >
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                      <h3 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Integrated Parameter Matrix</h3>
+                      <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       className="btn-base px-3 py-1.5 text-xs"
@@ -2445,29 +2637,44 @@ export function AccountProjectsPanel() {
                     </button>
                     <button
                       type="button"
-                      className="btn-base px-3 py-1.5 text-xs"
+                      className={`${AI_ANALYZE_BUTTON_CLASS} !w-auto shrink-0 !min-h-[2.25rem] !px-3 !py-1.5 !text-xs`}
                       onClick={() => {
-                        void generateReportPdf();
+                        void generateIntegratedMatrixAiReport();
                       }}
                       disabled={
                         !reportReady ||
-                        isGeneratingReport ||
-                        !tierAllowsReports(effectiveTier) ||
-                        subscriptionLoading
+                        isGeneratingMatrixAiReport ||
+                        !tierAllowsAiAnalysis(effectiveTier) ||
+                        subscriptionLoading ||
+                        matrixGenerationsExhausted
                       }
                       title={
-                        !tierAllowsReports(effectiveTier)
-                          ? "Reports require Bronze or higher."
-                          : !reportReady
-                            ? "Save analyses and build the matrix first."
-                            : undefined
+                        !tierAllowsAiAnalysis(effectiveTier)
+                          ? "Gold membership required for AI engineering report from the integrated matrix."
+                          : matrixGenerationsExhausted
+                            ? `Weekly limit reached (${MATRIX_AI_REPORTS_PER_WEEK} matrix reports for Gold; resets Monday Europe/Istanbul).`
+                            : !reportReady
+                              ? "Save analyses and build the matrix first."
+                              : "Generate AI geotechnical interpretation (Gold; admins uncapped; others weekly limit applies)."
                       }
                     >
-                      {isGeneratingReport ? "Preparing report..." : "Generate report"}
+                      {isGeneratingMatrixAiReport ? "Generating report..." : "Generate report"}
                     </button>
                   </div>
                 </div>
+                {tierAllowsAiAnalysis(effectiveTier) && matrixAiWeeklyQuota.loaded && !matrixAiWeeklyQuota.isAdmin ? (
+                  <p className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] leading-snug text-slate-600">
+                    Matrix AI raporu (Gold): bu hafta kalan{" "}
+                    <span className="font-semibold text-slate-800">{matrixAiWeeklyQuota.remaining}</span> /{" "}
+                    {MATRIX_AI_REPORTS_PER_WEEK} (Pazartesi sıfırlanır, Europe/Istanbul).
+                  </p>
+                ) : tierAllowsAiAnalysis(effectiveTier) && matrixAiWeeklyQuota.loaded && matrixAiWeeklyQuota.isAdmin ? (
+                  <p className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] leading-snug text-slate-600">
+                    Matrix AI raporu: yönetici hesabı — haftalık üretim sınırı yok.
+                  </p>
+                ) : null}
 
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
                 {isLoadingProjectParameters ? (
                   <p className="mt-2 text-sm text-slate-600">Loading integrated parameters...</p>
                 ) : integratedMatrixRows.length === 0 ? (
@@ -2475,248 +2682,39 @@ export function AccountProjectsPanel() {
                     No integrated rows yet. Save profile analyses from tools to build this matrix.
                   </p>
                 ) : (
-                  <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-                    <table className="min-w-max border-collapse text-sm whitespace-nowrap">
-                      <thead className="bg-slate-100 text-slate-600">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-semibold">#</th>
-                          <th className="px-3 py-2 text-left font-semibold">Borehole ID</th>
-                          <th className="px-3 py-2 text-left font-semibold">Soil behavior</th>
-                          <th className="px-3 py-2 text-left font-semibold">Sample depth</th>
-                          {PARAMETER_COLUMN_ORDER.map((code) => (
-                            <th key={code} className="px-3 py-2 text-left font-semibold">
-                              <ParameterHeader code={code} />
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {integratedMatrixRows.map((row, index) => (
-                          <tr
-                            key={`${row.boreholeLabel}-${row.sampleDepth ?? "na"}`}
-                            className="border-t border-slate-200"
-                          >
-                            <td className="px-3 py-2 text-slate-500">{index + 1}</td>
-                            <td className="px-3 py-2 text-slate-900">{row.boreholeLabel}</td>
-                            <td className="px-3 py-2 text-slate-700">{formatSoilBehaviorLabel(row.soilBehavior)}</td>
-                            <td className="px-3 py-2 text-slate-700">
-                              {row.sampleDepth === null ? "-" : row.sampleDepth}
-                            </td>
+                  <>
+                    <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                      <table className="min-w-max border-collapse text-sm whitespace-nowrap">
+                        <thead className="bg-slate-100 text-slate-600">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold">#</th>
+                            <th className="px-3 py-2 text-left font-semibold">Borehole ID</th>
+                            <th className="px-3 py-2 text-left font-semibold">Soil behavior</th>
+                            <th className="px-3 py-2 text-left font-semibold">Sample depth</th>
                             {PARAMETER_COLUMN_ORDER.map((code) => (
-                              <td
-                                key={`${row.boreholeLabel}-${row.sampleDepth ?? "na"}-${code}`}
-                                className="px-3 py-2 text-slate-700"
-                              >
-                                {row.values[code] ?? "-"}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-
-              {/* Offscreen report root rendered for PDF capture */}
-              <div
-                aria-hidden="true"
-                style={{
-                  position: "fixed",
-                  left: "-10000px",
-                  top: 0,
-                  width: "794px",
-                  opacity: 0,
-                  pointerEvents: "none",
-                  zIndex: -1,
-                }}
-              >
-                <div ref={reportRootRef} data-pdf-safe-colors="1" className="space-y-8 bg-white p-10 text-slate-900">
-                  <header className="space-y-2 border-b border-slate-200 pb-6">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Geotechnical Insights Hub</p>
-                    <h1 className="text-2xl font-semibold">Geotechnical Parameter Report</h1>
-                    <p className="text-sm text-slate-600">
-                      Project: <span className="font-semibold text-slate-900">{selectedProject?.name ?? "-"}</span>
-                    </p>
-                    <p className="text-sm text-slate-600">Date: {formatTodayEnGb()}</p>
-                  </header>
-
-                  <section className="space-y-3">
-                    <h2 className="text-lg font-semibold">1. Determination of Soil Parameters</h2>
-                    <p className="text-sm leading-7 text-slate-700">
-                      The geotechnical design parameters adopted in the analyses are derived from field and laboratory test
-                      results, interpreted using widely accepted empirical correlations available in the literature. The
-                      following sections summarise each adopted correlation, the assumptions applied, and the resulting
-                      parameters stored for the selected project and boreholes.
-                    </p>
-                    <p className="text-sm leading-7 text-slate-700">
-                      Where multiple correlations exist in the literature, the selected correlation should be verified
-                      against project-specific evidence and engineering judgement.
-                    </p>
-                  </section>
-
-                  <section className="space-y-4">
-                    <h2 className="text-lg font-semibold">2. Tool-based derivations and results</h2>
-
-                    {reportTools.length === 0 ? (
-                      <p className="text-sm text-slate-600">
-                        No saved tool plots were found for this project. Save analyses in tool profile tabs to include plots
-                        in this report.
-                      </p>
-                    ) : (
-                      reportTools.map((tool, idx) => (
-                        <section key={tool.toolSlug} className="space-y-3">
-                          <h3 className="text-base font-semibold">
-                            2.{idx + 1}. {tool.toolTitle}
-                          </h3>
-
-                          <div className="space-y-2 text-sm leading-7 text-slate-700">
-                            {tool.toolSlug === "spt-corrections" ? (
-                              <>
-                                <p>
-                                  Corrected SPT resistance N<sub>60</sub> is obtained by applying energy and procedural
-                                  corrections to the recorded blow count N. The correction factors depend on hammer energy
-                                  ratio, rod length, borehole diameter, sampler type, and other test details.
-                                </p>
-                                <p>
-                                  For the selected project and boreholes, the corrected SPT outputs have been saved and are
-                                  summarised in the tables below; corresponding plots are provided where available.
-                                </p>
-                              </>
-                            ) : tool.toolSlug === "cu-from-pi-and-spt" ? (
-                              <>
-                                <p>
-                                  The undrained shear strength c<sub>u</sub> of cohesive soils can be estimated empirically
-                                  from SPT N<sub>60</sub> values using a plasticity-dependent factor f<sub>1</sub> (Stroud,
-                                  1974).
-                                </p>
-                                <p className="font-semibold">
-                                  c<sub>u</sub> = f<sub>1</sub> × N<sub>60</sub>
-                                </p>
-                                <p>
-                                  The adopted \(f_1\) is selected from the reference chart based on the relevant PI and
-                                  applied per sample depth.
-                                </p>
-                              </>
-                            ) : tool.toolSlug === "eu-from-spt-butler-1975" ? (
-                              <>
-                                <p>
-                                  For cohesive soils, the undrained deformation modulus E<sub>u</sub> may be estimated from
-                                  corrected SPT resistance using screening ratios (Butler, 1975).
-                                </p>
-                                <p className="font-semibold">
-                                  E<sub>u</sub> = (E<sub>u</sub>/N<sub>60</sub>) · N<sub>60</sub>
-                                </p>
-                              </>
-                            ) : tool.toolSlug === "eoed-from-mv" ? (
-                              <>
-                                <p>
-                                  Oedometer constrained modulus E<sub>oed</sub> is derived from the coefficient of volume
-                                  compressibility m<sub>v</sub> at the relevant stress level:
-                                </p>
-                                <p className="font-semibold">
-                                  E<sub>oed</sub> = 1/m<sub>v</sub>
-                                </p>
-                              </>
-                            ) : tool.toolSlug === "gmax-from-vs" ? (
-                              <>
-                                <p>
-                                  Small-strain shear modulus G<sub>max</sub> is derived from shear wave velocity V<sub>s</sub>{" "}
-                                  and mass density ρ:
-                                </p>
-                                <p className="font-semibold">
-                                  G<sub>max</sub> = ρ · V<sub>s</sub>
-                                  <sup>2</sup>
-                                </p>
-                              </>
-                            ) : tool.toolSlug === "ocr-calculator" ? (
-                              <>
-                                <p>
-                                  Overconsolidation Ratio (OCR) is calculated as the ratio of preconsolidation stress σ′
-                                  <sub>p</sub> to current vertical effective stress σ′<sub>v0</sub>:
-                                </p>
-                                <p className="font-semibold">
-                                  OCR = σ′<sub>p</sub> / σ′<sub>v0</sub>
-                                </p>
-                              </>
-                            ) : tool.toolSlug === "k0-earth-pressure" ? (
-                              <>
-                                <p>
-                                  Earth pressure coefficients are computed from φ′, OCR and σ′<sub>v0</sub>. A common
-                                  expression for normally consolidated at-rest earth pressure is Jaky’s formula K
-                                  <sub>0,NC</sub> = 1 − sin φ′ (Jaky, 1944). Overconsolidated at-rest pressure may be
-                                  estimated with K<sub>0,OC</sub> = K<sub>0,NC</sub> · OCR<sup>sin φ′</sup>. Active and passive
-                                  coefficients may be computed using Rankine expressions.
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <p>
-                                  This section summarises the saved tool outputs for the selected project and boreholes.
-                                </p>
-                              </>
-                            )}
-                          </div>
-
-                          <p className="text-sm text-slate-600">
-                            For project <span className="font-semibold text-slate-900">{selectedProject?.name ?? "-"}</span>,
-                            results are presented in the following figures (where available).
-                          </p>
-
-                          {tool.plots.length ? (
-                            <div className="space-y-3">
-                              {tool.plots.slice(0, 2).map((plot, plotIdx) => (
-                                <figure key={`${tool.toolSlug}-plot-${plotIdx}`} className="space-y-2">
-                                  <figcaption className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-                                    Figure {idx + 1}.{plotIdx + 1}: {plot.title ?? tool.toolTitle}
-                                  </figcaption>
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={plot.dataUrl}
-                                    alt={plot.title ?? tool.toolTitle}
-                                    className="w-full rounded-lg border border-slate-200"
-                                  />
-                                </figure>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-slate-500">No saved plot images were found for this tool.</p>
-                          )}
-                        </section>
-                      ))
-                    )}
-                  </section>
-
-                  <section className="space-y-3">
-                    <h2 className="text-lg font-semibold">3. Integrated Parameter Matrix</h2>
-                    <p className="text-sm leading-7 text-slate-700">
-                      The following integrated parameter matrix compiles the saved tool outputs by borehole and sample depth.
-                    </p>
-                    <div className="overflow-hidden rounded-xl border border-slate-200">
-                      <table className="w-full border-collapse text-xs">
-                        <thead className="bg-slate-50 text-slate-600">
-                          <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold">
-                            <th>#</th>
-                            <th>Borehole ID</th>
-                            <th>Soil behavior</th>
-                            <th>Sample depth</th>
-                            {PARAMETER_COLUMN_ORDER.map((code) => (
-                              <th key={`rep-${code}`}>{code}</th>
+                              <th key={code} className="px-3 py-2 text-left font-semibold">
+                                <ParameterHeader code={code} />
+                              </th>
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="bg-white text-slate-800">
+                        <tbody>
                           {integratedMatrixRows.map((row, index) => (
                             <tr
-                              key={`rep-row-${row.boreholeLabel}-${row.sampleDepth ?? "na"}`}
+                              key={`${row.boreholeLabel}-${row.sampleDepth ?? "na"}`}
                               className="border-t border-slate-200"
                             >
                               <td className="px-3 py-2 text-slate-500">{index + 1}</td>
-                              <td className="px-3 py-2">{row.boreholeLabel}</td>
-                              <td className="px-3 py-2">{formatSoilBehaviorLabel(row.soilBehavior)}</td>
-                              <td className="px-3 py-2">{row.sampleDepth === null ? "-" : row.sampleDepth}</td>
+                              <td className="px-3 py-2 text-slate-900">{row.boreholeLabel}</td>
+                              <td className="px-3 py-2 text-slate-700">{formatSoilBehaviorLabel(row.soilBehavior)}</td>
+                              <td className="px-3 py-2 text-slate-700">
+                                {row.sampleDepth === null ? "-" : row.sampleDepth}
+                              </td>
                               {PARAMETER_COLUMN_ORDER.map((code) => (
-                                <td key={`rep-cell-${index}-${code}`} className="px-3 py-2">
+                                <td
+                                  key={`${row.boreholeLabel}-${row.sampleDepth ?? "na"}-${code}`}
+                                  className="px-3 py-2 text-slate-700"
+                                >
                                   {row.values[code] ?? "-"}
                                 </td>
                               ))}
@@ -2725,27 +2723,57 @@ export function AccountProjectsPanel() {
                         </tbody>
                       </table>
                     </div>
-                  </section>
-
-                  <section className="space-y-3">
-                    <h2 className="text-lg font-semibold">4. References (Harvard)</h2>
-                    <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-                      <li>Das, B.M. (2011) <i>Principles of Foundation Engineering</i>. 7th edn. Stamford, CT: Cengage Learning.</li>
-                      <li>
-                        Stroud, M.A. (1974) ‘The Standard Penetration Test in insensitive clays and soft rocks’,{" "}
-                        <i>Proceedings of the European Symposium on Penetration Testing (ESOPT)</i>, Stockholm, Vol. 2, pp. 367–375.
-                      </li>
-                      <li>Butler, F.G. (1975) Correlations of SPT resistance with undrained deformation modulus from case-history interpretation.</li>
-                      <li>Kulhawy, F.H. and Mayne, P.W. (1990) <i>Manual on Estimating Soil Properties for Foundation Design</i> (EPRI EL-6800).</li>
-                      <li>
-                        Jaky, J. (1944) ‘The coefficient of earth pressure at rest’, <i>Journal of the Society of Hungarian Architects and Engineers</i>, 78(22), pp. 355–358.
-                      </li>
-                      <li>Bowles, J.E. (1996) <i>Foundation Analysis and Design</i>. 5th edn. New York: McGraw-Hill.</li>
-                    </ul>
-                  </section>
+                    {integratedMatrixAiReport ? (
+                      <div className="mt-4 rounded-xl border border-amber-200/90 bg-gradient-to-b from-amber-50/95 to-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <h4 className="text-sm font-bold uppercase tracking-[0.06em] text-amber-950">
+                            AI engineering interpretation
+                          </h4>
+                          <button
+                            type="button"
+                            className="btn-base shrink-0 px-2 py-1 text-[11px] text-slate-700"
+                            onClick={() => {
+                              if (authUserId && selectedProjectId) {
+                                try {
+                                  localStorage.removeItem(matrixAiReportStorageKey(authUserId, selectedProjectId));
+                                } catch {
+                                  /* ignore */
+                                }
+                              }
+                              setIntegratedMatrixAiReport(null);
+                              setMatrixAiReportTruncated(false);
+                              setMatrixReportDataStale(false);
+                            }}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        {matrixReportDataStale ? (
+                          <p className="mt-2 rounded-lg border border-amber-500/70 bg-amber-100/80 px-3 py-2 text-xs font-medium text-amber-950">
+                            Entegre matris bu rapor kaydedildikten sonra değişti. Güncel veri için &quot;Generate report&quot; ile
+                            yeniden oluşturun.
+                          </p>
+                        ) : null}
+                        {matrixAiReportTruncated ? (
+                          <p className="mt-2 rounded-lg border border-amber-400/70 bg-amber-100/80 px-3 py-2 text-xs font-medium text-amber-950">
+                            Çıktı model uzunluk sınırında kesilmiş olabilir. Tam metin için aşağıyı kaydırın; gerekirse
+                            &quot;Generate report&quot; ile yeniden deneyin (ortamda{" "}
+                            <code className="rounded bg-white/80 px-1">GEMINI_MATRIX_MAX_OUTPUT_TOKENS</code> artırılabilir).
+                          </p>
+                        ) : null}
+                        <div className="mt-3 max-h-[min(88vh,1200px)] min-h-[12rem] overflow-y-auto scroll-smooth rounded-lg border border-slate-200/80 bg-white/60 p-3 text-left text-sm leading-relaxed shadow-inner">
+                          <IntegratedMatrixAiReportBody content={integratedMatrixAiReport} />
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                )}
                 </div>
+                </div>
+                ) : null}
               </div>
             </div>
+
           ) : (
             <p className="text-sm text-slate-600">Select or create a project to manage boreholes.</p>
           )}
@@ -2765,7 +2793,11 @@ export function AccountProjectsPanel() {
               onClick={closeSavedResultDetails}
               role="dialog"
               aria-modal="true"
-              aria-label="Saved analysis details"
+              aria-label={
+                isToolReportSnapshotPayload(savedResultDetails.result_payload)
+                  ? "Saved report details"
+                  : "Saved analysis details"
+              }
             >
               <div
                 className="my-4 flex w-full max-w-[900px] flex-col rounded-xl border border-slate-200 bg-white shadow-xl"
@@ -2777,7 +2809,11 @@ export function AccountProjectsPanel() {
               >
                 <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3">
                   <div>
-                    <h4 className="text-lg font-semibold text-slate-900">Saved Analysis Details</h4>
+                    <h4 className="text-lg font-semibold text-slate-900">
+                      {isToolReportSnapshotPayload(savedResultDetails.result_payload)
+                        ? "Saved Report Details"
+                        : "Saved Analysis Details"}
+                    </h4>
                     <p className="text-sm text-slate-600">{savedResultDetails.tool_title ?? "-"}</p>
                   </div>
                   <button type="button" className="btn-base px-3 py-1.5 text-xs" onClick={closeSavedResultDetails}>
@@ -2787,7 +2823,43 @@ export function AccountProjectsPanel() {
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4" style={{ overscrollBehavior: "contain" }}>
                   {(() => {
-                    const payload = savedResultDetails.result_payload as
+                    const rawPayload = savedResultDetails.result_payload;
+                    if (isToolReportSnapshotPayload(rawPayload)) {
+                      const slug =
+                        (savedResultDetails.tool_slug ?? "").trim() || (rawPayload.toolSlug ?? "").trim() || "";
+                      return (
+                        <section className="mx-auto w-full max-w-[820px] space-y-4">
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                            <p>Saved at: {new Date(savedResultDetails.created_at).toLocaleString("en-GB")}</p>
+                            <p>Tool: {savedResultDetails.tool_title ?? "-"}</p>
+                          </div>
+                          {slug ? (
+                            <Link
+                              href={`/tools/${slug}`}
+                              className="inline-flex text-sm font-semibold text-slate-800 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"
+                            >
+                              Open this tool
+                            </Link>
+                          ) : null}
+                          <div className="rounded-lg border border-slate-200 bg-white p-3">
+                            <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
+                              AI interpretation
+                            </p>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                              {rawPayload.aiText || "—"}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-white p-3">
+                            <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Narrative</p>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                              {rawPayload.narrative || "—"}
+                            </p>
+                          </div>
+                        </section>
+                      );
+                    }
+
+                    const payload = rawPayload as
                       | {
                           profileSnapshot?: {
                             plots?: Array<{ dataUrl?: string; title?: string; width?: number; height?: number }>;

@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { incrementToolUseAction } from "@/app/actions/analytics";
 import { useSubscription } from "@/components/subscription-context";
 import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
-import { CprimeFromCuProfileTab } from "@/components/cprime-from-cu-profile-tab";
+import { CprimeFromCuProfileTab, type CprimeFromCuReportPayload } from "@/components/cprime-from-cu-profile-tab";
 import { CuProfileReportTab, type CuProfileReportPoint } from "@/components/cu-profile-report-tab";
 import { ReportGuestPanel } from "@/components/report-guest-panel";
 import { CuFromPressuremeterProfileTab } from "@/components/cu-from-pressuremeter-profile-tab";
@@ -18,7 +18,10 @@ import { EngineeringText } from "@/components/engineering-text";
 import { EoedProfileTab } from "@/components/eoed-profile-tab";
 import { EprimeFromSptCohesionlessProfileTab } from "@/components/eprime-from-spt-cohesionless-profile-tab";
 import { EuFromSptProfileTab } from "@/components/eu-from-spt-profile-tab";
-import { FrictionAngleFromPiProfileTab } from "@/components/friction-angle-from-pi-profile-tab";
+import {
+  FrictionAngleFromPiProfileTab,
+  type FrictionAngleFromPiReportPayload,
+} from "@/components/friction-angle-from-pi-profile-tab";
 import { GmaxProfileTab } from "@/components/gmax-profile-tab";
 import { IntegratedSettlementProfileTab } from "@/components/integrated-settlement-profile-tab";
 import { FrictionAngleProfileTab } from "@/components/friction-angle-profile-tab";
@@ -27,7 +30,7 @@ import { LiquefactionScreeningVisual } from "@/components/liquefaction-screening
 import { ModulusFromCuProfileTab } from "@/components/modulus-from-cu-profile-tab";
 import { OcrProfileTab } from "@/components/ocr-profile-tab";
 import { PostLiquefactionSettlementProfileTab } from "@/components/post-liquefaction-settlement-profile-tab";
-import { SptProfileTab } from "@/components/spt-profile-tab";
+import { SptProfileTab, type SptCorrectionsReportPayload } from "@/components/spt-profile-tab";
 import { StressDistributionVisual } from "@/components/stress-distribution-visual";
 import { Tabs } from "@/components/tabs";
 import { useToolUnitSystem } from "@/components/tool-unit-provider";
@@ -79,7 +82,7 @@ const PROFILE_FIRST_TOOL_SLUGS = new Set([
 ]);
 
 const SITE_CHARACTERIZATION_CATEGORIES = new Set([
-  "Mechanical Tools",
+  "Shear Strength Tools",
   "Rigidity / Deformation Tools",
   "Stress Related Tools",
 ]);
@@ -399,6 +402,11 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     tableRows: Array<Record<string, string>>;
     plotImageDataUrl: string | null;
   } | null>(null);
+  const [cprimeProfileReportData, setCprimeProfileReportData] = useState<CprimeFromCuReportPayload | null>(null);
+  const [frictionAngleFromPiProfileReportData, setFrictionAngleFromPiProfileReportData] =
+    useState<FrictionAngleFromPiReportPayload | null>(null);
+  const [sptProfileReportData, setSptProfileReportData] = useState<SptCorrectionsReportPayload | null>(null);
+  const [reportSessionUserId, setReportSessionUserId] = useState<string | null>(null);
   const [genericProfileReportData, setGenericProfileReportData] = useState<{
     columns: Array<{ header: string; key: string }>;
     rows: Array<Record<string, string>>;
@@ -1008,8 +1016,10 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         clearActiveProjectBorehole();
         setActiveProjectBorehole(null);
         setIsAuthenticated(false);
+        setReportSessionUserId(null);
         return;
       }
+      setReportSessionUserId(user.id);
       setIsAuthenticated(true);
       setActiveProjectBorehole(readActiveProjectBorehole());
     };
@@ -1592,6 +1602,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
+            onReportDataChange={setSptProfileReportData}
           />
           {renderProfileSavePanel()}
         </div>
@@ -1680,6 +1691,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
             projectParameters={activeProjectParameters}
+            onReportDataChange={setCprimeProfileReportData}
           />
           {renderProfileSavePanel()}
         </div>
@@ -1700,6 +1712,11 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
               toolSlug={tool.slug}
               toolTitle={tool.title}
               isAuthenticated={isAuthenticated}
+              authUserId={reportSessionUserId}
+              projectId={activeProjectBorehole?.projectId ?? null}
+              boreholeId={
+                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
+              }
               unitSystem={unitSystem}
               projectName={activeProjectBorehole?.projectName ?? null}
               boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
@@ -1708,6 +1725,122 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
               points={cuProfileReportData?.points ?? []}
               rows={cuProfileReportData?.tableRows}
               plotImageDataUrl={cuProfileReportData?.plotImageDataUrl ?? null}
+            />
+          ) : isCprimeFromCu ? (
+            <CuProfileReportTab
+              toolSlug={tool.slug}
+              toolTitle={tool.title}
+              isAuthenticated={isAuthenticated}
+              authUserId={reportSessionUserId}
+              projectId={activeProjectBorehole?.projectId ?? null}
+              boreholeId={
+                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
+              }
+              unitSystem={unitSystem}
+              projectName={activeProjectBorehole?.projectName ?? null}
+              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
+              depthUnit={cprimeProfileReportData?.depthUnit}
+              stressUnit={cprimeProfileReportData?.stressUnit}
+              points={[]}
+              rows={cprimeProfileReportData?.tableRows}
+              columns={
+                cprimeProfileReportData
+                  ? [
+                      { header: "Borehole", key: "Borehole" },
+                      {
+                        header: `Depth (${cprimeProfileReportData.depthUnit})`,
+                        key: `Depth (${cprimeProfileReportData.depthUnit})`,
+                      },
+                      {
+                        header: `cu (${cprimeProfileReportData.stressUnit})`,
+                        key: `cu (${cprimeProfileReportData.stressUnit})`,
+                      },
+                      {
+                        header: `c′ (${cprimeProfileReportData.stressUnit})`,
+                        key: `c′ (${cprimeProfileReportData.stressUnit})`,
+                      },
+                    ]
+                  : undefined
+              }
+              plotImageDataUrl={cprimeProfileReportData?.plotImageDataUrl ?? null}
+            />
+          ) : isFrictionAngleFromPi ? (
+            <CuProfileReportTab
+              toolSlug={tool.slug}
+              toolTitle={tool.title}
+              isAuthenticated={isAuthenticated}
+              authUserId={reportSessionUserId}
+              projectId={activeProjectBorehole?.projectId ?? null}
+              boreholeId={
+                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
+              }
+              unitSystem={unitSystem}
+              projectName={activeProjectBorehole?.projectName ?? null}
+              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
+              depthUnit={frictionAngleFromPiProfileReportData?.depthUnit}
+              stressUnit={frictionAngleFromPiProfileReportData?.stressUnit ?? "deg"}
+              points={[]}
+              rows={frictionAngleFromPiProfileReportData?.tableRows}
+              columns={
+                frictionAngleFromPiProfileReportData
+                  ? [
+                      { header: "Borehole", key: "Borehole" },
+                      {
+                        header: `Depth (${frictionAngleFromPiProfileReportData.depthUnit})`,
+                        key: `Depth (${frictionAngleFromPiProfileReportData.depthUnit})`,
+                      },
+                      { header: "PI (%)", key: "PI (%)" },
+                      {
+                        header: `φ′ (${frictionAngleFromPiProfileReportData.stressUnit})`,
+                        key: `φ′ (${frictionAngleFromPiProfileReportData.stressUnit})`,
+                      },
+                    ]
+                  : undefined
+              }
+              plotImageDataUrl={frictionAngleFromPiProfileReportData?.plotImageDataUrl ?? null}
+            />
+          ) : isSptCorrections ? (
+            <CuProfileReportTab
+              toolSlug={tool.slug}
+              toolTitle={tool.title}
+              isAuthenticated={isAuthenticated}
+              authUserId={reportSessionUserId}
+              projectId={activeProjectBorehole?.projectId ?? null}
+              boreholeId={
+                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
+              }
+              unitSystem={unitSystem}
+              projectName={activeProjectBorehole?.projectName ?? null}
+              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
+              depthUnit={sptProfileReportData?.depthUnit}
+              stressUnit={sptProfileReportData?.stressUnit}
+              points={[]}
+              rows={sptProfileReportData?.tableRows}
+              columns={
+                sptProfileReportData
+                  ? [
+                      { header: "Borehole", key: "boreholeId" },
+                      {
+                        header: `Depth (${sptProfileReportData.depthUnit})`,
+                        key: "sampleDepth",
+                      },
+                      { header: "N", key: "nField" },
+                      {
+                        header: `σ′v0 (${sptProfileReportData.stressUnit})`,
+                        key: "sigmaV0",
+                      },
+                      { header: "C_E", key: "ce" },
+                      { header: "C_b", key: "cb" },
+                      { header: "C_r", key: "cr" },
+                      { header: "N60", key: "n60" },
+                      { header: "C_N", key: "cn" },
+                      { header: "(N1)60", key: "n160" },
+                    ]
+                  : undefined
+              }
+              plotImageDataUrl={sptProfileReportData?.plotImageDataUrlN60 ?? null}
+              plotImageDataUrl2={sptProfileReportData?.plotImageDataUrlN160 ?? null}
+              sptReportEquipment={sptProfileReportData?.sptEquipment ?? null}
             />
           ) : !isAuthenticated ? (
             <ReportGuestPanel />
@@ -1740,6 +1873,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
             projectParameters={activeProjectParameters}
+            onReportDataChange={setFrictionAngleFromPiProfileReportData}
           />
           {renderProfileSavePanel()}
         </div>

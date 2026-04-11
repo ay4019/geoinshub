@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   ProfileTableHeaderCell,
@@ -479,11 +480,12 @@ function ProfileChart({
   });
 
   return (
-    <div id={containerId} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3">
-        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 w-full">
+    <ExpandableProfilePlot>
+      <div id={containerId} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 w-full">
         <defs>
           <clipPath id={`${keyPrefix}-clip`}>
             <rect x={margin.left} y={margin.top} width={innerWidth} height={innerHeight} rx="10" />
@@ -621,7 +623,8 @@ function ProfileChart({
           </div>
         ))}
       </div>
-    </div>
+      </div>
+    </ExpandableProfilePlot>
   );
 }
 

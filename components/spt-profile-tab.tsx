@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   cnProfileTableInput,
@@ -15,14 +16,31 @@ import {
 } from "@/components/profile-table-mobile";
 import { isActiveProjectToolLocked, type SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import type { UnitSystem } from "@/lib/types";
+import { profilePlotItemClass, profilePlotsSectionClass } from "@/lib/profile-plot-layout";
 import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
 import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
+
+export interface SptCorrectionsReportPayload {
+  depthUnit: string;
+  stressUnit: string;
+  tableRows: Array<Record<string, string>>;
+  plotImageDataUrlN60: string | null;
+  plotImageDataUrlN160: string | null;
+  /** Labels for Soil Profile Plot selections, embedded in the report narrative. */
+  sptEquipment: {
+    hammerTypeLabel: string;
+    energyRatioLabel: string;
+    boreholeDiameterLabel: string;
+    samplerLabel: string;
+  };
+}
 
 interface SptProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
   soilPolicyToolSlug?: string;
+  onReportDataChange?: (payload: SptCorrectionsReportPayload) => void;
 }
 
 interface SptProfileRow {
@@ -475,7 +493,12 @@ function renderScatterChart({
   );
 }
 
-export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
+export function SptProfileTab({
+  unitSystem,
+  importRows,
+  soilPolicyToolSlug: _soilPolicyToolSlug,
+  onReportDataChange,
+}: SptProfileTabProps) {
   const [rows, setRows] = useState<SptProfileRow[]>(initialRows);
   const [globalHammerType, setGlobalHammerType] = useState("safety");
   const [globalBoreholeFactor, setGlobalBoreholeFactor] = useState("lt115");
@@ -580,72 +603,159 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
   const fallbackGammaMetric = Number(
     convertInputValueBetweenSystems(globalUnitWeight, "kN/m3", unitSystem, "metric"),
   );
-  const plotPoints: SptPlotPoint[] = rows
-    .map((row) => {
-      const depthDisplay = parse(row.sampleDepth);
-      const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
-      if (!Number.isFinite(depthMetric) || depthMetric < 0) {
-        return null;
-      }
-      const { gwtMetric, gammaMetric } = resolveGwtAndGammaMetricForRow(
-        row,
-        unitSystem,
-        importRows,
-        useProjectPerSampleGwtGamma,
-        fallbackGwtMetric,
-        fallbackGammaMetric,
-      );
-      const sigmaEffMetric = Math.max(
-        gammaMetric * depthMetric - 9.81 * Math.max(depthMetric - Math.max(gwtMetric, 0), 0),
-        0.1,
-      );
-      const cr = computeCrFromSampleDepth(depthMetric);
-      const n60 = parse(row.nField) * ce * cb * cr * cs;
-      const cn = computeCnIdrissBoulanger2008(sigmaEffMetric);
-      const n160 = Math.min(n60 * cn, 2 * n60);
-      return {
-        boreholeId: row.boreholeId?.trim() || "BH not set",
-        depth: depthDisplay,
-        n60,
-        n160,
-      };
-    })
-    .filter((point): point is SptPlotPoint => point !== null);
-
-  const exportRows = rows.map((row) => {
-    const depthDisplay = parse(row.sampleDepth);
-    const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
-    const { gwtMetric, gammaMetric } = resolveGwtAndGammaMetricForRow(
-      row,
+  const plotPoints: SptPlotPoint[] = useMemo(
+    () =>
+      rows
+        .map((row) => {
+          const depthDisplay = parse(row.sampleDepth);
+          const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
+          if (!Number.isFinite(depthMetric) || depthMetric < 0) {
+            return null;
+          }
+          const { gwtMetric, gammaMetric } = resolveGwtAndGammaMetricForRow(
+            row,
+            unitSystem,
+            importRows,
+            useProjectPerSampleGwtGamma,
+            fallbackGwtMetric,
+            fallbackGammaMetric,
+          );
+          const sigmaEffMetric = Math.max(
+            gammaMetric * depthMetric - 9.81 * Math.max(depthMetric - Math.max(gwtMetric, 0), 0),
+            0.1,
+          );
+          const cr = computeCrFromSampleDepth(depthMetric);
+          const n60Float = parse(row.nField) * ce * cb * cr * cs;
+          const cn = computeCnIdrissBoulanger2008(sigmaEffMetric);
+          const n160Float = Math.min(n60Float * cn, 2 * n60Float);
+          return {
+            boreholeId: row.boreholeId?.trim() || "BH not set",
+            depth: depthDisplay,
+            n60: Math.round(n60Float),
+            n160: Math.round(n160Float),
+          };
+        })
+        .filter((point): point is SptPlotPoint => point !== null),
+    [
+      rows,
+      ce,
+      cb,
+      cs,
       unitSystem,
       importRows,
       useProjectPerSampleGwtGamma,
       fallbackGwtMetric,
       fallbackGammaMetric,
-    );
-    const sigmaEffMetric = Math.max(
-      gammaMetric * depthMetric - 9.81 * Math.max(depthMetric - Math.max(gwtMetric, 0), 0),
-      0.1,
-    );
-    const sigmaEffDisplay = Number(convertInputValueBetweenSystems(String(sigmaEffMetric), "kPa", "metric", unitSystem));
-    const cr = computeCrFromSampleDepth(depthMetric);
-    const n60 = parse(row.nField) * ce * cb * cr * cs;
-    const cn = computeCnIdrissBoulanger2008(sigmaEffMetric);
-    const n160 = Math.min(n60 * cn, 2 * n60);
+    ],
+  );
 
-    return {
-      boreholeId: row.boreholeId?.trim() || "BH not set",
-      sampleDepth: depthDisplay.toFixed(2),
-      nField: parse(row.nField).toFixed(0),
-      sigmaV0: sigmaEffDisplay.toFixed(2),
-      ce: ce.toFixed(3),
-      cb: cb.toFixed(3),
-      cr: cr.toFixed(3),
-      n60: n60.toFixed(2),
-      cn: cn.toFixed(3),
-      n160: n160.toFixed(2),
-    };
-  });
+  const exportRows = useMemo(
+    () =>
+      rows.map((row) => {
+        const depthDisplay = parse(row.sampleDepth);
+        const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
+        const { gwtMetric, gammaMetric } = resolveGwtAndGammaMetricForRow(
+          row,
+          unitSystem,
+          importRows,
+          useProjectPerSampleGwtGamma,
+          fallbackGwtMetric,
+          fallbackGammaMetric,
+        );
+        const sigmaEffMetric = Math.max(
+          gammaMetric * depthMetric - 9.81 * Math.max(depthMetric - Math.max(gwtMetric, 0), 0),
+          0.1,
+        );
+        const sigmaEffDisplay = Number(
+          convertInputValueBetweenSystems(String(sigmaEffMetric), "kPa", "metric", unitSystem),
+        );
+        const cr = computeCrFromSampleDepth(depthMetric);
+        const n60Float = parse(row.nField) * ce * cb * cr * cs;
+        const cn = computeCnIdrissBoulanger2008(sigmaEffMetric);
+        const n160Float = Math.min(n60Float * cn, 2 * n60Float);
+
+        return {
+          boreholeId: row.boreholeId?.trim() || "BH not set",
+          sampleDepth: depthDisplay.toFixed(2),
+          nField: parse(row.nField).toFixed(0),
+          sigmaV0: sigmaEffDisplay.toFixed(2),
+          ce: ce.toFixed(3),
+          cb: cb.toFixed(3),
+          cr: cr.toFixed(3),
+          n60: String(Math.round(n60Float)),
+          cn: cn.toFixed(3),
+          n160: String(Math.round(n160Float)),
+        };
+      }),
+    [
+      rows,
+      ce,
+      cb,
+      cs,
+      unitSystem,
+      importRows,
+      useProjectPerSampleGwtGamma,
+      fallbackGwtMetric,
+      fallbackGammaMetric,
+    ],
+  );
+
+  const sptEquipment = useMemo(() => {
+    const hammerTypeLabel =
+      HAMMER_TYPE_OPTIONS.find((o) => o.value === globalHammerType)?.label ?? `Hammer: ${globalHammerType}`;
+    const energyRatioLabel = `${globalEnergyRatio}%`;
+    const boreholeDiameterLabel =
+      BOREHOLE_DIAMETER_OPTIONS.find((o) => o.value === globalBoreholeFactor)?.label ??
+      `Borehole diameter class: ${globalBoreholeFactor}`;
+    const samplerLabel =
+      SAMPLER_OPTIONS.find((o) => o.value === globalSamplerFactor)?.label ?? `Sampler: ${globalSamplerFactor}`;
+    return { hammerTypeLabel, energyRatioLabel, boreholeDiameterLabel, samplerLabel };
+  }, [globalHammerType, globalEnergyRatio, globalBoreholeFactor, globalSamplerFactor]);
+
+  useEffect(() => {
+    if (!onReportDataChange) {
+      return;
+    }
+    const n60Img =
+      plotPoints.length > 0
+        ? buildScatterChartPngDataUri({
+            title: "Depth vs N₆₀",
+            xLabel: "N₆₀ (blows)",
+            points: plotPoints,
+            valueKey: "n60",
+            depthUnit,
+          })
+        : "";
+    const n160Img =
+      plotPoints.length > 0
+        ? buildScatterChartPngDataUri({
+            title: "Depth vs (N₁)₆₀",
+            xLabel: "(N₁)₆₀ (blows)",
+            points: plotPoints,
+            valueKey: "n160",
+            depthUnit,
+          })
+        : "";
+    onReportDataChange({
+      depthUnit,
+      stressUnit,
+      tableRows: exportRows.map((row) => ({
+        boreholeId: row.boreholeId,
+        sampleDepth: row.sampleDepth,
+        nField: row.nField,
+        sigmaV0: row.sigmaV0,
+        ce: row.ce,
+        cb: row.cb,
+        cr: row.cr,
+        n60: row.n60,
+        cn: row.cn,
+        n160: row.n160,
+      })),
+      plotImageDataUrlN60: n60Img ? n60Img : null,
+      plotImageDataUrlN160: n160Img ? n160Img : null,
+      sptEquipment,
+    });
+  }, [onReportDataChange, plotPoints, exportRows, depthUnit, stressUnit, sptEquipment]);
 
   const buildExportTableHtml = () => {
     const headerCells = [
@@ -978,9 +1088,11 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
                   convertInputValueBetweenSystems(String(sigmaEffMetric), "kPa", "metric", unitSystem),
                 );
                 const cr = computeCrFromSampleDepth(sampleDepthMetric);
-                const n60 = parse(row.nField) * ce * cb * cr * cs;
+                const n60Float = parse(row.nField) * ce * cb * cr * cs;
                 const cn = computeCnIdrissBoulanger2008(sigmaEffMetric);
-                const n160 = Math.min(n60 * cn, 2 * n60);
+                const n160Float = Math.min(n60Float * cn, 2 * n60Float);
+                const n60 = Math.round(n60Float);
+                const n160 = Math.round(n160Float);
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
@@ -1029,13 +1141,13 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
                       <OutputCell value={Number.isFinite(cr) ? cr.toFixed(3) : "-"} />
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={Number.isFinite(n60) ? n60.toFixed(2) : "-"} />
+                      <OutputCell value={Number.isFinite(n60Float) ? String(n60) : "-"} />
                     </td>
                     <td className="px-2 py-3">
                       <OutputCell value={Number.isFinite(cn) ? cn.toFixed(3) : "-"} />
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={Number.isFinite(n160) ? n160.toFixed(2) : "-"} />
+                      <OutputCell value={Number.isFinite(n160Float) ? String(n160) : "-"} />
                     </td>
                     <td className="px-2 py-3">
                       <button
@@ -1070,21 +1182,25 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
         </ProfileTableScroll>
 
         {plotPoints.length ? (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            {renderScatterChart({
-              title: "Depth vs N₆₀",
-              xLabel: "N₆₀ (blows)",
-              points: plotPoints,
-              valueKey: "n60",
-              depthUnit,
-            })}
-            {renderScatterChart({
-              title: "Depth vs (N₁)₆₀",
-              xLabel: "(N₁)₆₀ (blows)",
-              points: plotPoints,
-              valueKey: "n160",
-              depthUnit,
-            })}
+          <div className={profilePlotsSectionClass(2)}>
+            <ExpandableProfilePlot className={profilePlotItemClass(2)}>
+              {renderScatterChart({
+                title: "Depth vs N₆₀",
+                xLabel: "N₆₀ (blows)",
+                points: plotPoints,
+                valueKey: "n60",
+                depthUnit,
+              })}
+            </ExpandableProfilePlot>
+            <ExpandableProfilePlot className={profilePlotItemClass(2)}>
+              {renderScatterChart({
+                title: "Depth vs (N₁)₆₀",
+                xLabel: "(N₁)₆₀ (blows)",
+                points: plotPoints,
+                valueKey: "n160",
+                depthUnit,
+              })}
+            </ExpandableProfilePlot>
           </div>
         ) : null}
 

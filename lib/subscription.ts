@@ -10,7 +10,39 @@ export const BRONZE_MAX_PROJECTS = 3;
 export const BRONZE_MAX_BOREHOLES_PER_PROJECT = 5;
 export const BRONZE_MAX_SAMPLES_PER_BOREHOLE = 30;
 export const BRONZE_MAX_REPORTS_PER_DAY = 15;
-export const SILVER_MAX_AI_ANALYSES_PER_DAY = 5;
+
+/** Gold (non-admin): max Integrated Parameter Matrix AI report generations per calendar week (Europe/Istanbul, Mon–Sun). */
+export const MATRIX_AI_REPORTS_PER_WEEK = 5;
+
+/**
+ * YYYY-MM-DD for the Monday starting the current week in Europe/Istanbul (for weekly matrix AI quota).
+ */
+export function usageWeekMondayKeyEuropeIstanbul(ref: Date = new Date()): string {
+  let cursor = new Date(ref.getTime());
+  for (let i = 0; i < 7; i++) {
+    const weekday = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Europe/Istanbul",
+      weekday: "long",
+    }).format(cursor);
+    if (weekday === "Monday") {
+      const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Istanbul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(cursor);
+      const y = parts.find((p) => p.type === "year")?.value;
+      const m = parts.find((p) => p.type === "month")?.value;
+      const day = parts.find((p) => p.type === "day")?.value;
+      if (y && m && day) {
+        return `${y}-${m}-${day}`;
+      }
+      break;
+    }
+    cursor = new Date(cursor.getTime() - 86400000);
+  }
+  return usageDateKeyEuropeIstanbul(ref);
+}
 
 /** Maps DB/API values to a tier; includes legacy `plan` aliases (free, pro, etc.). */
 export function normaliseSubscriptionTier(value: string | null | undefined): SubscriptionTier {
@@ -72,6 +104,15 @@ export function tierAllowsReports(
 }
 
 export function tierAllowsAiAnalysis(
+  tier: SubscriptionTier | null | undefined,
+  isAdmin?: boolean | null,
+): boolean {
+  const t = effectiveSubscriptionTier(tier, isAdmin ?? false);
+  return t === "gold";
+}
+
+/** Guided follow-ups (“Further questions”) in blog research articles — Silver and Gold. */
+export function tierAllowsBlogFurtherQuestions(
   tier: SubscriptionTier | null | undefined,
   isAdmin?: boolean | null,
 ): boolean {

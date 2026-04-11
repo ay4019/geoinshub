@@ -138,7 +138,7 @@
       },
       {
         "name": "frictionAngle",
-        "label": "Effective friction angle, phi'",
+        "label": "Effective friction angle, φ′",
         "type": "number",
         "unit": "deg",
         "placeholder": "e.g., 30",

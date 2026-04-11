@@ -81,31 +81,31 @@ const equationParameterMap: Record<string, string[]> = {
     "N_q = surcharge bearing-capacity factor",
     "e = base of the natural logarithm",
     "pi = circular constant",
-    "phi' = effective friction angle",
+    "φ′ = effective friction angle",
   ],
   "N<sub>c</sub> = (N<sub>q</sub> - 1) / tan&phi;'": [
     "N_c = cohesion bearing-capacity factor",
     "N_q = surcharge bearing-capacity factor",
-    "phi' = effective friction angle",
+    "φ′ = effective friction angle",
   ],
   "N<sub>&gamma;,Terzaghi</sub> = 1.5(N<sub>q</sub> - 1)tan&phi;'": [
     "N_gamma,Terzaghi = Terzaghi form of the unit-weight bearing-capacity factor",
     "N_q = surcharge bearing-capacity factor",
-    "phi' = effective friction angle",
+    "φ′ = effective friction angle",
   ],
   "N<sub>&gamma;,Meyerhof/Hansen</sub> = (N<sub>q</sub> - 1)tan(1.4&phi;')": [
     "N_gamma,Meyerhof/Hansen = Meyerhof and Hansen form of the unit-weight bearing-capacity factor",
     "N_q = surcharge bearing-capacity factor",
-    "phi' = effective friction angle",
+    "φ′ = effective friction angle",
   ],
   "N<sub>&gamma;,Vesic</sub> = 2(N<sub>q</sub> + 1)tan&phi;'": [
     "N_gamma,Vesic = Vesic form of the unit-weight bearing-capacity factor",
     "N_q = surcharge bearing-capacity factor",
-    "phi' = effective friction angle",
+    "φ′ = effective friction angle",
   ],
   "tan&phi;'<sub>d</sub> = tan&phi;' / &gamma;<sub>M,&phi;</sub>": [
-    "tan phi'_d = tangent of the design friction angle",
-    "tan phi' = tangent of the characteristic effective friction angle",
+    "tan φ′_d = tangent of the design friction angle",
+    "tan φ′ = tangent of the characteristic effective friction angle",
     "gamma_M,phi = Eurocode 7 material factor applied to friction angle",
   ],
   "c'<sub>d</sub> = c' / &gamma;<sub>M,c</sub>": [
@@ -170,7 +170,7 @@ const equationParameterMap: Record<string, string[]> = {
   "N<sub>&gamma;</sub> = 2(N<sub>q</sub> + 1)tan&phi;'": [
     "N_gamma = bearing capacity factor for the unit-weight term",
     "N_q = surcharge bearing capacity factor",
-    "phi' = effective friction angle",
+    "φ′ = effective friction angle",
   ],
   "e<sub>x</sub> = M<sub>y</sub> / P": [
     "e_x = eccentricity along the footing width direction",
@@ -250,11 +250,11 @@ const equationParameterMap: Record<string, string[]> = {
   ],
   "K<sub>a</sub> = tan<sup>2</sup>(45 - &phi;'/2)": [
     "K_a = active earth pressure coefficient",
-    "phi' = effective friction angle of backfill",
+    "φ′ = effective friction angle of backfill",
   ],
   "K<sub>p</sub> = tan<sup>2</sup>(45 + &phi;'/2)": [
     "K_p = passive earth pressure coefficient",
-    "phi' = effective friction angle of backfill",
+    "φ′ = effective friction angle of backfill",
   ],
   "P<sub>a</sub> = 0.5K<sub>a</sub>&gamma;H<sup>2</sup> + K<sub>a</sub>qH": [
     "P_a = total active earth thrust per unit wall length",
@@ -265,18 +265,18 @@ const equationParameterMap: Record<string, string[]> = {
   ],
   "K<sub>a,C</sub> = cos<sup>2</sup>&phi;' / { cos&delta; [1 + (sin(&phi;' + &delta;) sin&phi;' / cos&delta;)<sup>0.5</sup>] }<sup>2</sup>": [
     "K_a,C = Coulomb active earth pressure coefficient",
-    "phi' = effective friction angle of backfill",
+    "φ′ = effective friction angle of backfill",
     "delta = wall friction angle",
   ],
   "K<sub>0,NC</sub> = 1 - sin&phi;'": [
     "K_0,NC = at-rest earth pressure coefficient for normally consolidated soil",
-    "phi' = effective friction angle",
+    "φ′ = effective friction angle",
   ],
   "K<sub>0,OC</sub> = K<sub>0,NC</sub> OCR<sup>sin&phi;'</sup>": [
     "K_0,OC = at-rest earth pressure coefficient for overconsolidated soil",
     "K_0,NC = at-rest coefficient for normally consolidated soil",
     "OCR = overconsolidation ratio",
-    "phi' = effective friction angle",
+    "φ′ = effective friction angle",
   ],
   "Q<sub>s</sub> = f<sub>s</sub>(&pi;DL)": [
     "Q_s = shaft resistance",
@@ -537,7 +537,7 @@ const equationParameterMap: Record<string, string[]> = {
     "N_kt = cone factor",
   ],
   "&phi;' &asymp; 17.6 + 11log<sub>10</sub>(q<sub>c</sub>/P<sub>a</sub>)": [
-    "phi' = approximate effective friction angle",
+    "φ′ = approximate effective friction angle",
     "q_c = cone tip resistance",
     "P_a = atmospheric reference pressure",
   ],
@@ -586,11 +586,11 @@ const equationParameterMap: Record<string, string[]> = {
     "PI &le; 15: f_1 = 6.5; PI &gt; 40: f_1 = 4.4; between 15 and 40: linear between consecutive anchors in the methodology table",
   ],
   "φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀²": [
-    "phi' = approximate effective friction angle",
+    "φ′ = approximate effective friction angle",
     "N_60 = corrected SPT resistance",
   ],
   "φ′ = 45 − 14 log₁₀(PI)": [
-    "phi' = estimated effective friction angle",
+    "φ′ = estimated effective friction angle",
     "PI = plasticity index",
     "log10 = base-10 logarithm",
   ],

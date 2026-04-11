@@ -1,0 +1,3 @@
+/** Gold / gilded primary for AI analysis and matching report actions (PDF generate, etc.). */
+export const AI_ANALYZE_BUTTON_CLASS =
+  "inline-flex min-h-[2.75rem] w-full items-center justify-center rounded-xl border border-[#d7c28a] bg-[linear-gradient(180deg,#fff8e7_0%,#f7ebc4_100%)] px-4 py-3 text-[0.95rem] font-semibold text-[#5f4718] shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_10px_24px_-20px_rgba(161,98,7,0.45)] transition hover:border-[#c9af68] hover:bg-[linear-gradient(180deg,#fff4d8_0%,#f3e2ad_100%)] hover:text-[#4a3510] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_14px_28px_-22px_rgba(161,98,7,0.5)] disabled:cursor-not-allowed disabled:opacity-60";

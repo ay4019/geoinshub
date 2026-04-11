@@ -143,12 +143,16 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
   };
 
   return (
-    <section className="mx-auto w-full max-w-[1200px] rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7">
-      <h2 className="text-2xl font-semibold text-slate-900">
+    <section
+      className={`account-ui-sans mx-auto w-full rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-[0_16px_48px_-36px_rgba(15,23,42,0.4)] sm:p-6 ${
+        mode === "signup" ? "max-w-4xl" : "max-w-md"
+      }`}
+    >
+      <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">
         {mode === "login" ? "Log in to your account" : "Create your account"}
       </h2>
 
-      <form onSubmit={onSubmit} className="mt-5 space-y-5">
+      <form onSubmit={onSubmit} className="mt-4 space-y-4">
         <div>
           <label htmlFor="account-email" className="mb-1 block text-sm font-medium text-slate-700">
             Email
@@ -264,7 +268,7 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
         </p>
 
         {mode === "signup" ? (
-          <div className="space-y-4 border-t border-slate-200 pt-8">
+          <div className="space-y-3 border-t border-slate-200 pt-5">
             <p className="text-sm leading-relaxed text-slate-600">
               Compare membership tiers. New accounts start on Bronze; Silver and Gold unlock higher limits when you
               upgrade.

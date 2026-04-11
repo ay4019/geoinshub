@@ -1,7 +1,7 @@
 {
-  "visits": 79,
-  "toolUses": 123,
-  "articleReads": 87,
+  "visits": 84,
+  "toolUses": 125,
+  "articleReads": 91,
   "toolBreakdown": {
     "gmax-from-vs": 3,
     "eoed-from-mv": 3,
@@ -13,7 +13,7 @@
     "seed-idriss-liquefaction-screening": 19,
     "post-liquefaction-settlement": 4,
     "spt-corrections": 2,
-    "cu-from-pi-and-spt": 18,
+    "cu-from-pi-and-spt": 20,
     "cprime-from-cu": 1,
     "friction-angle-from-spt": 5,
     "friction-angle-from-pi": 0,
@@ -63,7 +63,7 @@
     "uscs-plasticity-helper": 4
   },
   "articleBreakdown": {
-    "hardening-soil-model-stiffness-calibration": 12,
+    "hardening-soil-model-stiffness-calibration": 16,
     "route-planning-in-railway-projects": 18,
     "track-system-in-railway-engineering": 26,
     "consolidation-settlement-in-geotechnical-engineering": 14,

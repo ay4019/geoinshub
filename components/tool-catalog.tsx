@@ -14,7 +14,7 @@ const TOOL_SUPERGROUPS = [
   {
     id: "site-characterization",
     title: "Site Characterization Tools",
-    categories: ["Mechanical Tools", "Rigidity / Deformation Tools", "Stress Related Tools"],
+    categories: ["Shear Strength Tools", "Rigidity / Deformation Tools", "Stress Related Tools"],
   },
   {
     id: "geotechnical-analysis",

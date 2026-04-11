@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { deleteCurrentUserAccountAction } from "@/app/actions/account";
-import { AccountProjectsPanel } from "@/components/account-projects-panel";
 import { LogoutButton } from "@/components/logout-button";
 import { MembershipTierColumns } from "@/components/membership-tier-columns";
 import { useSubscription } from "@/components/subscription-context";
@@ -13,7 +12,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { tierUi } from "@/lib/subscription";
 
-type MainAccountTab = "projects" | "personal" | "subscription";
+type MainAccountTab = "subscription" | "personal";
 type PersonalTab = "information" | "password" | "privacy";
 
 interface AccountDashboardPanelProps {
@@ -21,7 +20,6 @@ interface AccountDashboardPanelProps {
 }
 
 const mainTabItems: Array<{ id: MainAccountTab; label: string }> = [
-  { id: "projects", label: "Projects" },
   { id: "subscription", label: "Subscription" },
   { id: "personal", label: "Personal Information" },
 ];
@@ -37,7 +35,7 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
   const { tier, isAdmin, effectiveTier, effectiveTierLabel, loading: tierLoading, refresh: refreshSubscription } =
     useSubscription();
   const tierStyle = tierUi(tier, isAdmin);
-  const [activeMainTab, setActiveMainTab] = useState<MainAccountTab>("projects");
+  const [activeMainTab, setActiveMainTab] = useState<MainAccountTab>("subscription");
   const [activePersonalTab, setActivePersonalTab] = useState<PersonalTab>("information");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -119,15 +117,18 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
 
   return (
     <section
-      className={`mx-auto max-w-[1200px] rounded-[1.5rem] border-2 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7 ${tierStyle.borderClass}`}
+      className={`account-ui-sans mx-auto max-w-[1200px] rounded-[1.5rem] border-2 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7 ${tierStyle.borderClass}`}
       style={tierStyle.ringStyle}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Account</h1>
           <p className="text-sm leading-6 text-slate-600 sm:text-base">
-            Manage everything related to your account from one place. Update your personal information, change your
-            password, review your subscription status, and control your privacy settings.
+            Manage your profile and subscription from here. Cloud projects and boreholes live on the{" "}
+            <Link href="/projects" className="font-semibold text-slate-800 underline decoration-slate-400/80 underline-offset-2 hover:text-slate-950">
+              Projects
+            </Link>{" "}
+            page. Update personal information, change your password, review your tier, and control privacy settings.
           </p>
         </div>
       </div>
@@ -152,11 +153,7 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
         <LogoutButton className="btn-base btn-md btn-danger" />
       </div>
 
-      {activeMainTab === "projects" ? (
-        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-          <AccountProjectsPanel />
-        </div>
-      ) : activeMainTab === "subscription" ? (
+      {activeMainTab === "subscription" ? (
         <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
           <div className="space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">

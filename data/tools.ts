@@ -414,7 +414,7 @@ const bearingTools: ToolDefinition[] = [
         { label: "Vesic", value: "vesic" },
       ]),
       num("cohesion", "Effective cohesion, c'", 10, "kPa", { min: 0 }),
-      num("frictionAngle", "Effective friction angle, phi'", 30, "deg", { min: 0, max: 50 }),
+      num("frictionAngle", "Effective friction angle, φ′", 30, "deg", { min: 0, max: 50 }),
       num("unitWeight", "Effective unit weight, gamma", 18, "kN/m3", { min: 1 }),
       num("width", "Foundation width, B", 2, "m", { min: 0.1, step: 0.01 }),
       num("length", "Foundation length, L", 3, "m", { min: 0.1, step: 0.01 }),
@@ -467,7 +467,7 @@ const bearingTools: ToolDefinition[] = [
         { label: "DA3", value: "da3" },
       ]),
       num("cohesion", "Effective cohesion, c'", 10, "kPa", { min: 0 }),
-      num("frictionAngle", "Effective friction angle, phi'", 30, "deg", { min: 0, max: 50 }),
+      num("frictionAngle", "Effective friction angle, φ′", 30, "deg", { min: 0, max: 50 }),
       num("unitWeight", "Effective unit weight, gamma", 18, "kN/m3", { min: 1 }),
       num("width", "Foundation width, B", 2, "m", { min: 0.1, step: 0.01 }),
       num("length", "Foundation length, L", 3, "m", { min: 0.1, step: 0.01 }),
@@ -758,7 +758,7 @@ const earthPressureTools: ToolDefinition[] = [
     keywords: ["Ka", "Kp", "active pressure", "passive pressure"],
     featured: false,
     inputs: [
-      num("frictionAngle", "Backfill friction angle, phi'", 32, "deg", { min: 0, max: 50, step: 0.1 }),
+      num("frictionAngle", "Backfill friction angle, φ′", 32, "deg", { min: 0, max: 50, step: 0.1 }),
       num("unitWeight", "Backfill unit weight, gamma", 19, "kN/m3", { min: 1, step: 0.1 }),
       num("height", "Retained height, H", 5, "m", { min: 0.1, step: 0.01 }),
       num("surcharge", "Uniform surcharge, q", 0, "kPa", { min: 0, step: 0.1 }),
@@ -792,7 +792,7 @@ const earthPressureTools: ToolDefinition[] = [
     keywords: ["Ka", "delta", "wall friction"],
     featured: false,
     inputs: [
-      num("frictionAngle", "Backfill friction angle, phi'", 32, "deg", { min: 0, max: 50, step: 0.1 }),
+      num("frictionAngle", "Backfill friction angle, φ′", 32, "deg", { min: 0, max: 50, step: 0.1 }),
       num("wallFriction", "Wall friction angle, delta", 12, "deg", { min: 0, max: 30, step: 0.1 }),
       num("unitWeight", "Backfill unit weight, gamma", 19, "kN/m3", { min: 1, step: 0.1 }),
       num("height", "Retained height, H", 5, "m", { min: 0.1, step: 0.01 }),
@@ -826,7 +826,7 @@ const earthPressureTools: ToolDefinition[] = [
     keywords: ["at-rest", "OCR", "lateral stress"],
     featured: false,
     inputs: [
-      num("frictionAngle", "Effective friction angle, phi'", 30, "deg", { min: 0, max: 50, step: 0.1 }),
+      num("frictionAngle", "Effective friction angle, φ′", 30, "deg", { min: 0, max: 50, step: 0.1 }),
       num("ocr", "Overconsolidation ratio, OCR", 1, undefined, { min: 1, step: 0.1 }),
       num("verticalStress", "Vertical effective stress, sigma'v", 100, "kPa", { min: 0.1, step: 0.1 }),
     ],
@@ -1471,7 +1471,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     slug: "spt-corrections",
     status: "active",
     title: "Standard Penetration Test (SPT) Corrections for N₆₀ and (N₁)₆₀",
-    category: "Mechanical Tools",
+    category: "Shear Strength Tools",
     shortDescription:
       "Energy and equipment corrections yield N<sub>60</sub>; vertical effective stress follows sample depth, groundwater depth, and bulk unit weight, then Idriss and Boulanger (2008) gives C<sub>N</sub> and (N<sub>1</sub>)<sub>60</sub>.",
     tags: ["SPT", "N60"],
@@ -1706,7 +1706,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     slug: "cu-from-pi-and-spt",
     status: "active",
     title: "Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI)",
-    category: "Mechanical Tools",
+    category: "Shear Strength Tools",
     shortDescription:
       "Uses Stroud (1974) PI-based f<sub>1</sub> interpretation and estimates c<sub>u</sub> = f<sub>1</sub> N<sub>60</sub> (kPa) for cohesive-soil screening.",
     tags: ["undrained strength", "plasticity index", "Stroud"],
@@ -1764,7 +1764,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     slug: "cu-from-pressuremeter",
     status: "archived",
     title: "Undrained Shear Strength (cu) from Pressuremeter Net Limit Pressure (PLN)",
-    category: "Mechanical Tools",
+    category: "Shear Strength Tools",
     shortDescription:
       "Uses the Baguelin (1978) pressuremeter correlation to estimate undrained shear strength from net limit pressure for cohesive-soil screening.",
     tags: ["pressuremeter", "undrained strength", "Baguelin 1978"],
@@ -1795,7 +1795,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     slug: "cprime-from-cu",
     status: "active",
     title: "Effective Cohesion (c') from Undrained Shear Strength (cu)",
-    category: "Mechanical Tools",
+    category: "Shear Strength Tools",
     shortDescription:
       "Uses the c' = 0.1cu correlation cited by Sorensen and Okkels (2013) for cohesive soils.",
     tags: ["effective cohesion", "undrained strength", "cohesive soil"],
@@ -1823,7 +1823,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     slug: "friction-angle-from-spt",
     status: "active",
     title: "Effective Friction Angle (φ′) from Standard Penetration Test Resistance (N₆₀)",
-    category: "Mechanical Tools",
+    category: "Shear Strength Tools",
     shortDescription:
       "Effective friction angle is estimated from corrected SPT resistance N₆₀ using the empirical correlation cited by Peck, Hanson, and Thornburn (1974).",
     tags: ["SPT", "friction angle"],
@@ -1849,11 +1849,11 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     slug: "friction-angle-from-pi",
     status: "active",
     title: "Effective Friction Angle (φ′) from Plasticity Index (PI)",
-    category: "Mechanical Tools",
+    category: "Shear Strength Tools",
     shortDescription:
       "Uses the PI-based cohesive-soil correlation φ′ = 45 − 14 log₁₀(PI), consistent with the charted trend cited by Sorensen and Okkels (2013).",
     tags: ["friction angle", "plasticity index", "cohesive soil"],
-    keywords: ["phi'", "PI", "Mitchell", "Kulhawy", "Mayne", "Sorensen"],
+    keywords: ["φ′", "PI", "Mitchell", "Kulhawy", "Mayne", "Sorensen"],
     featured: false,
     inputs: [num("plasticityIndex", "Plasticity Index, PI", 25, "%", { min: 0.1, max: 200, step: 0.1 })],
     information: info({

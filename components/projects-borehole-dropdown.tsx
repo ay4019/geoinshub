@@ -428,11 +428,11 @@ export function ProjectsBoreholeDropdown() {
                 <p className="text-sm text-slate-600">Loading projects...</p>
               ) : projects.length === 0 ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
-                  No projects yet. Create one in{" "}
-                  <Link href="/account" className="font-semibold underline underline-offset-4">
-                    Account
-                  </Link>
-                  .
+                  No projects yet. Create one on the{" "}
+                  <Link href="/projects" className="font-semibold underline underline-offset-4">
+                    Projects
+                  </Link>{" "}
+                  page.
                 </div>
               ) : (
                 <>
@@ -515,7 +515,7 @@ export function ProjectsBoreholeDropdown() {
                       Clear
                     </button>
                     <Link
-                      href="/account"
+                      href="/projects"
                       className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors duration-200 hover:border-slate-400 hover:bg-slate-50"
                     >
                       Manage

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   ProfileTableHeaderCell,
@@ -13,6 +14,7 @@ import {
   profileTableRemoveButtonClass,
   profileTableThClass,
 } from "@/components/profile-table-mobile";
+import { profilePlotItemClass, profilePlotsSectionClass } from "@/lib/profile-plot-layout";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import { isActiveProjectToolLocked, type SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import {
@@ -522,13 +524,15 @@ export function FrictionAngleProfileTab({
         </ProfileTableScroll>
 
         {plotPoints.length ? (
-          <div className="mt-4 max-w-3xl">
-            {renderScatterChart({
-              title: "Depth vs φ′",
-              xLabel: "φ′ (deg)",
-              points: plotPoints,
-              depthUnit,
-            })}
+          <div className={profilePlotsSectionClass(1)}>
+            <ExpandableProfilePlot className={profilePlotItemClass(1)}>
+              {renderScatterChart({
+                title: "Depth vs φ′",
+                xLabel: "φ′ (deg)",
+                points: plotPoints,
+                depthUnit,
+              })}
+            </ExpandableProfilePlot>
           </div>
         ) : null}
       </div>

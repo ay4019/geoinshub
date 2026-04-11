@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
   cnProfileTableInput,
@@ -13,6 +14,7 @@ import {
   profileTableRemoveButtonClass,
   profileTableThClass,
 } from "@/components/profile-table-mobile";
+import { profilePlotItemClass, profilePlotsSectionClass } from "@/lib/profile-plot-layout";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import {
@@ -540,8 +542,10 @@ export function EuFromSptProfileTab({
         </ProfileTableScroll>
 
         {plotPoints.length ? (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            {renderScatterChart({ points: plotPoints, depthUnit, stressUnit })}
+          <div className={profilePlotsSectionClass(1)}>
+            <ExpandableProfilePlot className={profilePlotItemClass(1)}>
+              {renderScatterChart({ points: plotPoints, depthUnit, stressUnit })}
+            </ExpandableProfilePlot>
           </div>
         ) : null}
       </div>
