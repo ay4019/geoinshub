@@ -12,11 +12,37 @@ export const BRONZE_MAX_SAMPLES_PER_BOREHOLE = 30;
 export const BRONZE_MAX_REPORTS_PER_DAY = 15;
 export const SILVER_MAX_AI_ANALYSES_PER_DAY = 5;
 
+/** Maps DB/API values to a tier; includes legacy `plan` aliases (free, pro, etc.). */
 export function normaliseSubscriptionTier(value: string | null | undefined): SubscriptionTier {
-  if (value === "bronze" || value === "silver" || value === "gold" || value === "none") {
-    return value;
+  if (value == null || value === "") {
+    return "none";
   }
-  return "none";
+  const v = value.trim().toLowerCase();
+  if (v === "bronze" || v === "silver" || v === "gold" || v === "none") {
+    return v;
+  }
+  const legacy: Record<string, SubscriptionTier> = {
+    free: "none",
+    trial: "none",
+    basic: "bronze",
+    copper: "bronze",
+    pro: "silver",
+    professional: "silver",
+    premium: "gold",
+    enterprise: "gold",
+  };
+  return legacy[v] ?? "none";
+}
+
+/** Tier used for limits, quotas, and feature gates. Admins always evaluate as Gold (full access). */
+export function effectiveSubscriptionTier(
+  stored: SubscriptionTier | null | undefined,
+  isAdmin: boolean | null | undefined,
+): SubscriptionTier {
+  if (isAdmin) {
+    return "gold";
+  }
+  return normaliseSubscriptionTier(stored ?? undefined);
 }
 
 export function getTierLimits(tier: SubscriptionTier | null | undefined): TierLimits {
@@ -38,12 +64,18 @@ export function getTierLimits(tier: SubscriptionTier | null | undefined): TierLi
   };
 }
 
-export function tierAllowsReports(tier: SubscriptionTier | null | undefined): boolean {
-  return normaliseSubscriptionTier(tier ?? undefined) !== "none";
+export function tierAllowsReports(
+  tier: SubscriptionTier | null | undefined,
+  isAdmin?: boolean | null,
+): boolean {
+  return effectiveSubscriptionTier(tier, isAdmin ?? false) !== "none";
 }
 
-export function tierAllowsAiAnalysis(tier: SubscriptionTier | null | undefined): boolean {
-  const t = normaliseSubscriptionTier(tier ?? undefined);
+export function tierAllowsAiAnalysis(
+  tier: SubscriptionTier | null | undefined,
+  isAdmin?: boolean | null,
+): boolean {
+  const t = effectiveSubscriptionTier(tier, isAdmin ?? false);
   return t === "silver" || t === "gold";
 }
 
@@ -91,7 +123,19 @@ export const TIER_UI = {
   },
 } as const;
 
-export function tierUi(tier: SubscriptionTier | null | undefined) {
-  const t = normaliseSubscriptionTier(tier ?? undefined);
+/** Short label for UI: admins see Full access; others see tier name from TIER_UI. */
+export function effectiveTierDisplayLabel(
+  stored: SubscriptionTier | null | undefined,
+  isAdmin: boolean | null | undefined,
+): string {
+  if (isAdmin) {
+    return "Full access";
+  }
+  const t = normaliseSubscriptionTier(stored ?? undefined);
+  return TIER_UI[t].label;
+}
+
+export function tierUi(tier: SubscriptionTier | null | undefined, isAdmin?: boolean | null) {
+  const t = effectiveSubscriptionTier(tier, isAdmin ?? false);
   return TIER_UI[t];
 }

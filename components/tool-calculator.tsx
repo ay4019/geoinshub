@@ -374,8 +374,8 @@ function EquationBlock({ html }: { html: string }) {
 
 export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const { unitSystem, setUnitSystem } = useToolUnitSystem();
-  const { tier: subscriptionTier, loading: subscriptionLoading } = useSubscription();
-  const reportsAllowed = tierAllowsReports(subscriptionTier);
+  const { effectiveTier, loading: subscriptionLoading } = useSubscription();
+  const reportsAllowed = tierAllowsReports(effectiveTier);
   const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
   const hasProfileTab = PROFILE_FIRST_TOOL_SLUGS.has(tool.slug);
   const hideCalculationTab = tool.category === "Settlement";
@@ -806,7 +806,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
       setProfileSnapshotMessageType("error");
       return;
     }
-    if (subscriptionTier === "none") {
+    if (effectiveTier === "none") {
       setProfileSnapshotMessage("Saving analyses to a project requires Bronze or higher membership.");
       setProfileSnapshotMessageType("error");
       return;
@@ -909,7 +909,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
       <p className="mt-1 text-sm text-slate-600">
         Save current profile inputs and plot images to the active project folder.
       </p>
-      {subscriptionTier === "none" ? (
+      {effectiveTier === "none" ? (
         <p className="mt-2 text-sm text-amber-800">
           Cloud save is available from Bronze upward. You can still use tools with manual inputs.
         </p>
@@ -932,7 +932,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           }}
           className="btn-base px-3 py-1.5 text-sm"
           disabled={
-            isSavingProfileSnapshot || subscriptionTier === "none" || subscriptionLoading
+            isSavingProfileSnapshot || effectiveTier === "none" || subscriptionLoading
           }
         >
           {isSavingProfileSnapshot ? "Saving..." : "Save Analysis to Project"}

@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   BRONZE_MAX_REPORTS_PER_DAY,
+  effectiveSubscriptionTier,
   normaliseSubscriptionTier,
   SILVER_MAX_AI_ANALYSES_PER_DAY,
   type SubscriptionTier,
@@ -33,10 +34,12 @@ async function requireUserId(): Promise<{ userId: string } | { error: string }> 
   return { userId: user.id };
 }
 
-async function loadProfileTier(userId: string): Promise<SubscriptionTier> {
+/** Loads stored tier + is_admin and returns effective tier for quotas (admins → Gold). */
+async function loadEffectiveTierForGating(userId: string): Promise<SubscriptionTier> {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.from("profiles").select("subscription_tier").eq("id", userId).maybeSingle();
-  return normaliseSubscriptionTier((data as { subscription_tier?: string } | null)?.subscription_tier);
+  const { data } = await supabase.from("profiles").select("subscription_tier, is_admin").eq("id", userId).maybeSingle();
+  const row = data as { subscription_tier?: string; is_admin?: boolean } | null;
+  return effectiveSubscriptionTier(normaliseSubscriptionTier(row?.subscription_tier), Boolean(row?.is_admin));
 }
 
 export async function getSubscriptionProfileAction(): Promise<SubscriptionProfile | null> {
@@ -64,7 +67,7 @@ export async function consumeReportGenerationAction(): Promise<QuotaResult> {
   if ("error" in auth) {
     return { ok: false, message: auth.error };
   }
-  const tier = await loadProfileTier(auth.userId);
+  const tier = await loadEffectiveTierForGating(auth.userId);
   if (tier === "none") {
     return { ok: false, message: "Reports require an active membership (Bronze or higher)." };
   }
@@ -123,7 +126,7 @@ export async function consumeAiAnalysisAction(): Promise<QuotaResult> {
   if ("error" in auth) {
     return { ok: false, message: auth.error };
   }
-  const tier = await loadProfileTier(auth.userId);
+  const tier = await loadEffectiveTierForGating(auth.userId);
   if (tier === "gold") {
     return { ok: true, message: "ok" };
   }
@@ -176,6 +179,7 @@ export async function consumeAiAnalysisAction(): Promise<QuotaResult> {
   return { ok: true, message: "ok", remaining: SILVER_MAX_AI_ANALYSES_PER_DAY - current - 1 };
 }
 
+/** Updates `public.profiles.subscription_tier` (canonical column; legacy `plan` is dropped by migration). */
 export async function adminSetUserSubscriptionTierAction(
   targetUserId: string,
   nextTier: SubscriptionTier,

@@ -47,7 +47,7 @@ export function validateBoreholeSampleAdd(
     if (Number.isFinite(maxS) && countSamplesForBoreholeKey(rows, proposedLabel) >= maxS) {
       return {
         ok: false,
-        message: `This borehole already has the maximum of ${maxS} samples for your plan.`,
+        message: `This borehole already has the maximum of ${maxS} samples for your subscription tier.`,
       };
     }
     return { ok: true };
@@ -56,7 +56,7 @@ export function validateBoreholeSampleAdd(
   if (Number.isFinite(maxB) && keys.size >= maxB) {
     return {
       ok: false,
-      message: `Each project can have at most ${maxB} boreholes on your plan. Add samples under an existing borehole ID or upgrade.`,
+      message: `Each project can have at most ${maxB} boreholes on your tier. Add samples under an existing borehole ID or upgrade.`,
     };
   }
   return { ok: true };

@@ -505,8 +505,8 @@ export function AccountProjectsPanel() {
   const analysesSectionRef = useRef<HTMLElement | null>(null);
   const matrixSectionRef = useRef<HTMLElement | null>(null);
 
-  const { tier: subscriptionTier, loading: subscriptionLoading } = useSubscription();
-  const tierLimits = useMemo(() => getTierLimits(subscriptionTier), [subscriptionTier]);
+  const { effectiveTier, loading: subscriptionLoading } = useSubscription();
+  const tierLimits = useMemo(() => getTierLimits(effectiveTier), [effectiveTier]);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
 
@@ -649,7 +649,7 @@ export function AccountProjectsPanel() {
     if (!selectedProject || !supabaseReady) {
       return;
     }
-    if (!tierAllowsReports(subscriptionTier)) {
+    if (!tierAllowsReports(effectiveTier)) {
       setMessage("Integrated reports require Bronze or higher membership.");
       setMessageType("error");
       return;
@@ -1058,7 +1058,7 @@ export function AccountProjectsPanel() {
       return;
     }
 
-    if (subscriptionTier === "none") {
+    if (effectiveTier === "none") {
       setMessage("Creating projects requires Bronze or higher membership.");
       setMessageType("error");
       return;
@@ -1066,7 +1066,7 @@ export function AccountProjectsPanel() {
 
     const maxP = tierLimits.maxProjects;
     if (Number.isFinite(maxP) && projects.length >= maxP) {
-      setMessage(`You can create at most ${maxP} projects on your plan.`);
+      setMessage(`You can create at most ${maxP} projects on your subscription tier.`);
       setMessageType("error");
       return;
     }
@@ -1129,7 +1129,7 @@ export function AccountProjectsPanel() {
       return;
     }
 
-    if (subscriptionTier === "none") {
+    if (effectiveTier === "none") {
       setMessage("Saving borehole samples requires Bronze or higher membership.");
       setMessageType("error");
       return;
@@ -1756,9 +1756,9 @@ export function AccountProjectsPanel() {
                 type="button"
                 className="btn-base btn-md shrink-0"
                 onClick={() => setIsNewProjectOpen((prev) => !prev)}
-                disabled={subscriptionTier === "none" || subscriptionLoading}
+                disabled={effectiveTier === "none" || subscriptionLoading}
                 title={
-                  subscriptionTier === "none"
+                  effectiveTier === "none"
                     ? "Upgrade to Bronze or higher to create cloud projects."
                     : undefined
                 }
@@ -1811,7 +1811,7 @@ export function AccountProjectsPanel() {
                 onChange={(event) => setNewProjectName(event.target.value)}
                 placeholder="Project name"
                 disabled={
-                  subscriptionTier === "none" ||
+                  effectiveTier === "none" ||
                   (Number.isFinite(tierLimits.maxProjects) && projects.length >= tierLimits.maxProjects)
                 }
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
@@ -1827,7 +1827,7 @@ export function AccountProjectsPanel() {
                   className="btn-base btn-md"
                   disabled={
                     isSavingProject ||
-                    subscriptionTier === "none" ||
+                    effectiveTier === "none" ||
                     (Number.isFinite(tierLimits.maxProjects) && projects.length >= tierLimits.maxProjects)
                   }
                 >
@@ -2321,7 +2321,7 @@ export function AccountProjectsPanel() {
                     className="btn-base btn-md"
                     disabled={
                       isSavingBorehole ||
-                      subscriptionTier === "none" ||
+                      effectiveTier === "none" ||
                       subscriptionLoading ||
                       (() => {
                         const proposal = (boreholeEntryMode === "new" ? newBoreholeId : existingBoreholeId).trim();
@@ -2452,11 +2452,11 @@ export function AccountProjectsPanel() {
                       disabled={
                         !reportReady ||
                         isGeneratingReport ||
-                        !tierAllowsReports(subscriptionTier) ||
+                        !tierAllowsReports(effectiveTier) ||
                         subscriptionLoading
                       }
                       title={
-                        !tierAllowsReports(subscriptionTier)
+                        !tierAllowsReports(effectiveTier)
                           ? "Reports require Bronze or higher."
                           : !reportReady
                             ? "Save analyses and build the matrix first."

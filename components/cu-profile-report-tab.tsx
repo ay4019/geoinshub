@@ -228,8 +228,8 @@ export function CuProfileReportTab({
   plotImageDataUrl,
   getFreshPlotImageDataUrl,
 }: CuProfileReportTabProps) {
-  const { tier: subscriptionTier, loading: subscriptionLoading } = useSubscription();
-  const aiTierOk = tierAllowsAiAnalysis(subscriptionTier);
+  const { effectiveTier, loading: subscriptionLoading } = useSubscription();
+  const aiTierOk = tierAllowsAiAnalysis(effectiveTier);
   const [isPending, startTransition] = useTransition();
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [aiText, setAiText] = useState("");

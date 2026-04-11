@@ -5,11 +5,19 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { fetchMySubscriptionProfile } from "@/lib/subscription-profile-client";
-import { type SubscriptionTier } from "@/lib/subscription";
+import {
+  effectiveSubscriptionTier,
+  effectiveTierDisplayLabel,
+  type SubscriptionTier,
+} from "@/lib/subscription";
 
 type SubscriptionContextValue = {
+  /** Stored `subscription_tier` from DB (unchanged for admin). */
   tier: SubscriptionTier;
   isAdmin: boolean;
+  /** Tier after admin override (Gold) for limits, gating, and most UI chrome. */
+  effectiveTier: SubscriptionTier;
+  effectiveTierLabel: string;
   loading: boolean;
   refresh: () => Promise<void>;
 };
@@ -74,14 +82,19 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     };
   }, [refresh]);
 
+  const effectiveTier = useMemo(() => effectiveSubscriptionTier(tier, isAdmin), [tier, isAdmin]);
+  const effectiveTierLabel = useMemo(() => effectiveTierDisplayLabel(tier, isAdmin), [tier, isAdmin]);
+
   const value = useMemo(
     () => ({
       tier,
       isAdmin,
+      effectiveTier,
+      effectiveTierLabel,
       loading,
       refresh,
     }),
-    [tier, isAdmin, loading, refresh],
+    [tier, isAdmin, effectiveTier, effectiveTierLabel, loading, refresh],
   );
 
   return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
@@ -93,6 +106,8 @@ export function useSubscription(): SubscriptionContextValue {
     return {
       tier: "none",
       isAdmin: false,
+      effectiveTier: "none",
+      effectiveTierLabel: effectiveTierDisplayLabel("none", false),
       loading: false,
       refresh: async () => {},
     };

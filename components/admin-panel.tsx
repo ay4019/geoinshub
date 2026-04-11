@@ -111,8 +111,9 @@ export function AdminPanel({ adminEmail }: AdminPanelProps) {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold text-slate-900">Set subscription tier</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Updates <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">public.profiles</code> for the given user
-          ID. Requires server-side service role.
+          Sets <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">public.profiles.subscription_tier</code> for
+          the given user ID (legacy <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">plan</code> column is
+          removed by migration). Requires server-side service role.
         </p>
         <div className="mt-4 space-y-3">
           <label>

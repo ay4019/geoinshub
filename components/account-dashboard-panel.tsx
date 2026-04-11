@@ -58,7 +58,7 @@ function SubscriptionPlanColumn({
         </div>
         {isCurrent ? (
           <span className="shrink-0 rounded-full bg-black/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-900">
-            Your plan
+            Your tier
           </span>
         ) : null}
       </div>
@@ -90,8 +90,8 @@ const personalTabItems: Array<{ id: PersonalTab; label: string }> = [
 
 export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
   const router = useRouter();
-  const { tier, isAdmin, loading: tierLoading } = useSubscription();
-  const tierStyle = tierUi(tier);
+  const { tier, isAdmin, effectiveTier, effectiveTierLabel, loading: tierLoading } = useSubscription();
+  const tierStyle = tierUi(tier, isAdmin);
   const [activeMainTab, setActiveMainTab] = useState<MainAccountTab>("projects");
   const [activePersonalTab, setActivePersonalTab] = useState<PersonalTab>("information");
   const [newPassword, setNewPassword] = useState("");
@@ -221,22 +221,30 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
               ) : (
                 <div className="text-sm text-slate-600">
                   <p>
-                    Your plan:{" "}
+                    Current tier:{" "}
                     <span
                       className={`font-semibold ${
-                        tier === "none" ? "text-slate-700" : tier === "bronze" ? "text-[#5c2e12]" : "text-slate-900"
+                        effectiveTier === "none"
+                          ? "text-slate-700"
+                          : effectiveTier === "bronze"
+                            ? "text-[#5c2e12]"
+                            : effectiveTier === "silver"
+                              ? "text-slate-900"
+                              : "text-amber-900"
                       }`}
                     >
-                      {tier === "none" ? "No membership" : tier === "bronze" ? "Bronze" : tierStyle.label}
+                      {effectiveTierLabel}
                     </span>
-                    {tier === "silver" || tier === "gold" ? (
+                    {isAdmin ? (
+                      <span className="text-slate-500"> — all premium features unlocked for administrators.</span>
+                    ) : effectiveTier === "silver" || effectiveTier === "gold" ? (
                       <span className="text-slate-500"> — includes everything in Bronze, plus more.</span>
                     ) : null}
-                    {tier === "none" ? (
+                    {!isAdmin && effectiveTier === "none" ? (
                       <span className="text-slate-500"> — sign up or upgrade to start with Bronze.</span>
                     ) : null}
                   </p>
-                  {tier === "bronze" ? (
+                  {!isAdmin && tier === "bronze" ? (
                     <p className="mt-1 text-xs text-slate-500">
                       Members join on <span className="font-medium text-[#5c2e12]">Bronze</span> — the default paid tier
                       with cloud projects and reports.
@@ -247,13 +255,13 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
             </div>
 
             {tierLoading ? (
-              <p className="text-sm text-slate-600">Loading plan details…</p>
+              <p className="text-sm text-slate-600">Loading subscription details…</p>
             ) : (
               <>
                 <div className="grid gap-4 md:grid-cols-3">
                   <SubscriptionPlanColumn
                     tierId="bronze"
-                    currentTier={tier}
+                    currentTier={effectiveTier}
                     title="Bronze"
                     subtitle="Default membership — copper tier"
                     className="border-[#6B4423] bg-gradient-to-b from-[#f6ece3] via-[#e9d4c0] to-[#d4b896] text-[#2a1810] ring-[#8B5A2B]/35"
@@ -269,7 +277,7 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
                   />
                   <SubscriptionPlanColumn
                     tierId="silver"
-                    currentTier={tier}
+                    currentTier={effectiveTier}
                     title="Silver"
                     subtitle="Full analysis capacity"
                     className="border-slate-400/70 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200/70 text-slate-900 ring-slate-500/30"
@@ -283,7 +291,7 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
                   />
                   <SubscriptionPlanColumn
                     tierId="gold"
-                    currentTier={tier}
+                    currentTier={effectiveTier}
                     title="Gold"
                     subtitle="No limits"
                     className="border-amber-400/80 bg-gradient-to-b from-amber-50 via-yellow-50 to-amber-100/80 text-amber-950 ring-amber-500/35"

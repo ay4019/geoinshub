@@ -87,7 +87,7 @@ export function Header() {
     const activeCls =
       active
         ? item.href === "/account"
-          ? `nav-link-active ${tierUi(tier).tabActiveClass} hover:font-bold`
+          ? `nav-link-active ${tierUi(tier, isSubscriptionAdmin).tabActiveClass} hover:font-bold`
           : "nav-link-active bg-slate-800 text-white hover:font-bold"
         : "text-slate-800 hover:font-bold hover:text-slate-950";
     return (

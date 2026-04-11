@@ -8,7 +8,7 @@ export type MyProfileRow = {
 };
 
 /**
- * Loads the current user's row from `public.profiles` using RPC when available
+ * Loads the current user's row from `public.profiles` (`subscription_tier`, `is_admin`) via RPC when available
  * (bypasses RLS quirks), otherwise falls back to a direct select.
  */
 export async function fetchMySubscriptionProfile(
