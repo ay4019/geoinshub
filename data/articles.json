@@ -1,6 +1,7 @@
 [
   {
     "slug": "route-planning-in-railway-projects",
+    "status": "archived",
     "title": "Route Planning in Railway Projects",
     "excerpt": "How corridor selection, geometry, expropriation, and institutional coordination shape railway projects long before construction begins.",
     "date": "2026-03-28",
@@ -87,6 +88,7 @@
   },
   {
     "slug": "track-system-in-railway-engineering",
+    "status": "archived",
     "title": "Track System in Railway Engineering",
     "excerpt": "A practical introduction to rails, sleepers, fastening systems, ballast layers, and why each component matters for track performance.",
     "date": "2026-03-29",
@@ -208,6 +210,7 @@
   },
   {
     "slug": "consolidation-settlement-in-geotechnical-engineering",
+    "status": "archived",
     "title": "Consolidation Settlement in Geotechnical Engineering",
     "excerpt": "A practical overview of consolidation settlement, key parameters, stress increase, and how engineers estimate both magnitude and time.",
     "date": "2026-03-29",
@@ -423,6 +426,7 @@
   },
   {
     "slug": "bearing-capacity-in-layered-soils",
+    "status": "archived",
     "title": "Bearing Capacity in Layered Soils",
     "excerpt": "An accessible review of rigid-base effects, layered bearing capacity equations, and how foundation response changes across stratified ground.",
     "date": "2026-03-28",
@@ -775,6 +779,7 @@
   },
   {
     "slug": "deep-soil-mixing-for-railway-embankment-settlement-control",
+    "status": "archived",
     "title": "Deep Soil Mixing for Settlement Control under Railway Embankments",
     "excerpt": "A detailed engineering workflow for using deep soil mixing to control settlement beneath railway embankments, with practical screening equations, staged checks, and design caveats.",
     "date": "2026-04-05",
@@ -952,6 +957,69 @@
           "[5] Han, J. (2015). Principles and Practice of Ground Improvement. Wiley.",
           "[6] Navin, M.P. (2005). Stability of Embankments Founded on Soft Soil Improved with Deep-Mixing-Method Columns. Doctoral Dissertation, Virginia Tech."
         ]
+      }
+    ]
+  },
+  {
+    "slug": "hardening-soil-model-stiffness-calibration",
+    "title": "The Hardening Soil Model: Stiffness, Stress Dependency, and Calibration",
+    "excerpt": "Why HS uses separate stiffness branches (E50, Eoed, Eur), how stress-level scaling and reference pressure work, and why calibration matters in settlement-dominated problems.",
+    "date": "2026-04-10",
+    "tags": ["Hardening Soil", "PLAXIS", "Stiffness", "Numerical modelling"],
+    "thumbnail": "/images/blog-consolidation-cover.png",
+    "featured": true,
+    "readTimeMinutes": 10,
+    "content": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "The Hardening Soil model is widely used in modern geotechnical analyses, particularly within PLAXIS, due to its ability to produce more realistic results compared to classical soil models. The key reason lies in how stiffness is represented: instead of assuming a constant stiffness, the model accounts for stiffness variation as a function of stress level. In reality, soils do not behave as linear elastic materials; stiffness changes with increasing load, unloading follows a different path, and deformations are not fully recoverable. The Hardening Soil model is specifically formulated to capture this behaviour."
+      },
+      {
+        "type": "paragraph",
+        "text": "A fundamental aspect of the model is that stiffness is not defined by a single parameter but by three distinct components representing different loading conditions: E50, which governs stiffness under triaxial loading; Eoed, which represents compressibility under oedometer conditions; and Eur, which defines unloading–reloading stiffness. This distinction is particularly critical in settlement analyses, as soil exhibits different stiffness characteristics under shear and volumetric compression."
+      },
+      {
+        "type": "paragraph",
+        "text": "A common misconception is that these stiffness values directly represent in-situ soil stiffness. In reality, they are defined at a reference stress level, typically taken as 100 kPa. The actual stiffness in the ground is then obtained by scaling these reference values according to the current effective stress state. This scaling is controlled by the exponent m, one of the most influential parameters in the model."
+      },
+      {
+        "type": "paragraph",
+        "text": "The parameter m governs the stress dependency of stiffness. For granular soils such as sands, it is typically around 0.5, whereas for cohesive soils such as clays, it generally ranges between 0.8 and 1.0. Physically, a higher m value indicates a stronger increase in stiffness with depth (i.e. with increasing effective stress). Consequently, an incorrect selection of m can lead to significant errors, particularly in deep foundation or embankment analyses."
+      },
+      {
+        "type": "paragraph",
+        "text": "The parameter Eoed is commonly derived from oedometer tests. In these tests, the constrained modulus is obtained from the compressibility coefficient mv using the relationship Eoed = 1/mv. However, it is not appropriate to directly input this value into the model without adjustment. The stiffness derived from oedometer tests corresponds to a specific stress range, whereas the Hardening Soil model requires normalization to the reference stress level. In practice, this involves evaluating stiffness values across relevant stress intervals and selecting a representative reference value."
+      },
+      {
+        "type": "paragraph",
+        "text": "One of the most frequent mistakes in practice is the direct use of a stiffness value obtained from a single test. A more rigorous approach requires selecting stiffness parameters that are representative of the relevant stress range and ensuring proper model calibration. This is particularly important for railway infrastructure, where repeated loading conditions can amplify errors in settlement predictions if the model is not properly calibrated."
+      },
+      {
+        "type": "paragraph",
+        "text": "Several key conceptual questions arise in this context, and a correct application of the model depends on addressing them properly. What do E50, Eoed, and Eur physically represent? Why is a single Young's modulus insufficient? How should the parameter m be selected? How does the overconsolidation ratio (OCR) influence these parameters? The answers lie in the fact that soils exhibit different mechanical responses under different loading paths. For example, as OCR increases, the soil becomes stiffer, and the ratio Eur/E50 increases, indicating a more elastic response during unloading and reloading. Similarly, the inadequacy of a single Young's modulus stems from the inherently nonlinear and path-dependent nature of soil behaviour. The stiffness obtained from triaxial tests differs from that obtained from oedometer tests because the former reflects deviatoric loading, while the latter represents volumetric compression. By incorporating these distinctions explicitly, the Hardening Soil model provides a significantly more realistic representation compared to simpler models such as Mohr–Coulomb."
+      },
+      {
+        "type": "paragraph",
+        "text": "In conclusion, the Hardening Soil model is a powerful tool, but its effectiveness is entirely dependent on proper calibration. Parameters must be selected in a manner consistent with laboratory and field data, the relevant stress levels must be correctly represented, and the physical meaning of each parameter must be clearly understood. Otherwise, instead of improving accuracy, the model may lead to misleading results."
+      },
+      {
+        "type": "paragraph",
+        "text": "Selected further questions from the extended note are discussed in detail in the window below so the main article stays readable."
+      },
+      {
+        "type": "further_reading_dialog",
+        "triggerLabel": "Further questions — open detailed discussion",
+        "dialogTitle": "Further questions",
+        "preset": "hardening-soil-further-questions"
+      },
+      {
+        "type": "author",
+        "text": "Arifcan Yilmaz, MSc"
+      },
+      {
+        "type": "author",
+        "text": "Geotechnical Engineer"
       }
     ]
   }

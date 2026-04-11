@@ -1,17 +1,38 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import {
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  cnProfileTableInput,
+  profileTableClass,
+  profileTableFooterButtonClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import {
+  matchImportSummaryForProfileRow,
+  profileRowSoilRestricted,
+  soilRestrictionUserHint,
+} from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface EprimeFromSptCohesionlessProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  soilPolicyToolSlug?: string;
+  projectParameters?: Array<{
+    boreholeLabel: string;
+    sampleDepth: number | null;
+    parameterCode: string;
+    value: number;
+  }>;
 }
 
 interface ProfileRow {
@@ -19,6 +40,7 @@ interface ProfileRow {
   boreholeId: string;
   sampleDepth: string;
   nValue: string;
+  nSource?: "manual" | "auto-spt-corrections";
 }
 
 interface PlotPoint {
@@ -52,8 +74,8 @@ const correlationOptions: CorrelationOption[] = [
 ];
 
 const initialRows: ProfileRow[] = [
-  { id: 1, boreholeId: "", sampleDepth: "1.5", nValue: "12" },
-  { id: 2, boreholeId: "", sampleDepth: "3.0", nValue: "18" },
+  { id: 1, boreholeId: "", sampleDepth: "1.5", nValue: "12", nSource: "manual" },
+  { id: 2, boreholeId: "", sampleDepth: "3.0", nValue: "18", nSource: "manual" },
 ];
 
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
@@ -61,6 +83,18 @@ const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309",
 function parse(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sanitiseBoreholeLabel(value: string | null | undefined): string {
+  return (value ?? "").replace(/[▼▾▿▲△]/g, "").replace(/\s+/g, " ").trim() || "BH not set";
+}
+
+function normaliseBoreholeLabelKey(value: string | null | undefined): string {
+  return sanitiseBoreholeLabel(value).toLowerCase();
+}
+
+function depthKey(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(4) : "na";
 }
 
 function estimateEprimeFromCohesionlessSpt(correlation: string, n: number): number {
@@ -119,21 +153,104 @@ function getNiceTickStep(rawStep: number): number {
   return 10 * magnitude;
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
+function CorrelationPicker({
+  value,
+  onChange,
+  options,
+  nType,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  options: CorrelationOption[];
+  nType: CorrelationOption["nType"];
+}) {
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const selected = options.find((option) => option.value === value) ?? options[0];
+
   return (
-    <span className="inline-flex items-baseline gap-1 whitespace-nowrap leading-tight">
-      <span>{title}</span>
-      {unit ? <span className="text-slate-500">({unit})</span> : null}
-    </span>
+    <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+      <div className="min-w-0">
+        <span className="mb-1 block text-sm font-medium text-slate-700">Correlation option</span>
+        <details ref={detailsRef} className="group">
+          <summary
+            className="list-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 shadow-sm outline-none transition-colors duration-200 hover:bg-slate-50 focus-visible:border-slate-500 focus-visible:ring-2 focus-visible:ring-slate-200"
+            onClick={(event) => {
+              event.preventDefault();
+              if (!detailsRef.current) {
+                return;
+              }
+              detailsRef.current.open = !detailsRef.current.open;
+            }}
+          >
+            <span className="flex w-full items-center justify-between gap-3 text-left">
+              <span className="min-w-0">
+                <span className="block truncate">{selected.label}</span>
+              </span>
+              <span className="shrink-0 text-slate-400 transition-transform group-open:rotate-180">▾</span>
+            </span>
+          </summary>
+          <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <table className="w-full border-collapse text-xs">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold">
+                  <th>Correlation</th>
+                  <th className="w-[96px]">N type</th>
+                  <th className="w-[92px]">Select</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white text-slate-800">
+                {options.map((option) => {
+                  const active = option.value === value;
+                  return (
+                    <tr
+                      key={option.value}
+                      className={`border-t border-slate-200 ${
+                        active ? "bg-emerald-50/60" : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <td className="px-3 py-2 align-top">
+                        <span className="block text-[13px] font-semibold">{option.label}</span>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                          {option.nType}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChange(option.value);
+                            if (detailsRef.current) {
+                              detailsRef.current.open = false;
+                            }
+                          }}
+                          className={`inline-flex w-full items-center justify-center rounded-md border px-1.5 py-0.5 text-[11px] font-semibold leading-4 transition-colors ${
+                            active
+                              ? "border-emerald-200 bg-emerald-600 text-white hover:bg-emerald-700"
+                              : "border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
+                          }`}
+                        >
+                          {active ? "Selected" : "Use"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+      <div className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+        N type for this option: {nType}
+      </div>
+    </div>
   );
 }
 
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function renderScatterChart({
@@ -253,6 +370,8 @@ function renderScatterChart({
 export function EprimeFromSptCohesionlessProfileTab({
   unitSystem,
   importRows,
+  soilPolicyToolSlug,
+  projectParameters,
 }: EprimeFromSptCohesionlessProfileTabProps) {
   const [rows, setRows] = useState<ProfileRow[]>(initialRows);
   const [correlation, setCorrelation] = useState<string>("km-clean-1000n60");
@@ -260,6 +379,18 @@ export function EprimeFromSptCohesionlessProfileTab({
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
   const selectedOption = correlationOptions.find((option) => option.value === correlation) ?? correlationOptions[0];
+
+  const n60BySampleKey = useMemo(() => {
+    const map = new Map<string, number>();
+    (projectParameters ?? []).forEach((row) => {
+      if (row.parameterCode !== "n60") {
+        return;
+      }
+      const key = `${normaliseBoreholeLabelKey(row.boreholeLabel)}|${depthKey(row.sampleDepth)}`;
+      map.set(key, row.value);
+    });
+    return map;
+  }, [projectParameters]);
 
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
@@ -290,9 +421,23 @@ export function EprimeFromSptCohesionlessProfileTab({
           item.sampleTopDepth === null
             ? template.sampleDepth
             : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+        nValue: (() => {
+          const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleTopDepth)}`;
+          const n60 = n60BySampleKey.get(key);
+          const fallback = item.nValue ?? null;
+          const picked =
+            selectedOption.nType === "N60"
+              ? n60 ?? fallback
+              : fallback;
+          return picked === null || picked === undefined ? template.nValue : String(picked);
+        })(),
+        nSource: (() => {
+          const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleTopDepth)}`;
+          return selectedOption.nType === "N60" && n60BySampleKey.has(key) ? "auto-spt-corrections" : "manual";
+        })(),
       }));
     });
-  }, [importRows, unitSystem]);
+  }, [importRows, unitSystem, n60BySampleKey, selectedOption.nType]);
 
   const updateRow = (id: number, patch: Partial<ProfileRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -310,24 +455,31 @@ export function EprimeFromSptCohesionlessProfileTab({
     setRows((current) => (current.length > 1 ? current.filter((row) => row.id !== id) : current));
   };
 
-  const plotPoints: PlotPoint[] = rows
-    .map((row) => {
-      const depthDisplay = parse(row.sampleDepth);
-      const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
-      const nValue = parse(row.nValue);
-      if (!Number.isFinite(depthMetric) || depthMetric < 0 || !Number.isFinite(nValue) || nValue <= 0) {
-        return null;
-      }
-      if ((correlation === "bw-nc-15000-ln-n55" || correlation === "bw-nc-22000-ln-n55") && nValue <= 1) {
-        return null;
-      }
+  const plotPoints: PlotPoint[] = useMemo(
+    () =>
+      rows
+        .map((row) => {
+          if (profileRowSoilRestricted(soilPolicyToolSlug, importRows, row.boreholeId, row.sampleDepth, unitSystem, parse)) {
+            return null;
+          }
+          const depthDisplay = parse(row.sampleDepth);
+          const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
+          const nValue = parse(row.nValue);
+          if (!Number.isFinite(depthMetric) || depthMetric < 0 || !Number.isFinite(nValue) || nValue <= 0) {
+            return null;
+          }
+          if ((correlation === "bw-nc-15000-ln-n55" || correlation === "bw-nc-22000-ln-n55") && nValue <= 1) {
+            return null;
+          }
 
-      const ePrimeMetric = estimateEprimeFromCohesionlessSpt(correlation, nValue);
-      const ePrimeDisplay = Number(convertInputValueBetweenSystems(String(ePrimeMetric), "kPa", "metric", unitSystem));
+          const ePrimeMetric = estimateEprimeFromCohesionlessSpt(correlation, nValue);
+          const ePrimeDisplay = Number(convertInputValueBetweenSystems(String(ePrimeMetric), "kPa", "metric", unitSystem));
 
-      return { boreholeId: row.boreholeId?.trim() || "BH not set", depth: depthDisplay, ePrime: ePrimeDisplay };
-    })
-    .filter((point): point is PlotPoint => point !== null);
+          return { boreholeId: row.boreholeId?.trim() || "BH not set", depth: depthDisplay, ePrime: ePrimeDisplay };
+        })
+        .filter((point): point is PlotPoint => point !== null),
+    [rows, soilPolicyToolSlug, importRows, unitSystem, correlation],
+  );
 
   return (
     <section className="space-y-5">
@@ -338,28 +490,8 @@ export function EprimeFromSptCohesionlessProfileTab({
           with the selected equation and plotted against depth.
         </p>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Correlation option</label>
-            <select
-              value={correlation}
-              onChange={(event) => setCorrelation(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-            >
-              {correlationOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-            N type for this option: {selectedOption.nType}
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll>
+          <table className={profileTableClass("c5")}>
             <colgroup>
               <col className="w-[24%]" />
               <col className="w-[20%]" />
@@ -369,23 +501,51 @@ export function EprimeFromSptCohesionlessProfileTab({
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th colSpan={5} className={profileTableThClass}>
+                  <CorrelationPicker
+                    value={correlation}
+                    onChange={setCorrelation}
+                    options={correlationOptions}
+                    nType={selectedOption.nType}
+                  />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Sample Depth" unit={depthUnit} />
+              </tr>
+              <tr>
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={selectedOption.nType} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="E'" unit={stressUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={selectedOption.nType} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">Action</th>
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="E'" unit={stressUnit} />
+                </th>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
+                const soilRestricted = profileRowSoilRestricted(
+                  soilPolicyToolSlug,
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const matchedSoil = matchImportSummaryForProfileRow(
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const restrictionHint = soilRestrictionUserHint(soilPolicyToolSlug, matchedSoil?.soilBehavior ?? null);
                 const nValue = parse(row.nValue);
                 const validLogInput =
                   correlation !== "bw-nc-15000-ln-n55" && correlation !== "bw-nc-22000-ln-n55" ? true : nValue > 1;
@@ -393,9 +553,14 @@ export function EprimeFromSptCohesionlessProfileTab({
                 const ePrimeDisplay = Number(convertInputValueBetweenSystems(String(ePrimeMetric), "kPa", "metric", unitSystem));
 
                 return (
-                  <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                  <tr
+                    key={row.id}
+                    className={`border-t border-slate-200 align-top ${soilRestricted ? "bg-slate-50/90 opacity-[0.85]" : "bg-white"}`}
+                    title={soilRestricted ? "Soil type is not used with this tool (set under Projects)." : undefined}
+                  >
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -408,21 +573,42 @@ export function EprimeFromSptCohesionlessProfileTab({
                         min="0"
                         value={row.sampleDepth}
                         onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={soilRestricted}
+                        className={cnProfileTableInput(soilRestricted)}
                       />
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        value={row.nValue}
-                        onChange={(event) => updateRow(row.id, { nValue: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
+                      {soilRestricted ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
+                          {restrictionHint ?? "Not used with this tool (soil type in Projects)."}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0.1"
+                            value={row.nValue}
+                            onChange={(event) =>
+                              updateRow(row.id, {
+                                nValue: event.target.value,
+                                nSource: "manual",
+                              })
+                            }
+                            className={cnProfileTableInput(false)}
+                          />
+                          {selectedOption.nType === "N60" && row.nSource === "auto-spt-corrections" ? (
+                            <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              Auto-filled from SPT Corrections
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-3">
-                      {validLogInput ? (
+                      {soilRestricted ? (
+                        <OutputCell value="—" />
+                      ) : validLogInput ? (
                         <OutputCell value={ePrimeDisplay.toFixed(2)} />
                       ) : (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[12px] font-semibold text-amber-800">
@@ -433,7 +619,7 @@ export function EprimeFromSptCohesionlessProfileTab({
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-1.5 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -447,7 +633,7 @@ export function EprimeFromSptCohesionlessProfileTab({
             <tfoot className="border-t border-slate-200 bg-white">
               <tr>
                 <td className="px-2 py-3 text-left align-top">
-                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={addRow}>
+                  <button type="button" className={profileTableFooterButtonClass} onClick={addRow}>
                     Add Layer
                   </button>
                 </td>
@@ -455,7 +641,7 @@ export function EprimeFromSptCohesionlessProfileTab({
                 <td className="px-2 py-3 text-right align-top">
                   <button
                     type="button"
-                    className="btn-base px-3 py-1.5 text-sm"
+                    className={profileTableFooterButtonClass}
                     onClick={(event) => {
                       void exportProfileExcelFromSection(event.currentTarget);
                     }}
@@ -466,7 +652,7 @@ export function EprimeFromSptCohesionlessProfileTab({
               </tr>
             </tfoot>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         {plotPoints.length ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-2">

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function BlogLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 sm:py-12">
+    <div className="mx-auto w-full max-w-[1600px] px-3 py-6 sm:px-6 sm:py-12">
       {children}
     </div>
   );

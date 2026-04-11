@@ -1,17 +1,35 @@
 ﻿"use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import {
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  cnProfileTableInput,
+  profileTableClass,
+  profileTableFooterButtonClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { matchImportSummaryForProfileRow } from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface EarthPressureProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  soilPolicyToolSlug?: string;
+  projectParameters?: Array<{
+    boreholeLabel: string;
+    sampleDepth: number | null;
+    parameterCode: string;
+    value: number;
+    sourceToolSlug: string | null;
+  }>;
 }
 
 interface EarthPressureProfileRow {
@@ -21,6 +39,9 @@ interface EarthPressureProfileRow {
   frictionAngle: string;
   ocr: string;
   verticalStress: string;
+  frictionAngleSource?: "manual" | "auto-project";
+  ocrSource?: "manual" | "auto-project";
+  verticalStressSource?: "manual" | "auto-project";
 }
 
 interface EarthPressurePlotPoint {
@@ -56,6 +77,18 @@ function parse(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function sanitiseBoreholeLabel(value: string | null | undefined): string {
+  return (value ?? "").replace(/[▼▾▿▲△]/g, "").replace(/\s+/g, " ").trim() || "BH not set";
+}
+
+function normaliseBoreholeLabelKey(value: string | null | undefined): string {
+  return sanitiseBoreholeLabel(value).toLowerCase();
+}
+
+function depthKey(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(4) : "na";
+}
+
 function degToRad(value: number): number {
   return (value * Math.PI) / 180;
 }
@@ -79,21 +112,8 @@ function computeEarthPressureValues(phiDeg: number, ocr: number, sigmaV: number)
   };
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="block leading-tight">
-      <span className="block">{title}</span>
-      {unit ? <span className="mt-0.5 block text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function getNiceTickStep(rawStep: number): number {
@@ -235,12 +255,34 @@ function renderScatterChart({
   );
 }
 
-export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressureProfileTabProps) {
+export function EarthPressureProfileTab({
+  unitSystem,
+  importRows,
+  projectParameters,
+}: EarthPressureProfileTabProps) {
   const [rows, setRows] = useState<EarthPressureProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
+  const parameterByKey = useMemo(() => {
+    const phi = new Map<string, { value: number; source: string | null }>();
+    const ocr = new Map<string, { value: number; source: string | null }>();
+    const sigmaV0 = new Map<string, { value: number; source: string | null }>();
+    (projectParameters ?? []).forEach((row) => {
+      const key = `${normaliseBoreholeLabelKey(row.boreholeLabel)}|${depthKey(row.sampleDepth)}`;
+      if (row.parameterCode === "phi_prime") {
+        phi.set(key, { value: row.value, source: row.sourceToolSlug });
+      }
+      if (row.parameterCode === "ocr") {
+        ocr.set(key, { value: row.value, source: row.sourceToolSlug });
+      }
+      if (row.parameterCode === "sigma_v0_eff") {
+        sigmaV0.set(key, { value: row.value, source: row.sourceToolSlug });
+      }
+    });
+    return { phi, ocr, sigmaV0 };
+  }, [projectParameters]);
 
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
@@ -272,9 +314,40 @@ export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressur
           item.sampleTopDepth === null
             ? template.sampleDepth
             : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+        frictionAngle: (() => {
+          const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleTopDepth)}`;
+          const found = parameterByKey.phi.get(key);
+          return found ? String(found.value) : template.frictionAngle;
+        })(),
+        frictionAngleSource: (() => {
+          const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleTopDepth)}`;
+          return parameterByKey.phi.has(key) ? "auto-project" : "manual";
+        })(),
+        ocr: (() => {
+          const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleTopDepth)}`;
+          const found = parameterByKey.ocr.get(key);
+          return found ? String(found.value) : template.ocr;
+        })(),
+        ocrSource: (() => {
+          const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleTopDepth)}`;
+          return parameterByKey.ocr.has(key) ? "auto-project" : "manual";
+        })(),
+        verticalStress: (() => {
+          const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleTopDepth)}`;
+          const found = parameterByKey.sigmaV0.get(key);
+          if (!found) {
+            return template.verticalStress;
+          }
+          const display = Number(convertInputValueBetweenSystems(String(found.value), "kPa", "metric", unitSystem));
+          return String(display);
+        })(),
+        verticalStressSource: (() => {
+          const key = `${normaliseBoreholeLabelKey(item.boreholeLabel)}|${depthKey(item.sampleTopDepth)}`;
+          return parameterByKey.sigmaV0.has(key) ? "auto-project" : "manual";
+        })(),
       }));
     });
-  }, [importRows, unitSystem]);
+  }, [importRows, unitSystem, parameterByKey]);
 
   const updateRow = (id: number, patch: Partial<EarthPressureProfileRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -332,8 +405,8 @@ export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressur
           K<sub>0,OC</sub>, K<sub>a</sub>, K<sub>p</sub>, and the corresponding lateral effective stress profile.
         </p>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll>
+          <table className={profileTableClass("c11")}>
             <colgroup>
               <col className="w-[14%]" />
               <col className="w-[12%]" />
@@ -349,49 +422,58 @@ export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressur
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Sample Depth" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>&phi;&prime;</span>} unit="deg" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>&phi;&prime;</span>} unit="deg" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="OCR" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="OCR" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>&sigma;&prime;<sub>v</sub></span>} unit={stressUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>&sigma;&prime;<sub>v</sub></span>} unit={stressUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>K<sub>0,NC</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>K<sub>0,NC</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>K<sub>0,OC</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>K<sub>0,OC</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>K<sub>a</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>K<sub>a</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>K<sub>p</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>K<sub>p</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>&sigma;&prime;<sub>h,0</sub></span>} unit={stressUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>&sigma;&prime;<sub>h,0</sub></span>} unit={stressUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <span className="block leading-tight">Action</span>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
                 const values = computeEarthPressureValues(parse(row.frictionAngle), parse(row.ocr), parse(row.verticalStress));
+                const matchedImport = matchImportSummaryForProfileRow(
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const isGranular = matchedImport?.soilBehavior === "granular";
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -404,39 +486,79 @@ export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressur
                         min="0"
                         value={row.sampleDepth}
                         onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        className={cnProfileTableInput(false)}
                       />
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="50"
-                        value={row.frictionAngle}
-                        onChange={(event) => updateRow(row.id, { frictionAngle: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
+                      <div className="space-y-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="50"
+                          value={row.frictionAngle}
+                          onChange={(event) =>
+                            updateRow(row.id, {
+                              frictionAngle: event.target.value,
+                              frictionAngleSource: "manual",
+                            })
+                          }
+                          className={cnProfileTableInput(false)}
+                        />
+                        {row.frictionAngleSource === "auto-project" ? (
+                          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            Auto-filled from friction angle tool
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="1"
-                        value={row.ocr}
-                        onChange={(event) => updateRow(row.id, { ocr: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
+                      <div className="space-y-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="1"
+                          value={row.ocr}
+                          onChange={(event) =>
+                            updateRow(row.id, {
+                              ocr: event.target.value,
+                              ocrSource: "manual",
+                            })
+                          }
+                          className={cnProfileTableInput(false)}
+                        />
+                        {row.ocrSource === "auto-project" ? (
+                          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            Auto-filled from OCR tool
+                          </span>
+                        ) : isGranular ? (
+                          <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                            Cohesionless sample — OCR not computed in OCR tool
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={row.verticalStress}
-                        onChange={(event) => updateRow(row.id, { verticalStress: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
+                      <div className="space-y-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={row.verticalStress}
+                          onChange={(event) =>
+                            updateRow(row.id, {
+                              verticalStress: event.target.value,
+                              verticalStressSource: "manual",
+                            })
+                          }
+                          className={cnProfileTableInput(false)}
+                        />
+                        {row.verticalStressSource === "auto-project" ? (
+                          <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            Auto-filled from project σ′v0
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-2 py-3">
                       <OutputCell value={values.k0nc.toFixed(3)} />
@@ -456,7 +578,7 @@ export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressur
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-1.5 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -470,7 +592,7 @@ export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressur
             <tfoot className="border-t border-slate-200 bg-white">
               <tr>
                 <td className="px-2 py-3 text-left align-top">
-                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={addRow}>
+                  <button type="button" className={profileTableFooterButtonClass} onClick={addRow}>
                     Add Layer
                   </button>
                 </td>
@@ -478,7 +600,7 @@ export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressur
                 <td className="px-2 py-3 text-right align-top">
                   <button
                     type="button"
-                    className="btn-base px-3 py-1.5 text-sm"
+                    className={profileTableFooterButtonClass}
                     onClick={(event) => {
                       void exportProfileExcelFromSection(event.currentTarget);
                     }}
@@ -489,7 +611,7 @@ export function EarthPressureProfileTab({ unitSystem, importRows }: EarthPressur
               </tr>
             </tfoot>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         {plotPoints.length ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-2">

@@ -1,6 +1,56 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
+
+/** React text nodes do not decode HTML entities; decode common math/science entities before rendering. */
+function decodeHtmlEntities(input: string): string {
+  const named: Array<[string, string]> = [
+    ["&nbsp;", "\u00A0"],
+    ["&middot;", "\u00B7"],
+    ["&ndash;", "\u2013"],
+    ["&mdash;", "\u2014"],
+    ["&sigma;", "\u03C3"],
+    ["&Sigma;", "\u03A3"],
+    ["&gamma;", "\u03B3"],
+    ["&Gamma;", "\u0393"],
+    ["&delta;", "\u03B4"],
+    ["&Delta;", "\u0394"],
+    ["&epsilon;", "\u03B5"],
+    ["&pi;", "\u03C0"],
+    ["&phi;", "\u03C6"],
+    ["&Phi;", "\u03A6"],
+    ["&alpha;", "\u03B1"],
+    ["&beta;", "\u03B2"],
+    ["&rho;", "\u03C1"],
+    ["&tau;", "\u03C4"],
+    ["&lambda;", "\u03BB"],
+    ["&mu;", "\u03BC"],
+    ["&omega;", "\u03C9"],
+    ["&Omega;", "\u03A9"],
+    ["&le;", "\u2264"],
+    ["&ge;", "\u2265"],
+    ["&lt;", "<"],
+    ["&gt;", ">"],
+    ["&times;", "\u00D7"],
+    ["&deg;", "\u00B0"],
+    ["&infin;", "\u221E"],
+    ["&asymp;", "\u2248"],
+    ["&ne;", "\u2260"],
+    ["&plusmn;", "\u00B1"],
+  ];
+  let s = input;
+  for (let pass = 0; pass < 8; pass++) {
+    const before = s;
+    for (const [entity, ch] of named) {
+      s = s.split(entity).join(ch);
+    }
+    s = s.split("&amp;").join("&");
+    if (s === before) {
+      break;
+    }
+  }
+  return s;
+}
 
 const greekMap: Record<string, string> = {
   alpha: "\u03B1",
@@ -124,7 +174,8 @@ function renderSegment(segment: string, keyBase: string): ReactNode[] {
 }
 
 export function EngineeringText({ text }: { text: string }) {
-  const segments = text.split(/(<sub>.*?<\/sub>|<sup>.*?<\/sup>)/g);
+  const decoded = decodeHtmlEntities(text);
+  const segments = decoded.split(/(<sub>.*?<\/sub>|<sup>.*?<\/sup>)/g);
   const output: ReactNode[] = [];
 
   segments.forEach((segment, index) => {
@@ -155,5 +206,5 @@ export function EngineeringText({ text }: { text: string }) {
     output.push(...renderSegment(segment, `seg-${index}`));
   });
 
-  return <>{output.length ? output : replaceGreekWords(text)}</>;
+  return <>{output.length ? output : replaceGreekWords(decoded)}</>;
 }

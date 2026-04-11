@@ -11,12 +11,12 @@ export const metadata: Metadata = {
 export default function ToolsLayout({ children }: { children: React.ReactNode }) {
   return (
     <ToolUnitProvider>
-      <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 sm:py-12">
-        <header className="relative z-[9999] mb-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="mx-auto w-full max-w-[1600px] px-3 py-6 sm:px-6 sm:py-12">
+        <header className="mb-5 sm:mb-8">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Geotechnical Tools</h1>
-              <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Geotechnical Tools</h1>
+              <p className="mt-2 text-xs leading-5 text-slate-600 sm:mt-3 sm:text-base sm:leading-6">
                 A structured collection of calculation tools covering key areas of geotechnical engineering, from site
                 characterization to analytical methods.
               </p>

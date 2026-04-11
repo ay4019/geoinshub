@@ -30,8 +30,8 @@ export function LiquefactionScreeningVisual({
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const sampleDepth = Number(values.sampleDepth ?? 0);
   const groundwaterDepth = Number(values.groundwaterDepth ?? 0);
-  const tauResistance = getNumericResult(result, "?_R");
-  const tauEarthquake = getNumericResult(result, "?_eq");
+  const tauResistance = getNumericResult(result, "τ_R");
+  const tauEarthquake = getNumericResult(result, "τ_eq");
   const fos = getNumericResult(result, "Factor of safety");
   const minimumFos = getNumericResult(result, "Minimum required FS") ?? (tauResistance !== null || tauEarthquake !== null ? 1.1 : 1);
 

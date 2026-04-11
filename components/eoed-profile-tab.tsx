@@ -4,27 +4,42 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import {
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  cnProfileTableInput,
+  profileTableClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
+import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
+import {
+  matchImportSummaryForProfileRow,
+  profileRowSoilRestricted,
+  soilRestrictionUserHint,
+} from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface EoedProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  soilPolicyToolSlug?: string;
 }
 
 interface EoedProfileRow {
   id: number;
-  topDepth: string;
   boreholeId: string;
-  bottomDepth: string;
+  sampleDepth: string;
   mv: string;
 }
 
 interface ProfilePoint {
   boreholeId: string;
-  topDepth: number;
-  bottomDepth: number;
+  sampleDepth: number;
   mv: number;
   eoed: number;
 }
@@ -34,8 +49,8 @@ const MV_SYMBOL = "m_v";
 const EOED_SYMBOL = "E_oed";
 
 const initialRows: EoedProfileRow[] = [
-  { id: 1, topDepth: "0", boreholeId: "", bottomDepth: "2", mv: "0.40" },
-  { id: 2, topDepth: "2", boreholeId: "", bottomDepth: "6", mv: "0.25" },
+  { id: 1, boreholeId: "", sampleDepth: "1", mv: "0.40" },
+  { id: 2, boreholeId: "", sampleDepth: "4", mv: "0.25" },
 ];
 
 function parse(value: string): number {
@@ -104,19 +119,6 @@ function downloadBlob(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function wrapBase64(base64: string) {
-  return base64.replace(/(.{76})/g, "$1\r\n");
-}
-
 function splitSubscript(symbol: string): { main: string; sub: string } {
   const dividerIndex = symbol.indexOf("_");
   if (dividerIndex < 0) {
@@ -180,12 +182,16 @@ function buildChartPngDataUri({
   rows: ProfilePoint[];
   valueKey: "mv" | "eoed";
 }): string {
+  if (typeof document === "undefined") {
+    return "";
+  }
+
   const width = 1200;
   const height = 820;
   const margin = { top: 108, right: 56, bottom: 120, left: 130 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.bottomDepth), 1);
+  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
   const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
   const xStep = getNiceTickStep(maxDataValue / 5);
   const xIntervals = Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
@@ -200,25 +206,21 @@ function buildChartPngDataUri({
   const lineSeries = boreholeIds.map((boreholeId, boreholeIndex) => {
     const boreholeRows = rows
       .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.topDepth - b.topDepth);
+      .sort((a, b) => a.sampleDepth - b.sampleDepth);
     const colour = BOREHOLE_COLOURS[boreholeIndex % BOREHOLE_COLOURS.length];
     const points = boreholeRows.map((row) => ({
-      topY: yScale(row.topDepth),
-      bottomY: yScale(row.bottomDepth),
       x: xScale(row[valueKey]),
-      y: yScale((row.topDepth + row.bottomDepth) / 2),
+      y: yScale(row.sampleDepth),
     }));
 
     return { boreholeId, colour, points };
   });
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) {
+  const hi = getHiDpiCanvas2D(width, height);
+  if (!hi) {
     return "";
   }
+  const { canvas, context } = hi;
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
@@ -291,16 +293,6 @@ function buildChartPngDataUri({
   context.stroke();
 
   lineSeries.forEach((series) => {
-    series.points.forEach((point) => {
-      context.beginPath();
-      context.strokeStyle = hexToRgba(series.colour, 0.22);
-      context.lineWidth = 7;
-      context.lineCap = "round";
-      context.moveTo(point.x, point.topY);
-      context.lineTo(point.x, point.bottomY);
-      context.stroke();
-    });
-
     if (series.points.length > 1) {
       context.beginPath();
       context.strokeStyle = series.colour;
@@ -384,21 +376,8 @@ function buildChartPngDataUri({
   return canvas.toDataURL("image/png");
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="inline-flex flex-wrap items-baseline gap-1 leading-tight">
-      <span>{title}</span>
-      {unit ? <span className="text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function ProfileImageCard({ title, imageSrc }: { title: ReactNode; imageSrc: string }) {
@@ -412,9 +391,10 @@ function ProfileImageCard({ title, imageSrc }: { title: ReactNode; imageSrc: str
   );
 }
 
-export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) {
+export function EoedProfileTab({ unitSystem, importRows, soilPolicyToolSlug }: EoedProfileTabProps) {
   const [rows, setRows] = useState<EoedProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
+  const importedFromBoreholes = Boolean(importRows && importRows.length > 0);
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const eoedUnit = getDisplayUnit("MPa", unitSystem) ?? "MPa";
   const mvUnit = getDisplayUnit("m2/MN", unitSystem) ?? "m2/MN";
@@ -427,8 +407,8 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
     setRows((current) =>
       current.map((row) => ({
         ...row,
-        topDepth: convertInputValueBetweenSystems(row.topDepth, "m", previousUnitSystem.current, unitSystem),
-        bottomDepth: convertInputValueBetweenSystems(row.bottomDepth, "m", previousUnitSystem.current, unitSystem),
+        sampleDepth: convertInputValueBetweenSystems(row.sampleDepth, "m", previousUnitSystem.current, unitSystem),
+        mv: convertInputValueBetweenSystems(row.mv, "m2/MN", previousUnitSystem.current, unitSystem),
       })),
     );
 
@@ -445,9 +425,9 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
         ...template,
         id: index + 1,
         boreholeId: item.boreholeLabel || template.boreholeId,
-        topDepth:
+        sampleDepth:
           item.sampleTopDepth === null
-            ? template.topDepth
+            ? template.sampleDepth
             : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
       }));
     });
@@ -459,9 +439,17 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
 
   const addRow = () => {
     setRows((current) => {
-      const lastBottom = current[current.length - 1]?.bottomDepth ?? "0";
+      const lastBottom = current[current.length - 1]?.sampleDepth ?? "0";
       const nextId = Math.max(...current.map((row) => row.id), 0) + 1;
-      return [...current, { id: nextId, topDepth: lastBottom, boreholeId: "", bottomDepth: String(parse(lastBottom) + 2), mv: "0.30" }];
+      return [
+        ...current,
+        {
+          id: nextId,
+          boreholeId: "",
+          sampleDepth: String(parse(lastBottom) + 2),
+          mv: "0.30",
+        },
+      ];
     });
   };
 
@@ -473,22 +461,24 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
     () =>
       rows
         .map((row) => {
-          const topDepthMetric = parse(convertInputValueBetweenSystems(row.topDepth, "m", unitSystem, "metric"));
-          const bottomDepthMetric = parse(convertInputValueBetweenSystems(row.bottomDepth, "m", unitSystem, "metric"));
+          if (profileRowSoilRestricted(soilPolicyToolSlug, importRows, row.boreholeId, row.sampleDepth, unitSystem, parse)) {
+            return null;
+          }
+          const sampleDepthMetric = parse(convertInputValueBetweenSystems(row.sampleDepth, "m", unitSystem, "metric"));
           const mv = Math.max(parse(row.mv), 0);
           const eoedMetric = mv > 0 ? 1 / mv : 0;
 
           return {
             boreholeId: row.boreholeId || "BH not set",
-            topDepth: topDepthMetric,
-            bottomDepth: bottomDepthMetric,
+            sampleDepth: sampleDepthMetric,
             mv,
             eoed: Number(convertInputValueBetweenSystems(String(eoedMetric), "MPa", "metric", unitSystem)),
           };
         })
-        .filter((row) => row.bottomDepth > row.topDepth)
-        .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId) || a.topDepth - b.topDepth),
-    [rows, unitSystem],
+        .filter((row): row is ProfilePoint => row !== null)
+        .filter((row) => Number.isFinite(row.sampleDepth) && row.sampleDepth >= 0)
+        .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId) || a.sampleDepth - b.sampleDepth),
+    [rows, unitSystem, soilPolicyToolSlug, importRows],
   );
 
   const mvChartImgSrc = useMemo(
@@ -518,18 +508,13 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
   );
 
   const exportRows = rows.map((row) => {
-    const topDepthMetric = parse(convertInputValueBetweenSystems(row.topDepth, "m", unitSystem, "metric"));
-    const bottomDepthMetric = parse(convertInputValueBetweenSystems(row.bottomDepth, "m", unitSystem, "metric"));
+    const sampleDepthMetric = parse(convertInputValueBetweenSystems(row.sampleDepth, "m", unitSystem, "metric"));
     const mv = Math.max(parse(row.mv), 0);
     const eoedMetric = mv > 0 ? 1 / mv : 0;
 
     return {
       boreholeId: row.boreholeId || "BH not set",
-      topDepth: format(Number(convertInputValueBetweenSystems(String(topDepthMetric), "m", "metric", unitSystem)), 2),
-      bottomDepth: format(
-        Number(convertInputValueBetweenSystems(String(bottomDepthMetric), "m", "metric", unitSystem)),
-        2,
-      ),
+      sampleDepth: format(Number(convertInputValueBetweenSystems(String(sampleDepthMetric), "m", "metric", unitSystem)), 2),
       mv: format(mv, 4),
       eoed: format(Number(convertInputValueBetweenSystems(String(eoedMetric), "MPa", "metric", unitSystem)), 3),
     };
@@ -538,23 +523,21 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
   const buildExportTableHtml = () => {
     const headerCells = [
       "Borehole ID",
-      `Top (${depthUnit})`,
-      `Bottom (${depthUnit})`,
+      `Sample depth (${depthUnit})`,
       `${MV_SYMBOL} (${mvUnit})`,
       `${EOED_SYMBOL} (${eoedUnit})`,
     ]
-      .map((label) => `<th>${escapeHtml(label)}</th>`)
+      .map((label) => excelTextHeader(label))
       .join("");
 
     const bodyRows = exportRows
       .map(
         (row) => `
           <tr>
-            <td>${escapeHtml(row.boreholeId)}</td>
-            <td>${escapeHtml(row.topDepth)}</td>
-            <td>${escapeHtml(row.bottomDepth)}</td>
-            <td>${escapeHtml(row.mv)}</td>
-            <td>${escapeHtml(row.eoed)}</td>
+            ${excelTextCell(row.boreholeId)}
+            ${excelTextCell(row.sampleDepth)}
+            ${excelTextCell(row.mv)}
+            ${excelTextCell(row.eoed)}
           </tr>
         `,
       )
@@ -565,9 +548,8 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
 
   const buildExcelMhtmlDocument = () => {
     const tableHtml = buildExportTableHtml();
-    const boundary = "----=_NextPart_EoedExport";
     const excelHtml = `<!doctype html>
-<html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office">
   <head>
     <meta charset="utf-8" />
     <title>Eoed from ${MV_SYMBOL} Profile Export</title>
@@ -576,11 +558,9 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
       h1 { font-size: 22px; margin: 0 0 8px; }
       h2 { font-size: 16px; margin: 24px 0 10px; }
       p { font-size: 12px; color: #475569; margin: 0 0 12px; }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; vertical-align: top; }
-      th { background: #f1f5f9; }
+      ${EXCEL_TABLE_BLOCK_CSS}
       .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
-      .chart-grid img { width: 100%; height: auto; display: block; }
+      .chart-grid img { width: 100%; max-width: 1200px; height: auto; display: block; border: 1px solid #cbd5e1; border-radius: 6px; }
     </style>
   </head>
   <body>
@@ -596,44 +576,14 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
   </body>
 </html>`;
 
-    const mvBase64 = mvChartImgSrc.startsWith("data:image/png;base64,")
-      ? mvChartImgSrc.replace("data:image/png;base64,", "")
-      : "";
-    const eoedBase64 = eoedChartImgSrc.startsWith("data:image/png;base64,")
-      ? eoedChartImgSrc.replace("data:image/png;base64,", "")
-      : "";
-
-    if (!mvBase64 || !eoedBase64) {
+    if (!mvChartImgSrc.startsWith("data:image/png;base64,") || !eoedChartImgSrc.startsWith("data:image/png;base64,")) {
       return excelHtml;
     }
 
-    return [
-      "MIME-Version: 1.0",
-      `Content-Type: multipart/related; boundary="${boundary}"; type="text/html"`,
-      "",
-      `--${boundary}`,
-      "Content-Type: text/html; charset=\"utf-8\"",
-      "Content-Transfer-Encoding: 8bit",
-      "Content-Location: file:///report.htm",
-      "",
-      excelHtml,
-      "",
-      `--${boundary}`,
-      "Content-Location: file:///eoed-mv.png",
-      "Content-Type: image/png",
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(mvBase64),
-      "",
-      `--${boundary}`,
-      "Content-Location: file:///eoed-eoed.png",
-      "Content-Type: image/png",
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(eoedBase64),
-      "",
-      `--${boundary}--`,
-    ].join("\r\n");
+    return buildMhtmlMultipartDocument(excelHtml, [
+      { contentLocation: "file:///eoed-mv.png", base64Png: mvChartImgSrc },
+      { contentLocation: "file:///eoed-eoed.png", base64Png: eoedChartImgSrc },
+    ]);
   };
 
   const handleExportExcel = () => {
@@ -655,56 +605,80 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Build a layered compressibility profile with Borehole IDs, depth intervals, and coefficient of volume
-            compressibility values. The tool computes constrained modulus per layer and plots both profiles by depth.
+            Build a compressibility profile by borehole and sample depth: enter m<sub>v</sub> at each depth. The tool
+            computes constrained modulus and plots both profiles.
           </p>
+          <p className="mt-2 text-xs font-medium text-slate-500">
+            m<sub>v</sub> should be taken at the oedometer stress level corresponding to the relevant sample stress.
+          </p>
+          {importedFromBoreholes ? (
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              Sample depth is imported from the selected boreholes (Use in Tools) and is locked.
+            </p>
+          ) : null}
         </div>
 
-        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll>
+          <table className={profileTableClass("c5")}>
             <colgroup>
-              <col className="w-[20%]" />
-              <col className="w-[14%]" />
-              <col className="w-[14%]" />
-              <col className="w-[18%]" />
-              <col className="w-[18%]" />
+              <col className="w-[22%]" />
               <col className="w-[16%]" />
+              <col className="w-[22%]" />
+              <col className="w-[22%]" />
+              <col className="w-[18%]" />
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Top" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Bottom" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>m<sub>v</sub></span>} unit={mvUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>m<sub>v</sub></span>} unit={mvUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>E<sub>oed</sub></span>} unit={eoedUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>E<sub>oed</sub></span>} unit={eoedUnit} />
-                </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <span className="block leading-tight">Action</span>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
-                const topDepth = parse(row.topDepth);
-                const bottomDepth = parse(row.bottomDepth);
-                const hasDepthIssue = bottomDepth <= topDepth;
+                const soilRestricted = profileRowSoilRestricted(
+                  soilPolicyToolSlug,
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const matchedSoil = matchImportSummaryForProfileRow(
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const restrictionHint = soilRestrictionUserHint(soilPolicyToolSlug, matchedSoil?.soilBehavior ?? null);
+                const sampleDepth = parse(row.sampleDepth);
+                const hasDepthIssue = !Number.isFinite(sampleDepth) || sampleDepth < 0;
                 const mv = Math.max(parse(row.mv), 0);
                 const eoedMetric = mv > 0 ? 1 / mv : 0;
                 const eoedDisplay = Number(convertInputValueBetweenSystems(String(eoedMetric), "MPa", "metric", unitSystem));
 
                 return (
-                  <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                  <tr
+                    key={row.id}
+                    className={`border-t border-slate-200 align-top ${soilRestricted ? "bg-slate-50/90 opacity-[0.85]" : "bg-white"}`}
+                    title={soilRestricted ? "Soil type is not used with this tool (set under Projects)." : undefined}
+                  >
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -715,41 +689,42 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
                         type="number"
                         step="0.1"
                         min="0"
-                        value={row.topDepth}
-                        onChange={(event) => updateRow(row.id, { topDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        value={row.sampleDepth}
+                        onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
+                        disabled={importedFromBoreholes || soilRestricted}
+                        className={
+                          importedFromBoreholes || soilRestricted
+                            ? cnProfileTableInput(true)
+                            : hasDepthIssue
+                              ? "w-full min-w-0 rounded-lg border border-red-300 bg-red-50 px-1.5 py-1 text-xs text-slate-900 outline-none transition-colors duration-200 focus:border-red-400 sm:px-2 sm:py-1.5 sm:text-[13px]"
+                              : cnProfileTableInput(false)
+                        }
                       />
+                      {hasDepthIssue ? <p className="mt-1 text-xs text-red-700">Enter a valid sample depth.</p> : null}
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={row.bottomDepth}
-                        onChange={(event) => updateRow(row.id, { bottomDepth: event.target.value })}
-                        className={`w-full rounded-lg border px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 ${
-                          hasDepthIssue ? "border-red-300 bg-red-50 focus:border-red-400" : "border-slate-300 focus:border-slate-500"
-                        }`}
-                      />
-                      {hasDepthIssue ? <p className="mt-1 text-xs text-red-700">Bottom must exceed top.</p> : null}
+                      {soilRestricted ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
+                          {restrictionHint ?? "Not used with this tool (soil type in Projects)."}
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.0001"
+                          min="0.0001"
+                          value={row.mv}
+                          onChange={(event) => updateRow(row.id, { mv: event.target.value })}
+                          className={cnProfileTableInput(false)}
+                        />
+                      )}
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.0001"
-                        min="0.0001"
-                        value={row.mv}
-                        onChange={(event) => updateRow(row.id, { mv: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
-                    </td>
-                    <td className="px-2 py-3">
-                      <OutputCell value={format(eoedDisplay, 3)} />
+                      <OutputCell value={soilRestricted ? "—" : format(eoedDisplay, 3)} />
                     </td>
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-2 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -761,7 +736,7 @@ export function EoedProfileTab({ unitSystem, importRows }: EoedProfileTabProps) 
               })}
             </tbody>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <button type="button" className="btn-base btn-md" onClick={addRow}>

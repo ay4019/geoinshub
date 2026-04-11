@@ -277,7 +277,13 @@ Core access functions:
 - Report template registry: `lib/tool-report-templates.ts`
 - PDF builder (table + plot + optional AI paragraph): `lib/tool-report-pdf.ts`
 - AI interpretation action: `app/actions/ai-report.ts`
-- Report UI (buttons: `Download PDF Report`, `Report with Evaluation`): `components/cu-profile-report-tab.tsx`
+- Report UI (buttons: `Download PDF Report`, `Analyze with AI`): `components/cu-profile-report-tab.tsx`
+
+### Gemini AI setup for `Analyze with AI`
+1. Add `GEMINI_API_KEY=your_key_here` to `.env.local`.
+2. Optional: add `GEMINI_MODEL=gemini-2.5-flash` if you want to override the default model later.
+3. Restart the dev server after updating environment variables.
+4. Open a report-capable tool and click `Analyze with AI`; the button now routes through Gemini on the server.
 
 ### Add or update a template for a specific tool
 1. Open `lib/tool-report-templates.ts`.

@@ -1,9 +1,18 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import {
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  cnProfileTableInput,
+  profileTableClass,
+  profileTableFooterButtonClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
@@ -12,6 +21,7 @@ import type { UnitSystem } from "@/lib/types";
 interface CuFromPressuremeterProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  soilPolicyToolSlug?: string;
 }
 
 interface CuFromPressuremeterRow {
@@ -43,21 +53,8 @@ function estimateCuFromPln(pln: number): number {
   return 0.67 * pln ** 0.75;
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="inline-flex items-baseline gap-1 whitespace-nowrap leading-tight">
-      <span>{title}</span>
-      {unit ? <span className="text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function getNiceTickStep(rawStep: number): number {
@@ -288,8 +285,8 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
           c<sub>u</sub> = 0.67(P<sub>LN</sub>)<sup>0.75</sup>.
         </p>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll>
+          <table className={profileTableClass("c5")}>
             <colgroup>
               <col className="w-[22%]" />
               <col className="w-[22%]" />
@@ -299,19 +296,21 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Sample Depth" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>P<sub>LN</sub></span>} unit={stressUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>P<sub>LN</sub></span>} unit={stressUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>c<sub>u</sub></span>} unit={stressUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>c<sub>u</sub></span>} unit={stressUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">Action</th>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -325,6 +324,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -337,7 +337,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
                         min="0"
                         value={row.sampleDepth}
                         onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        className={cnProfileTableInput(false)}
                       />
                     </td>
                     <td className="px-2 py-3">
@@ -347,7 +347,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
                         min="0"
                         value={row.pln}
                         onChange={(event) => updateRow(row.id, { pln: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        className={cnProfileTableInput(false)}
                       />
                     </td>
                     <td className="px-2 py-3">
@@ -356,7 +356,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-1.5 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -370,7 +370,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
             <tfoot className="border-t border-slate-200 bg-white">
               <tr>
                 <td className="px-2 py-3 text-left align-top">
-                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={addRow}>
+                  <button type="button" className={profileTableFooterButtonClass} onClick={addRow}>
                     Add Layer
                   </button>
                 </td>
@@ -378,7 +378,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
                 <td className="px-2 py-3 text-right align-top">
                   <button
                     type="button"
-                    className="btn-base px-3 py-1.5 text-sm"
+                    className={profileTableFooterButtonClass}
                     onClick={(event) => {
                       void exportProfileExcelFromSection(event.currentTarget);
                     }}
@@ -389,7 +389,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
               </tr>
             </tfoot>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         {plotPoints.length ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-2">

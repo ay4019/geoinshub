@@ -4,6 +4,14 @@ import type { InsightArticle, ToolDefinition } from "@/lib/types";
 
 const tools = toolLibrary as ToolDefinition[];
 const articles = articlesData as InsightArticle[];
+
+function isActiveArticle(article: InsightArticle): boolean {
+  return article.status !== "archived";
+}
+
+function getActiveArticles(): InsightArticle[] {
+  return articles.filter(isActiveArticle);
+}
 const toolAliases: Record<string, string> = {
   "shallow-foundation-bearing-capacity": "traditional-bearing-capacity-methods",
   "terzaghi-bearing-capacity": "traditional-bearing-capacity-methods",
@@ -32,7 +40,7 @@ export function getAllTools(): ToolDefinition[] {
 export function getFeaturedTools(limit = 3): ToolDefinition[] {
   const featuredHomeSlugs = [
     "spt-corrections",
-    "modulus-from-cu",
+    "gmax-from-vs",
     "eurocode-7-bearing-resistance",
   ];
 
@@ -57,7 +65,7 @@ export function getToolBySlug(slug: string): ToolDefinition | undefined {
 }
 
 export function getAllArticles(): InsightArticle[] {
-  return [...articles].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return [...getActiveArticles()].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export function getFeaturedArticles(limit = 3): InsightArticle[] {
@@ -67,7 +75,7 @@ export function getFeaturedArticles(limit = 3): InsightArticle[] {
 }
 
 export function getArticleBySlug(slug: string): InsightArticle | undefined {
-  return articles.find((article) => article.slug === slug);
+  return getActiveArticles().find((article) => article.slug === slug);
 }
 
 export function getToolSlugs(): string[] {
@@ -75,5 +83,5 @@ export function getToolSlugs(): string[] {
 }
 
 export function getArticleSlugs(): string[] {
-  return articles.map((article) => article.slug);
+  return getActiveArticles().map((article) => article.slug);
 }

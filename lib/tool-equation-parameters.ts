@@ -51,11 +51,11 @@ const equationParameterMap: Record<string, string[]> = {
     "sigma'_v0 = current vertical effective stress",
   ],
   "&sigma;'<sub>v0</sub> = &gamma;z - &gamma;<sub>w</sub> max(z - z<sub>GWT</sub>, 0)": [
-    "sigma'_v0 = current vertical effective stress at sample depth",
+    "sigma'_v0 = vertical effective stress at sample depth",
     "gamma = bulk unit weight (BHA)",
     "z = sample depth",
-    "gamma_w = unit weight of water",
-    "z_GWT = groundwater table depth",
+    "gamma_w = unit weight of water (9.81 kN/m³ where the tool uses SI water unit weight)",
+    "z_GWT = depth to groundwater table (same length units as z)",
   ],
   "GI = (F - 35)[0.2 + 0.005(LL - 40)] + 0.01(F - 15)(PI - 10)": [
     "GI = group index",
@@ -497,9 +497,9 @@ const equationParameterMap: Record<string, string[]> = {
     "s_B = settlement at point B",
     "L = evaluation length",
   ],
-  "N<sub>60</sub> = N C<sub>E</sub>C<sub>b</sub>C<sub>r</sub>C<sub>s</sub>": [
-    "N_60 = standardized SPT blow count",
-    "N = measured field blow count",
+  "N<sub>60</sub> = N &middot; C<sub>E</sub> C<sub>b</sub> C<sub>r</sub> C<sub>s</sub>": [
+    "N_60 = energy-standardised SPT blow count",
+    "N = recorded field blow count",
     "C_E = energy correction factor",
     "C_b = borehole diameter correction factor",
     "C_r = rod length correction factor",
@@ -509,22 +509,26 @@ const equationParameterMap: Record<string, string[]> = {
     "C_E = energy correction factor",
     "ER = measured hammer energy ratio in percent",
   ],
-  "C<sub>r</sub> = 0.75 (z &lt; 3 m), 0.80 (3 &le; z &lt; 4 m), 0.85 (4 &le; z &lt; 6 m), 0.95 (6 &le; z &lt; 10 m), 1.00 (10 &le; z &le; 30 m), 0.95 for z &gt; 30 m in this screening implementation": [
-    "C_r = rod length correction factor assigned from sample depth",
-    "z = sample depth in meters",
-    "For z > 30 m, source tables indicate variable values below 1.00; this tool applies 0.95 as a screening default",
+  "C<sub>b</sub> = 1.00 (d &lt; 115 mm), 1.05 (115 &le; d &le; 200 mm), 1.15 (d &gt; 200 mm)": [
+    "C_b = borehole diameter correction factor",
+    "d = borehole diameter (mm); class boundaries follow Skempton (1986) as commonly tabulated",
   ],
-  "C<sub>N</sub> = 9.78(1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70": [
+  "C<sub>r</sub> = 0.75 (z &lt; 3 m), 0.80 (3 &le; z &lt; 4 m), 0.85 (4 &le; z &lt; 6 m), 0.95 (6 &le; z &lt; 10 m), 1.00 (10 &le; z &le; 30 m), 0.95 (z &gt; 30 m, screening default in this tool)": [
+    "C_r = rod length correction factor from sample depth",
+    "z = sample depth (m)",
+    "For z > 30 m, published tables allow values below 1.00; this tool uses 0.95 as a screening default",
+  ],
+  "C<sub>N</sub> = 9.78 (1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70": [
     "C_N = overburden correction factor",
     "sigma'_v0 = effective vertical overburden stress in kPa (kN/m2)",
     "9.78 = coefficient used in the Idriss and Boulanger (2008) screening expression",
     "C_N is bounded between 0.40 and 1.70 in this tool",
   ],
-  "(N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub>N<sub>60</sub> &le; 2N<sub>60</sub>": [
-    "(N1)_60 = overburden-corrected standardized blow count",
+  "(N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub> N<sub>60</sub> &le; 2 N<sub>60</sub>": [
+    "(N1)_60 = overburden-corrected, energy-standardised blow count",
     "C_N = overburden correction factor",
-    "N_60 = energy-corrected standardized blow count",
-    "2N_60 = practical screening cap applied in this tool",
+    "N_60 = energy-standardised blow count",
+    "2 N_60 = practical screening cap applied in this tool",
   ],
   "s<sub>u</sub> = (q<sub>c</sub> - &sigma;<sub>v0</sub>) / N<sub>kt</sub>": [
     "s_u = undrained shear strength",
@@ -561,36 +565,31 @@ const equationParameterMap: Record<string, string[]> = {
     "k = strength gradient with depth",
     "z = depth",
   ],
-  "c<sub>u</sub> = f<sub>1</sub>N<sub>60</sub>": [
-    "c_u = undrained shear strength",
-    "f1 = Stroud plasticity-index factor selected from the PI band",
-    "N_60 = corrected SPT resistance",
+  "c<sub>u</sub> = f<sub>1</sub> &middot; N<sub>60</sub>": [
+    "c_u = undrained shear strength (kPa in this correlation)",
+    "f_1 = Stroud factor from PI (see anchor table)",
+    "N_60 = corrected (energy-standardised) SPT blow count",
   ],
   "c<sub>u</sub> = 0.67(P<sub>LN</sub>)<sup>0.75</sup>": [
     "c_u = undrained shear strength",
     "P_LN = pressuremeter net limit pressure",
     "0.67 and 0.75 = empirical Baguelin (1978) correlation constants",
   ],
-  "c'<sub>oc</sub> = 0.1c<sub>u</sub>": [
-    "c'_oc = interpreted effective cohesion for overconsolidated clay screening",
+  "c′ = 0.1c<sub>u</sub>": [
+    "c′ = effective cohesion interpreted from undrained shear strength",
     "c_u = undrained shear strength",
     "0.1 = empirical correlation coefficient",
   ],
-  "c'<sub>oc,screened</sub> = min(0.1c<sub>u</sub>, 30 kPa)": [
-    "c'_oc,screened = chart-limited effective cohesion used for screening",
-    "0.1c_u = raw correlation output from the cu-based relation",
-    "30 kPa = chart-aligned upper screening bound",
+  "f<sub>1</sub> from PI: constant for PI &le; 15 and PI &gt; 40; linear interpolation between anchors for 15 &lt; PI &le; 40.": [
+    "f_1 = Stroud factor (dimensionless multiplier with N_60 for c_u in kPa)",
+    "PI = plasticity index (%)",
+    "PI &le; 15: f_1 = 6.5; PI &gt; 40: f_1 = 4.4; between 15 and 40: linear between consecutive anchors in the methodology table",
   ],
-  "f<sub>1</sub> is obtained by linear interpolation between the Stroud (1974) PI anchor points.": [
-    "f1 = Stroud factor used with corrected SPT resistance",
-    "PI = plasticity index used to select/interpolate f1",
-    "Anchor points = interpreted Stroud chart values used for interpolation",
-  ],
-  "&phi;' &asymp; 27.1 + 0.3N<sub>60</sub> - 0.00054N<sub>60</sub><sup>2</sup>": [
+  "φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀²": [
     "phi' = approximate effective friction angle",
     "N_60 = corrected SPT resistance",
   ],
-  "&phi;' = 45 - 14log<sub>10</sub>(PI)": [
+  "φ′ = 45 − 14 log₁₀(PI)": [
     "phi' = estimated effective friction angle",
     "PI = plasticity index",
     "log10 = base-10 logarithm",
@@ -669,6 +668,38 @@ const equationParameterMap: Record<string, string[]> = {
   "M<sub>r</sub> &asymp; 10.34CBR": [
     "M_r = resilient modulus",
     "CBR = California Bearing Ratio",
+  ],
+  "q<sub>net</sub> = max(q<sub>0</sub> - &Sigma;(&gamma;<sub>i</sub>&Delta;z<sub>exc,i</sub>), 0)": [
+    "q_net = net uniform bearing pressure after excavation relief",
+    "q_0 = applied surface pressure",
+    "gamma_i = bulk unit weight of layer i",
+    "Delta z_exc,i = thickness of layer i within the excavation depth",
+  ],
+  "&Delta;&sigma;<sub>z</sub> = I<sub>z</sub> q<sub>net</sub>": [
+    "Delta sigma_z = additional vertical stress at depth z",
+    "I_z = Boussinesq influence factor from integrating point loads over B by L",
+    "q_net = net bearing pressure applied to the foundation area",
+  ],
+  "s<sub>i</sub> = &Delta;&sigma;<sub>z</sub> H (1-&nu;<sup>2</sup>) / E<sub>s</sub>": [
+    "s_i = immediate settlement of the layer",
+    "Delta sigma_z = additional vertical stress at the layer mid-depth",
+    "H = layer thickness",
+    "nu = Poisson ratio",
+    "E_s = elastic (Young's) modulus for immediate settlement",
+  ],
+  "s<sub>c</sub> = m<sub>v</sub> &Delta;&sigma;<sub>z</sub> H": [
+    "s_c = primary consolidation settlement (m_v path)",
+    "m_v = coefficient of volume compressibility",
+    "Delta sigma_z = stress increment used for consolidation",
+    "H = layer thickness",
+  ],
+  "s<sub>c</sub> = [H C<sub>c</sub> / (1 + e<sub>0</sub>)] log<sub>10</sub> [(&sigma;'<sub>v0</sub> + &Delta;&sigma;<sub>z</sub>) / &sigma;'<sub>v0</sub>]": [
+    "s_c = primary consolidation settlement (C_c path)",
+    "H = layer thickness",
+    "C_c = compression index",
+    "e_0 = initial void ratio",
+    "sigma'_v0 = initial vertical effective stress at mid-depth",
+    "Delta sigma_z = stress increment applied in the consolidation term",
   ],
 };
 

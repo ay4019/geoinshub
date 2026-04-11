@@ -4,13 +4,30 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import {
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  cnProfileTableInput,
+  profileTableClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import {
+  matchImportSummaryForProfileRow,
+  profileRowSoilRestricted,
+  soilRestrictionUserHint,
+} from "@/lib/soil-behavior-policy";
+import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
+import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface OcrProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  soilPolicyToolSlug?: string;
   globalGroundwaterDepth?: string;
   globalUnitWeight?: string;
 }
@@ -18,8 +35,7 @@ interface OcrProfileTabProps {
 interface OcrProfileRow {
   id: number;
   boreholeId: string;
-  topDepth: string;
-  bottomDepth: string;
+  sampleDepth: string;
   gwtDepth: string;
   unitWeight: string;
   preconsolidationStress: string;
@@ -27,17 +43,15 @@ interface OcrProfileRow {
 
 interface DerivedRow {
   row: OcrProfileRow;
-  topDepthMetric: number;
-  bottomDepthMetric: number;
+  sampleDepthMetric: number;
   sigmaV0EffMetric: number;
   sigmaV0EffDisplay: number;
-  ocr: number;
+  ocr: number | null;
 }
 
 interface OcrProfilePoint {
   boreholeId: string;
-  topDepth: number;
-  bottomDepth: number;
+  sampleDepth: number;
   sigmaV0Eff: number;
   ocr: number;
 }
@@ -49,8 +63,7 @@ const initialRows: OcrProfileRow[] = [
   {
     id: 1,
     boreholeId: "",
-    topDepth: "0",
-    bottomDepth: "2",
+    sampleDepth: "1",
     gwtDepth: "1.5",
     unitWeight: "18.5",
     preconsolidationStress: "140",
@@ -58,8 +71,7 @@ const initialRows: OcrProfileRow[] = [
   {
     id: 2,
     boreholeId: "",
-    topDepth: "2",
-    bottomDepth: "5",
+    sampleDepth: "3.5",
     gwtDepth: "1.5",
     unitWeight: "19.0",
     preconsolidationStress: "210",
@@ -130,24 +142,6 @@ function downloadBlob(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function wrapBase64(base64: string): string {
-  return base64.replace(/(.{76})/g, "$1\r\n");
-}
-
-function excelFormulaText(value: string): string {
-  const safe = value.replaceAll('"', '""');
-  return `="${safe}"`;
-}
-
 function buildChartPngDataUri({
   title,
   xLabel,
@@ -163,12 +157,16 @@ function buildChartPngDataUri({
   rows: OcrProfilePoint[];
   valueKey: "sigmaV0Eff" | "ocr";
 }): string {
+  if (typeof document === "undefined") {
+    return "";
+  }
+
   const width = 1200;
   const height = 820;
   const margin = { top: 108, right: 56, bottom: 120, left: 130 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.bottomDepth), 1);
+  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
   const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
   const xStep = getNiceTickStep(maxDataValue / 5);
   const xIntervals = Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
@@ -183,25 +181,21 @@ function buildChartPngDataUri({
   const lineSeries = boreholeIds.map((boreholeId, boreholeIndex) => {
     const boreholeRows = rows
       .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.topDepth - b.topDepth);
+      .sort((a, b) => a.sampleDepth - b.sampleDepth);
     const colour = BOREHOLE_COLOURS[boreholeIndex % BOREHOLE_COLOURS.length];
     const points = boreholeRows.map((row) => ({
-      topY: yScale(row.topDepth),
-      bottomY: yScale(row.bottomDepth),
       x: xScale(row[valueKey]),
-      y: yScale((row.topDepth + row.bottomDepth) / 2),
+      y: yScale(row.sampleDepth),
     }));
 
     return { boreholeId, colour, points };
   });
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) {
+  const hi = getHiDpiCanvas2D(width, height);
+  if (!hi) {
     return "";
   }
+  const { canvas, context } = hi;
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
@@ -254,16 +248,6 @@ function buildChartPngDataUri({
   context.stroke();
 
   lineSeries.forEach((series) => {
-    series.points.forEach((point) => {
-      context.beginPath();
-      context.strokeStyle = hexToRgba(series.colour, 0.22);
-      context.lineWidth = 7;
-      context.lineCap = "round";
-      context.moveTo(point.x, point.topY);
-      context.lineTo(point.x, point.bottomY);
-      context.stroke();
-    });
-
     if (series.points.length > 1) {
       context.beginPath();
       context.strokeStyle = series.colour;
@@ -346,21 +330,8 @@ function buildChartPngDataUri({
   return canvas.toDataURL("image/png");
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="inline-flex flex-wrap items-baseline gap-1 leading-tight">
-      <span>{title}</span>
-      {unit ? <span className="text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function AxisLabel({
@@ -411,7 +382,7 @@ function ProfileChart({
   const margin = { top: 54, right: 20, bottom: 24, left: 72 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.bottomDepth), 1);
+  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
   const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
   const xStep = getNiceTickStep(maxDataValue / 5);
   const xAxisMax = xStep * Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
@@ -425,12 +396,10 @@ function ProfileChart({
     const colour = BOREHOLE_COLOURS[index % BOREHOLE_COLOURS.length];
     const points = rows
       .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.topDepth - b.topDepth)
+      .sort((a, b) => a.sampleDepth - b.sampleDepth)
       .map((row) => ({
         x: xScale(row[valueKey]),
-        y: yScale((row.topDepth + row.bottomDepth) / 2),
-        topY: yScale(row.topDepth),
-        bottomY: yScale(row.bottomDepth),
+        y: yScale(row.sampleDepth),
       }));
     return { boreholeId, colour, points };
   });
@@ -498,19 +467,6 @@ function ProfileChart({
 
         {lineSeries.map((series) => (
           <g key={series.boreholeId}>
-            {series.points.map((point, index) => (
-              <line
-                key={`interval-${series.boreholeId}-${index}`}
-                x1={point.x}
-                y1={point.topY}
-                x2={point.x}
-                y2={point.bottomY}
-                stroke={series.colour}
-                strokeOpacity="0.2"
-                strokeWidth="4"
-                strokeLinecap="round"
-              />
-            ))}
             {series.points.length > 1 ? (
               <polyline
                 fill="none"
@@ -564,11 +520,13 @@ function ProfileChart({
 export function OcrProfileTab({
   unitSystem,
   importRows,
+  soilPolicyToolSlug,
   globalGroundwaterDepth = "",
   globalUnitWeight = "",
 }: OcrProfileTabProps) {
   const [rows, setRows] = useState<OcrProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
+  const importedFromBoreholes = Boolean(importRows && importRows.length > 0);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const unitWeightUnit = getDisplayUnit("kN/m3", unitSystem) ?? "kN/m3";
@@ -582,8 +540,7 @@ export function OcrProfileTab({
     setRows((current) =>
       current.map((row) => ({
         ...row,
-        topDepth: convertInputValueBetweenSystems(row.topDepth, "m", previousUnitSystem.current, unitSystem),
-        bottomDepth: convertInputValueBetweenSystems(row.bottomDepth, "m", previousUnitSystem.current, unitSystem),
+        sampleDepth: convertInputValueBetweenSystems(row.sampleDepth, "m", previousUnitSystem.current, unitSystem),
         gwtDepth: convertInputValueBetweenSystems(row.gwtDepth, "m", previousUnitSystem.current, unitSystem),
         unitWeight: convertInputValueBetweenSystems(
           row.unitWeight,
@@ -604,6 +561,9 @@ export function OcrProfileTab({
   }, [unitSystem]);
 
   useEffect(() => {
+    if (importedFromBoreholes) {
+      return;
+    }
     const trimmedGwt = globalGroundwaterDepth.trim();
     const trimmedUnitWeight = globalUnitWeight.trim();
 
@@ -622,7 +582,7 @@ export function OcrProfileTab({
     }, 0);
 
     return () => window.clearTimeout(syncTimer);
-  }, [globalGroundwaterDepth, globalUnitWeight]);
+  }, [globalGroundwaterDepth, globalUnitWeight, importedFromBoreholes]);
 
   useEffect(() => {
     if (!importRows || importRows.length === 0) {
@@ -634,10 +594,18 @@ export function OcrProfileTab({
         ...template,
         id: index + 1,
         boreholeId: item.boreholeLabel || template.boreholeId,
-        topDepth:
+        sampleDepth:
           item.sampleTopDepth === null
-            ? template.topDepth
+            ? template.sampleDepth
             : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+        gwtDepth:
+          item.gwtDepth === null || item.gwtDepth === undefined || !Number.isFinite(item.gwtDepth)
+            ? template.gwtDepth
+            : convertInputValueBetweenSystems(String(item.gwtDepth), "m", "metric", unitSystem),
+        unitWeight:
+          item.unitWeight === null || item.unitWeight === undefined || !Number.isFinite(item.unitWeight)
+            ? template.unitWeight
+            : convertInputValueBetweenSystems(String(item.unitWeight), "kN/m3", "metric", unitSystem),
       }));
     });
   }, [importRows, unitSystem]);
@@ -649,15 +617,14 @@ export function OcrProfileTab({
   const addRow = () => {
     setRows((current) => {
       const lastRow = current[current.length - 1];
-      const lastDepth = lastRow?.topDepth ?? "0";
+      const lastDepth = lastRow?.sampleDepth ?? "0";
       const nextId = Math.max(...current.map((row) => row.id), 0) + 1;
       return [
         ...current,
         {
           id: nextId,
           boreholeId: "",
-          topDepth: String(parse(lastDepth) + 2),
-          bottomDepth: "",
+          sampleDepth: String(parse(lastDepth) + 2),
           gwtDepth: "1.5",
           unitWeight: "18.5",
           preconsolidationStress: "180",
@@ -673,27 +640,28 @@ export function OcrProfileTab({
   const derivedRows: DerivedRow[] = useMemo(
     () =>
       rows.map((row) => {
-        const topDepthMetric = parse(convertInputValueBetweenSystems(row.topDepth, "m", unitSystem, "metric"));
-        const bottomDepthMetric = topDepthMetric;
+        const sampleDepthMetric = parse(convertInputValueBetweenSystems(row.sampleDepth, "m", unitSystem, "metric"));
         const gwtDepthMetric = parse(convertInputValueBetweenSystems(row.gwtDepth, "m", unitSystem, "metric"));
         const unitWeightMetric = parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric"));
-        const sigmaPMetric = parse(
-          convertInputValueBetweenSystems(row.preconsolidationStress, "kPa", unitSystem, "metric"),
-        );
+        const hasSigmaP = row.preconsolidationStress.trim().length > 0;
+        const sigmaPMetric = hasSigmaP
+          ? parse(convertInputValueBetweenSystems(row.preconsolidationStress, "kPa", unitSystem, "metric"))
+          : Number.NaN;
 
-        // Effective stress for OCR is evaluated at sample top depth; bottom depth is only for plot interval.
-        const totalStressMetric = Math.max(unitWeightMetric, 0) * Math.max(topDepthMetric, 0);
-        const porePressureMetric = GAMMA_W_METRIC * Math.max(topDepthMetric - Math.max(gwtDepthMetric, 0), 0);
+        const totalStressMetric = Math.max(unitWeightMetric, 0) * Math.max(sampleDepthMetric, 0);
+        const porePressureMetric = GAMMA_W_METRIC * Math.max(sampleDepthMetric - Math.max(gwtDepthMetric, 0), 0);
         const sigmaV0EffMetric = Math.max(totalStressMetric - porePressureMetric, 0);
-        const ocr = sigmaV0EffMetric > 0 ? sigmaPMetric / sigmaV0EffMetric : 0;
+        const ocr =
+          hasSigmaP && Number.isFinite(sigmaPMetric) && sigmaPMetric > 0 && sigmaV0EffMetric > 0
+            ? sigmaPMetric / sigmaV0EffMetric
+            : null;
         const sigmaV0EffDisplay = Number(
           convertInputValueBetweenSystems(String(sigmaV0EffMetric), "kPa", "metric", unitSystem),
         );
 
         return {
           row,
-          topDepthMetric,
-          bottomDepthMetric,
+          sampleDepthMetric,
           sigmaV0EffMetric,
           sigmaV0EffDisplay,
           ocr,
@@ -702,20 +670,57 @@ export function OcrProfileTab({
     [rows, unitSystem],
   );
 
-  const chartRows: OcrProfilePoint[] = useMemo(
+  const sigmaChartRows: OcrProfilePoint[] = useMemo(
     () =>
       derivedRows
+        .filter(
+          (item) =>
+            !profileRowSoilRestricted(
+              soilPolicyToolSlug,
+              importRows,
+              item.row.boreholeId,
+              item.row.sampleDepth,
+              unitSystem,
+              parse,
+            ),
+        )
         .map((item) => ({
           boreholeId: item.row.boreholeId || "BH not set",
-          topDepth: Number(convertInputValueBetweenSystems(String(item.topDepthMetric), "m", "metric", unitSystem)),
-          bottomDepth: Number(
-            convertInputValueBetweenSystems(String(item.bottomDepthMetric), "m", "metric", unitSystem),
+          sampleDepth: Number(
+            convertInputValueBetweenSystems(String(item.sampleDepthMetric), "m", "metric", unitSystem),
           ),
           sigmaV0Eff: item.sigmaV0EffDisplay,
-          ocr: item.ocr,
+          ocr: item.ocr ?? 0,
         }))
-        .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId) || a.topDepth - b.topDepth),
-    [derivedRows, unitSystem],
+        .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId) || a.sampleDepth - b.sampleDepth),
+    [derivedRows, unitSystem, soilPolicyToolSlug, importRows],
+  );
+
+  const ocrChartRows: OcrProfilePoint[] = useMemo(
+    () =>
+      derivedRows
+        .filter((item) => item.ocr !== null)
+        .filter(
+          (item) =>
+            !profileRowSoilRestricted(
+              soilPolicyToolSlug,
+              importRows,
+              item.row.boreholeId,
+              item.row.sampleDepth,
+              unitSystem,
+              parse,
+            ),
+        )
+        .map((item) => ({
+          boreholeId: item.row.boreholeId || "BH not set",
+          sampleDepth: Number(
+            convertInputValueBetweenSystems(String(item.sampleDepthMetric), "m", "metric", unitSystem),
+          ),
+          sigmaV0Eff: item.sigmaV0EffDisplay,
+          ocr: item.ocr ?? 0,
+        }))
+        .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId) || a.sampleDepth - b.sampleDepth),
+    [derivedRows, unitSystem, soilPolicyToolSlug, importRows],
   );
 
   const sigmaChartImgSrc = useMemo(
@@ -725,10 +730,10 @@ export function OcrProfileTab({
         xLabel: "σ′v₀",
         xUnit: stressUnit,
         depthUnit,
-        rows: chartRows,
+        rows: sigmaChartRows,
         valueKey: "sigmaV0Eff",
       }),
-    [chartRows, depthUnit, stressUnit],
+    [sigmaChartRows, depthUnit, stressUnit],
   );
 
   const ocrChartImgSrc = useMemo(
@@ -738,24 +743,36 @@ export function OcrProfileTab({
         xLabel: "OCR",
         xUnit: "",
         depthUnit,
-        rows: chartRows,
+        rows: ocrChartRows,
         valueKey: "ocr",
       }),
-    [chartRows, depthUnit],
+    [ocrChartRows, depthUnit],
   );
 
   const exportRows = useMemo(
     () =>
-      derivedRows.map((item) => ({
-        boreholeId: item.row.boreholeId || "BH not set",
-        sampleDepth: format(Number(item.row.topDepth), 2),
-        gwt: format(Number(item.row.gwtDepth), 2),
-        unitWeight: format(Number(item.row.unitWeight), 2),
-        sigmaP: format(Number(item.row.preconsolidationStress), 2),
-        sigmaV0: format(item.sigmaV0EffDisplay, 2),
-        ocr: format(item.ocr, 3),
-      })),
-    [derivedRows],
+      derivedRows
+        .filter(
+          (item) =>
+            !profileRowSoilRestricted(
+              soilPolicyToolSlug,
+              importRows,
+              item.row.boreholeId,
+              item.row.sampleDepth,
+              unitSystem,
+              parse,
+            ),
+        )
+        .map((item) => ({
+          boreholeId: item.row.boreholeId || "BH not set",
+          sampleDepth: format(Number(item.row.sampleDepth), 2),
+          gwt: format(Number(item.row.gwtDepth), 2),
+          unitWeight: format(Number(item.row.unitWeight), 2),
+          sigmaP: format(Number(item.row.preconsolidationStress), 2),
+          sigmaV0: format(item.sigmaV0EffDisplay, 2),
+          ocr: item.ocr === null ? "-" : format(item.ocr, 3),
+        })),
+    [derivedRows, soilPolicyToolSlug, importRows, unitSystem],
   );
 
   const buildExportTableHtml = () => {
@@ -768,20 +785,20 @@ export function OcrProfileTab({
       `sigma'_v0 (${stressUnit})`,
       "OCR",
     ]
-      .map((label) => `<th>${escapeHtml(label)}</th>`)
+      .map((label) => excelTextHeader(label))
       .join("");
 
     const bodyRows = exportRows
       .map(
         (row) => `
           <tr>
-            <td>${escapeHtml(row.boreholeId)}</td>
-            <td class="excel-text">${escapeHtml(excelFormulaText(row.sampleDepth))}</td>
-            <td class="excel-text">${escapeHtml(excelFormulaText(row.gwt))}</td>
-            <td class="excel-text">${escapeHtml(excelFormulaText(row.unitWeight))}</td>
-            <td class="excel-text">${escapeHtml(excelFormulaText(row.sigmaP))}</td>
-            <td class="excel-text">${escapeHtml(excelFormulaText(row.sigmaV0))}</td>
-            <td class="excel-text">${escapeHtml(excelFormulaText(row.ocr))}</td>
+            ${excelTextCell(row.boreholeId)}
+            ${excelTextCell(row.sampleDepth)}
+            ${excelTextCell(row.gwt)}
+            ${excelTextCell(row.unitWeight)}
+            ${excelTextCell(row.sigmaP)}
+            ${excelTextCell(row.sigmaV0)}
+            ${excelTextCell(row.ocr)}
           </tr>
         `,
       )
@@ -792,9 +809,8 @@ export function OcrProfileTab({
 
   const buildExcelMhtmlDocument = () => {
     const tableHtml = buildExportTableHtml();
-    const boundary = "----=_NextPart_OcrExport";
     const excelHtml = `<!doctype html>
-<html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office">
   <head>
     <meta charset="utf-8" />
     <title>OCR Soil Profile Export</title>
@@ -803,13 +819,10 @@ export function OcrProfileTab({
       h1 { font-size: 22px; margin: 0 0 8px; }
       h2 { font-size: 16px; margin: 24px 0 10px; }
       p { font-size: 12px; color: #475569; margin: 0 0 12px; }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; vertical-align: top; }
-      th { background: #f1f5f9; }
-      .excel-text { mso-number-format:"\\@"; white-space: nowrap; }
+      ${EXCEL_TABLE_BLOCK_CSS}
       .chart-stack { width: 100%; margin-top: 12px; }
-      .chart-cell { width: 100%; vertical-align: top; border: 1px solid #cbd5e1; padding: 6px; margin-bottom: 12px; }
-      .chart-image { width: 100%; max-width: 860px; height: auto; display: block; }
+      .chart-cell { width: 100%; vertical-align: top; border: 1px solid #cbd5e1; padding: 6px; margin-bottom: 12px; border-radius: 6px; }
+      .chart-image { width: 100%; max-width: 1200px; height: auto; display: block; }
     </style>
   </head>
   <body>
@@ -819,50 +832,20 @@ export function OcrProfileTab({
     ${tableHtml}
     <h2>Profile plots</h2>
     <div class="chart-stack">
-      <div class="chart-cell"><img class="chart-image" width="860" src="file:///ocr-sigma-v0.png" alt="Depth vs σ′v₀ plot" /></div>
-      <div class="chart-cell"><img class="chart-image" width="860" src="file:///ocr-plot.png" alt="Depth vs OCR plot" /></div>
+      <div class="chart-cell"><img class="chart-image" src="file:///ocr-sigma-v0.png" alt="Depth vs effective stress plot" /></div>
+      <div class="chart-cell"><img class="chart-image" src="file:///ocr-plot.png" alt="Depth vs OCR plot" /></div>
     </div>
   </body>
 </html>`;
 
-    const sigmaBase64 = sigmaChartImgSrc.startsWith("data:image/png;base64,")
-      ? sigmaChartImgSrc.replace("data:image/png;base64,", "")
-      : "";
-    const ocrBase64 = ocrChartImgSrc.startsWith("data:image/png;base64,")
-      ? ocrChartImgSrc.replace("data:image/png;base64,", "")
-      : "";
-
-    if (!sigmaBase64 || !ocrBase64) {
+    if (!sigmaChartImgSrc.startsWith("data:image/png;base64,") || !ocrChartImgSrc.startsWith("data:image/png;base64,")) {
       return excelHtml;
     }
 
-    return [
-      "MIME-Version: 1.0",
-      `Content-Type: multipart/related; boundary="${boundary}"; type="text/html"`,
-      "",
-      `--${boundary}`,
-      "Content-Type: text/html; charset=\"utf-8\"",
-      "Content-Transfer-Encoding: 8bit",
-      "Content-Location: file:///report.htm",
-      "",
-      excelHtml,
-      "",
-      `--${boundary}`,
-      "Content-Location: file:///ocr-sigma-v0.png",
-      "Content-Type: image/png",
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(sigmaBase64),
-      "",
-      `--${boundary}`,
-      "Content-Location: file:///ocr-plot.png",
-      "Content-Type: image/png",
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(ocrBase64),
-      "",
-      `--${boundary}--`,
-    ].join("\r\n");
+    return buildMhtmlMultipartDocument(excelHtml, [
+      { contentLocation: "file:///ocr-sigma-v0.png", base64Png: sigmaChartImgSrc },
+      { contentLocation: "file:///ocr-plot.png", base64Png: ocrChartImgSrc },
+    ]);
   };
 
   const handleExportExcel = () => {
@@ -887,8 +870,8 @@ export function OcrProfileTab({
           calculates vertical effective stress and OCR automatically at Sample Depth.
         </p>
 
-        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll>
+          <table className={profileTableClass("c8")}>
             <colgroup>
               <col className="w-[13%]" />
               <col className="w-[11%]" />
@@ -901,17 +884,17 @@ export function OcrProfileTab({
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Sample Depth" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="GWT" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="GWT" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell
                     title={
                       <span>
                         Unit weight, &gamma;
@@ -920,8 +903,8 @@ export function OcrProfileTab({
                     unit={unitWeightUnit}
                   />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell
                     title={
                       <span>
                         &sigma;&prime;<sub>p</sub>
@@ -930,8 +913,8 @@ export function OcrProfileTab({
                     unit={stressUnit}
                   />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell
                     title={
                       <span>
                         &sigma;&prime;<sub>v0</sub>
@@ -940,32 +923,62 @@ export function OcrProfileTab({
                     unit={stressUnit}
                   />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="OCR" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="OCR" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">Action</th>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {derivedRows.map((item) => {
+                const soilRestricted = profileRowSoilRestricted(
+                  soilPolicyToolSlug,
+                  importRows,
+                  item.row.boreholeId,
+                  item.row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const matchedSoil = matchImportSummaryForProfileRow(
+                  importRows,
+                  item.row.boreholeId,
+                  item.row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const restrictionHint = soilRestrictionUserHint(soilPolicyToolSlug, matchedSoil?.soilBehavior ?? null);
                 return (
-                  <tr key={item.row.id} className="border-t border-slate-200 bg-white align-top">
+                  <tr
+                    key={item.row.id}
+                    className={`border-t border-slate-200 align-top ${soilRestricted ? "bg-slate-50/90 opacity-[0.85]" : "bg-white"}`}
+                    title={soilRestricted ? "Soil type is not used with this tool (set under Projects)." : undefined}
+                  >
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={item.row.boreholeId}
                         availableIds={rows.map((row) => row.boreholeId)}
                         onChange={(value) => updateRow(item.row.id, { boreholeId: value })}
                       />
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={item.row.topDepth}
-                        onChange={(event) => updateRow(item.row.id, { topDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
+                      {soilRestricted ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-2.5 py-2 text-[11px] leading-snug text-amber-950">
+                          {restrictionHint ?? "Not used with this tool (soil type in Projects)."}
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={item.row.sampleDepth}
+                          onChange={(event) => updateRow(item.row.id, { sampleDepth: event.target.value })}
+                          disabled={importedFromBoreholes}
+                          className={cnProfileTableInput(importedFromBoreholes)}
+                        />
+                      )}
                     </td>
                     <td className="px-2 py-3">
                       <input
@@ -974,7 +987,8 @@ export function OcrProfileTab({
                         min="0"
                         value={item.row.gwtDepth}
                         onChange={(event) => updateRow(item.row.id, { gwtDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={soilRestricted || importedFromBoreholes}
+                        className={cnProfileTableInput(soilRestricted || importedFromBoreholes)}
                       />
                     </td>
                     <td className="px-2 py-3">
@@ -984,7 +998,8 @@ export function OcrProfileTab({
                         min="0.1"
                         value={item.row.unitWeight}
                         onChange={(event) => updateRow(item.row.id, { unitWeight: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={soilRestricted || importedFromBoreholes}
+                        className={cnProfileTableInput(soilRestricted || importedFromBoreholes)}
                       />
                     </td>
                     <td className="px-2 py-3">
@@ -994,19 +1009,20 @@ export function OcrProfileTab({
                         min="0.1"
                         value={item.row.preconsolidationStress}
                         onChange={(event) => updateRow(item.row.id, { preconsolidationStress: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={soilRestricted}
+                        className={cnProfileTableInput(soilRestricted)}
                       />
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={format(item.sigmaV0EffDisplay, 2)} />
+                      <OutputCell value={soilRestricted ? "—" : format(item.sigmaV0EffDisplay, 2)} />
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={format(item.ocr, 3)} />
+                      <OutputCell value={soilRestricted ? "—" : item.ocr === null ? "-" : format(item.ocr, 3)} />
                     </td>
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-2 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(item.row.id)}
                         disabled={rows.length === 1}
                       >
@@ -1018,7 +1034,7 @@ export function OcrProfileTab({
               })}
             </tbody>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <button type="button" className="btn-base btn-md" onClick={addRow}>
@@ -1040,10 +1056,10 @@ export function OcrProfileTab({
           }
           depthUnit={depthUnit}
           xUnit={stressUnit}
-          rows={chartRows}
+          rows={sigmaChartRows}
           valueKey="sigmaV0Eff"
         />
-        <ProfileChart title={<span>Depth vs OCR</span>} depthUnit={depthUnit} rows={chartRows} valueKey="ocr" />
+        <ProfileChart title={<span>Depth vs OCR</span>} depthUnit={depthUnit} rows={ocrChartRows} valueKey="ocr" />
       </div>
 </section>
   );

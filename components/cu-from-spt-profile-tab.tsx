@@ -4,13 +4,32 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
-import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import {
+  cnProfileTableInput,
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  profileTableClass,
+  profileTableFooterButtonClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
+import { isActiveProjectToolLocked, type SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import {
+  matchImportSummaryForProfileRow,
+  profileRowSoilRestricted,
+  soilRestrictionUserHint,
+} from "@/lib/soil-behavior-policy";
+import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
+import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface CuFromSptProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  /** When set, rows that do not match this tool’s soil rules are greyed and excluded from plots/exports. */
+  soilPolicyToolSlug?: string;
   projectParameters?: Array<{
     boreholeLabel: string;
     sampleDepth: number | null;
@@ -26,6 +45,7 @@ interface CuFromSptRow {
   boreholeId: string;
   sampleDepth: string;
   plasticityIndex: string;
+  piSource: "manual" | "auto-project";
   n60: string;
   n60Source: "manual" | "auto-spt-corrections";
 }
@@ -42,15 +62,34 @@ interface PlotPoint {
 export interface CuFromSptReportPayload {
   depthUnit: string;
   stressUnit: string;
+  /** Layers used on the profile plot (soil-restricted / invalid-depth rows omitted). */
   points: PlotPoint[];
+  /** Every row shown in the profile grid, same order — used for Table 1 in the PDF. */
+  tableRows: Array<Record<string, string>>;
   plotImageDataUrl: string | null;
 }
 
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
 
 const initialRows: CuFromSptRow[] = [
-  { id: 1, boreholeId: "", sampleDepth: "1.5", plasticityIndex: "20", n60: "12", n60Source: "manual" },
-  { id: 2, boreholeId: "", sampleDepth: "3.0", plasticityIndex: "28", n60: "18", n60Source: "manual" },
+  {
+    id: 1,
+    boreholeId: "",
+    sampleDepth: "1.5",
+    plasticityIndex: "20",
+    piSource: "manual",
+    n60: "12",
+    n60Source: "manual",
+  },
+  {
+    id: 2,
+    boreholeId: "",
+    sampleDepth: "3.0",
+    plasticityIndex: "28",
+    piSource: "manual",
+    n60: "18",
+    n60Source: "manual",
+  },
 ];
 
 function parse(value: string): number {
@@ -96,21 +135,8 @@ function interpolateStroudF1(pi: number): number {
   return 4.4;
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="inline-flex items-baseline gap-1 whitespace-nowrap leading-tight">
-      <span>{title}</span>
-      {unit ? <span className="text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function getNiceTickStep(rawStep: number): number {
@@ -141,15 +167,6 @@ function downloadBlob(filename: string, blob: Blob) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }
 
 function renderScatterChart({
@@ -272,6 +289,52 @@ function renderScatterChart({
   );
 }
 
+function drawCanvasTitleDepthVsCu(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  ctx.fillStyle = "#0f172a";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  const mainPx = 38;
+  const subPx = 24;
+  ctx.font = `700 ${mainPx}px Georgia, "Times New Roman", serif`;
+  const prefix = "Depth vs ";
+  ctx.fillText(prefix, x, y);
+  let cursorX = x + ctx.measureText(prefix).width;
+  ctx.fillText("c", cursorX, y);
+  cursorX += ctx.measureText("c").width;
+  ctx.font = `700 ${subPx}px Georgia, "Times New Roman", serif`;
+  ctx.fillText("u", cursorX, y + mainPx * 0.12);
+}
+
+function drawCanvasAxisLabelCuStress(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  y: number,
+  stressUnit: string,
+) {
+  ctx.fillStyle = "#1e3a5f";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  const mainPx = 28;
+  const subPx = 18;
+  ctx.font = `700 ${mainPx}px Inter, Arial, sans-serif`;
+  const wC = ctx.measureText("c").width;
+  ctx.font = `700 ${subPx}px Inter, Arial, sans-serif`;
+  const wU = ctx.measureText("u").width;
+  ctx.font = `700 ${mainPx}px Inter, Arial, sans-serif`;
+  const suffix = ` (${stressUnit})`;
+  const wSuf = ctx.measureText(suffix).width;
+  const total = wC + wU + wSuf;
+  let cursorX = centerX - total / 2;
+  ctx.font = `700 ${mainPx}px Inter, Arial, sans-serif`;
+  ctx.fillText("c", cursorX, y);
+  cursorX += wC;
+  ctx.font = `700 ${subPx}px Inter, Arial, sans-serif`;
+  ctx.fillText("u", cursorX, y + mainPx * 0.12);
+  cursorX += wU;
+  ctx.font = `700 ${mainPx}px Inter, Arial, sans-serif`;
+  ctx.fillText(suffix, cursorX, y);
+}
+
 function buildCuPlotPngDataUri({
   points,
   depthUnit,
@@ -285,9 +348,9 @@ function buildCuPlotPngDataUri({
     return null;
   }
 
-  const width = 1200;
-  const height = 820;
-  const margin = { top: 108, right: 56, bottom: 120, left: 130 };
+  const width = 1680;
+  const height = 1080;
+  const margin = { top: 120, right: 64, bottom: 132, left: 152 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   const maxDepth = Math.max(...points.map((point) => point.depth), 1);
@@ -306,28 +369,21 @@ function buildCuPlotPngDataUri({
     colourByBorehole.set(id, BOREHOLE_COLOURS[index % BOREHOLE_COLOURS.length]);
   });
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) {
+  const hi = getHiDpiCanvas2D(width, height);
+  if (!hi) {
     return null;
   }
+  const { canvas, context } = hi;
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
-  context.fillStyle = "#0f172a";
-  context.font = "700 30px Georgia, 'Times New Roman', serif";
-  context.fillText("Depth vs c_u", margin.left, 52);
+  drawCanvasTitleDepthVsCu(context, margin.left, 58);
 
-  context.fillStyle = "#1e3a5f";
-  context.font = "700 23px Inter, Arial, sans-serif";
-  context.textAlign = "center";
-  context.fillText(`c_u (${stressUnit})`, margin.left + innerWidth / 2, 84);
+  drawCanvasAxisLabelCuStress(context, margin.left + innerWidth / 2, 92, stressUnit);
 
   context.strokeStyle = "#dbe5f1";
   context.lineWidth = 2;
-  context.font = "600 21px Inter, Arial, sans-serif";
+  context.font = "600 24px Inter, Arial, sans-serif";
   context.fillStyle = "#36557f";
   for (let index = 0; index <= xIntervals; index += 1) {
     const value = xStep * index;
@@ -337,7 +393,7 @@ function buildCuPlotPngDataUri({
     context.lineTo(x, margin.top + innerHeight);
     context.stroke();
     context.textAlign = "center";
-    context.fillText(String(Math.round(value)), x, margin.top - 14);
+    context.fillText(String(Math.round(value)), x, margin.top - 16);
   }
 
   for (let index = 0; index <= yIntervals; index += 1) {
@@ -348,11 +404,11 @@ function buildCuPlotPngDataUri({
     context.lineTo(margin.left + innerWidth, y);
     context.stroke();
     context.textAlign = "right";
-    context.fillText(depth.toFixed(1), margin.left - 18, y + 7);
+    context.fillText(depth.toFixed(1), margin.left - 22, y + 8);
   }
 
   context.strokeStyle = "#7f98ba";
-  context.lineWidth = 3;
+  context.lineWidth = 3.5;
   context.beginPath();
   context.moveTo(margin.left, margin.top);
   context.lineTo(margin.left, margin.top + innerHeight);
@@ -368,18 +424,18 @@ function buildCuPlotPngDataUri({
     const y = yScale(point.depth);
     context.beginPath();
     context.fillStyle = "#ffffff";
-    context.arc(x, y, 7.4, 0, 2 * Math.PI);
+    context.arc(x, y, 9.2, 0, 2 * Math.PI);
     context.fill();
 
     context.beginPath();
     context.strokeStyle = colour;
     context.lineWidth = 3;
-    context.arc(x, y, 7.4, 0, 2 * Math.PI);
+    context.arc(x, y, 9.2, 0, 2 * Math.PI);
     context.stroke();
 
     context.beginPath();
     context.fillStyle = colour;
-    context.arc(x, y, 3.3, 0, 2 * Math.PI);
+    context.arc(x, y, 4.2, 0, 2 * Math.PI);
     context.fill();
   });
 
@@ -388,7 +444,7 @@ function buildCuPlotPngDataUri({
   context.rotate(-Math.PI / 2);
   context.textAlign = "center";
   context.fillStyle = "#1e3a5f";
-  context.font = "700 23px Inter, Arial, sans-serif";
+  context.font = "700 28px Inter, Arial, sans-serif";
   context.fillText(`Depth (${depthUnit})`, 0, 0);
   context.restore();
 
@@ -398,14 +454,28 @@ function buildCuPlotPngDataUri({
 export function CuFromSptProfileTab({
   unitSystem,
   importRows,
+  soilPolicyToolSlug,
   projectParameters,
   onReportDataChange,
 }: CuFromSptProfileTabProps) {
   const [rows, setRows] = useState<CuFromSptRow[]>(initialRows);
+  const [isProjectLocked, setIsProjectLocked] = useState(false);
   const previousUnitSystem = useRef(unitSystem);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
+  const hasImportedSelection = (importRows?.length ?? 0) > 0;
+  const shouldLockImportedFields = isProjectLocked && hasImportedSelection;
+  const lockHint = "Locked from Projects and Boreholes. Edit values in Account > Projects.";
+
+  useEffect(() => {
+    const syncLockState = () => setIsProjectLocked(isActiveProjectToolLocked());
+    syncLockState();
+    window.addEventListener("gih:active-project-changed", syncLockState);
+    return () => {
+      window.removeEventListener("gih:active-project-changed", syncLockState);
+    };
+  }, []);
 
   const n60ByBoreholeDepth = useMemo(() => {
     const map = new Map<string, number>();
@@ -448,6 +518,8 @@ export function CuFromSptProfileTab({
         const sampleDepthMetric = item.sampleTopDepth;
         const key = `${normaliseBoreholeLabelKey(boreholeId)}|${depthKey(sampleDepthMetric)}`;
         const n60Metric = n60ByBoreholeDepth.get(key);
+        const hasImportedPi =
+          item.piValue !== null && item.piValue !== undefined && Number.isFinite(item.piValue);
 
         return {
           ...template,
@@ -457,6 +529,8 @@ export function CuFromSptProfileTab({
             sampleDepthMetric === null
               ? template.sampleDepth
               : convertInputValueBetweenSystems(String(sampleDepthMetric), "m", "metric", unitSystem),
+          plasticityIndex: hasImportedPi ? String(item.piValue) : "",
+          piSource: hasImportedPi ? "auto-project" : "manual",
           n60:
             typeof n60Metric === "number" && Number.isFinite(n60Metric)
               ? String(n60Metric)
@@ -485,6 +559,7 @@ export function CuFromSptProfileTab({
           boreholeId: "",
           sampleDepth: String(parse(lastDepth) + 1.5),
           plasticityIndex: "25",
+          piSource: "manual",
           n60: "15",
           n60Source: "manual",
         },
@@ -496,82 +571,108 @@ export function CuFromSptProfileTab({
     setRows((current) => (current.length > 1 ? current.filter((row) => row.id !== id) : current));
   };
 
-  const handleExportExcel = () => {
-    const exportRows = rows.map((row) => {
-      const sampleDepth = parse(row.sampleDepth);
-      const pi = Math.max(0, parse(row.plasticityIndex));
-      const n60 = Math.max(0, parse(row.n60));
-      const f1 = interpolateStroudF1(pi);
-      const cuMetric = f1 * n60;
-      const cuDisplay = Number(convertInputValueBetweenSystems(String(cuMetric), "kPa", "metric", unitSystem));
-      return {
-        boreholeId: row.boreholeId?.trim() || "BH not set",
-        sampleDepth,
-        pi,
-        n60,
-        f1,
-        cuDisplay,
-      };
-    });
+  const handleExportExcel = async () => {
+    try {
+      const exportRows = rows
+        .filter(
+          (row) =>
+            !profileRowSoilRestricted(soilPolicyToolSlug, importRows, row.boreholeId, row.sampleDepth, unitSystem, parse),
+        )
+        .map((row) => {
+          const sampleDepth = parse(row.sampleDepth);
+          const pi = Math.max(0, parse(row.plasticityIndex));
+          const n60 = Math.max(0, parse(row.n60));
+          const f1 = interpolateStroudF1(pi);
+          const cuMetric = f1 * n60;
+          const cuDisplay = Number(convertInputValueBetweenSystems(String(cuMetric), "kPa", "metric", unitSystem));
+          return {
+            boreholeId: row.boreholeId?.trim() || "BH not set",
+            sampleDepth,
+            pi,
+            n60,
+            f1,
+            cuDisplay,
+          };
+        });
 
-    const tableRowsHtml = exportRows
-      .map(
-        (row) => `
-          <tr>
-            <td>${escapeHtml(row.boreholeId)}</td>
-            <td>${Number.isFinite(row.sampleDepth) ? row.sampleDepth.toFixed(2) : ""}</td>
-            <td>${Number.isFinite(row.pi) ? row.pi.toFixed(2) : ""}</td>
-            <td>${Number.isFinite(row.n60) ? row.n60.toFixed(2) : ""}</td>
-            <td>${Number.isFinite(row.f1) ? row.f1.toFixed(2) : ""}</td>
-            <td>${Number.isFinite(row.cuDisplay) ? row.cuDisplay.toFixed(2) : ""}</td>
-          </tr>
-        `,
-      )
-      .join("");
+      const headerRow = [
+        "Borehole ID",
+        `Sample Depth (${depthUnit})`,
+        "PI (%)",
+        "N60",
+        "f1",
+        `c_u (${stressUnit})`,
+      ]
+        .map((label) => excelTextHeader(label))
+        .join("");
 
-    const html = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-        <head>
-          <meta charset="utf-8" />
-          <style>
-            body { font-family: Calibri, Arial, sans-serif; color: #0f172a; }
-            h1 { font-size: 24px; margin: 0 0 10px; }
-            p { margin: 4px 0 14px; color: #334155; }
-            table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 13px; text-align: left; }
-            th { background: #f1f5f9; font-weight: 700; }
-          </style>
-        </head>
-        <body>
-          <h1>Undrained Shear Strength (c_u) from SPT and PI - Profile Export</h1>
-          <p>Units: Sample Depth (${escapeHtml(depthUnit)}), c_u (${escapeHtml(stressUnit)})</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Borehole ID</th>
-                <th>Sample Depth (${escapeHtml(depthUnit)})</th>
-                <th>PI (%)</th>
-                <th>N60</th>
-                <th>f1</th>
-                <th>c_u (${escapeHtml(stressUnit)})</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRowsHtml}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `;
+      const tableRowsHtml = exportRows
+        .map((row) => {
+          const sd = Number.isFinite(row.sampleDepth) ? row.sampleDepth.toFixed(2) : "";
+          const pi = Number.isFinite(row.pi) ? row.pi.toFixed(2) : "";
+          const n60 = Number.isFinite(row.n60) ? row.n60.toFixed(2) : "";
+          const f1 = Number.isFinite(row.f1) ? row.f1.toFixed(2) : "";
+          const cu = Number.isFinite(row.cuDisplay) ? row.cuDisplay.toFixed(2) : "";
+          return `<tr>
+            ${excelTextCell(row.boreholeId)}
+            ${excelTextCell(sd)}
+            ${excelTextCell(pi)}
+            ${excelTextCell(n60)}
+            ${excelTextCell(f1)}
+            ${excelTextCell(cu)}
+          </tr>`;
+        })
+        .join("");
 
-    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8;" });
-    downloadBlob("cu-from-spt-profile-export.xls", blob);
+      const tableHtml = `<table><thead><tr>${headerRow}</tr></thead><tbody>${tableRowsHtml}</tbody></table>`;
+
+      const plotPng = buildCuPlotPngDataUri({ points: plotPoints, depthUnit, stressUnit });
+      const excelHtml = `<!doctype html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office">
+  <head>
+    <meta charset="utf-8" />
+    <title>c_u from SPT and PI — Profile Export</title>
+    <style>
+      body { font-family: Calibri, Arial, sans-serif; color: #0f172a; margin: 24px; }
+      h1 { font-size: 22px; margin: 0 0 8px; }
+      p { font-size: 12px; color: #475569; margin: 0 0 12px; }
+      ${EXCEL_TABLE_BLOCK_CSS}
+      .chart-wrap { margin-top: 16px; }
+      .chart-wrap img { width: 100%; max-width: 1200px; height: auto; display: block; border: 1px solid #cbd5e1; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>Undrained shear strength (c_u) from SPT and PI</h1>
+    <p>Units: sample depth (${depthUnit}), c_u (${stressUnit}). Rows excluded by soil rules in Projects are omitted.</p>
+    <h2>Layered profile table</h2>
+    ${tableHtml}
+    ${
+      plotPng
+        ? `<h2>Profile plot</h2><div class="chart-wrap"><img src="file:///cu-from-spt-plot.png" alt="Depth vs c_u" /></div>`
+        : ""
+    }
+  </body>
+</html>`;
+
+      const payload =
+        plotPng && plotPng.startsWith("data:image/png;base64,")
+          ? buildMhtmlMultipartDocument(excelHtml, [{ contentLocation: "file:///cu-from-spt-plot.png", base64Png: plotPng }])
+          : excelHtml;
+
+      downloadBlob("cu-from-spt-profile-export.xls", new Blob([payload], { type: "application/vnd.ms-excel;charset=utf-8" }));
+    } catch (e) {
+      console.error(e);
+      window.alert("Excel export failed. Please try again.");
+    }
   };
 
   const plotPoints: PlotPoint[] = useMemo(
     () =>
       rows
         .map((row) => {
+          if (profileRowSoilRestricted(soilPolicyToolSlug, importRows, row.boreholeId, row.sampleDepth, unitSystem, parse)) {
+            return null;
+          }
           const depthDisplay = parse(row.sampleDepth);
           const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
           if (!Number.isFinite(depthMetric) || depthMetric < 0) {
@@ -592,7 +693,50 @@ export function CuFromSptProfileTab({
           };
         })
         .filter((point): point is PlotPoint => point !== null),
-    [rows, unitSystem],
+    [rows, unitSystem, soilPolicyToolSlug, importRows],
+  );
+
+  const reportTableRows: Array<Record<string, string>> = useMemo(
+    () =>
+      rows.map((row) => {
+        const soilRestricted = profileRowSoilRestricted(
+          soilPolicyToolSlug,
+          importRows,
+          row.boreholeId,
+          row.sampleDepth,
+          unitSystem,
+          parse,
+        );
+        const borehole = row.boreholeId?.trim() || "BH not set";
+        const depthDisplay = parse(row.sampleDepth);
+        const depthStr = Number.isFinite(depthDisplay) ? depthDisplay.toFixed(2) : String(row.sampleDepth ?? "").trim() || "—";
+        const pi = Math.max(0, parse(row.plasticityIndex));
+        const depthKey = `Depth (${depthUnit})`;
+        const cuKey = `cu (${stressUnit})`;
+        if (soilRestricted) {
+          return {
+            Borehole: borehole,
+            [depthKey]: depthStr,
+            "PI (%)": pi.toFixed(2),
+            N60: "—",
+            f1: "—",
+            [cuKey]: "—",
+          };
+        }
+        const n60 = Math.max(0, parse(row.n60));
+        const f1 = interpolateStroudF1(pi);
+        const cuMetric = f1 * n60;
+        const cuDisplay = Number(convertInputValueBetweenSystems(String(cuMetric), "kPa", "metric", unitSystem));
+        return {
+          Borehole: borehole,
+          [depthKey]: depthStr,
+          "PI (%)": pi.toFixed(2),
+          N60: n60.toFixed(2),
+          f1: f1.toFixed(2),
+          [cuKey]: Number.isFinite(cuDisplay) ? cuDisplay.toFixed(2) : "—",
+        };
+      }),
+    [rows, depthUnit, stressUnit, unitSystem, soilPolicyToolSlug, importRows],
   );
 
   useEffect(() => {
@@ -604,9 +748,10 @@ export function CuFromSptProfileTab({
       depthUnit,
       stressUnit,
       points: plotPoints,
+      tableRows: reportTableRows,
       plotImageDataUrl: buildCuPlotPngDataUri({ points: plotPoints, depthUnit, stressUnit }),
     });
-  }, [depthUnit, onReportDataChange, plotPoints, stressUnit]);
+  }, [depthUnit, onReportDataChange, plotPoints, reportTableRows, stressUnit]);
 
   return (
     <section className="space-y-5">
@@ -622,8 +767,8 @@ export function CuFromSptProfileTab({
           Manual override is always allowed.
         </p>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll>
+          <table className={profileTableClass("c7")}>
             <colgroup>
               <col className="w-[14%]" />
               <col className="w-[14%]" />
@@ -635,31 +780,51 @@ export function CuFromSptProfileTab({
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Sample Depth" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="PI" unit="%" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="PI" unit="%" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>N<sub>60</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>N<sub>60</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>f<sub>1</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>f<sub>1</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>c<sub>u</sub></span>} unit={stressUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>c<sub>u</sub></span>} unit={stressUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <span className="block leading-tight">Action</span>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
+                const soilRestricted = profileRowSoilRestricted(
+                  soilPolicyToolSlug,
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const matchedSoil = matchImportSummaryForProfileRow(
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const restrictionHint = soilRestrictionUserHint(soilPolicyToolSlug, matchedSoil?.soilBehavior ?? null);
+                const shouldLockPi = shouldLockImportedFields && row.piSource === "auto-project";
+                const depthLocked = shouldLockImportedFields || soilRestricted;
+                const piLocked = shouldLockPi || soilRestricted;
+                const n60Locked = soilRestricted;
                 const pi = Math.max(0, parse(row.plasticityIndex));
                 const n60 = Math.max(0, parse(row.n60));
                 const f1 = interpolateStroudF1(pi);
@@ -667,9 +832,14 @@ export function CuFromSptProfileTab({
                 const cuDisplay = Number(convertInputValueBetweenSystems(String(cuMetric), "kPa", "metric", unitSystem));
 
                 return (
-                  <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                  <tr
+                    key={row.id}
+                    className={`border-t border-slate-200 align-top ${soilRestricted ? "bg-slate-50/90 opacity-[0.85]" : "bg-white"}`}
+                    title={soilRestricted ? "Soil type is not used with this tool (set under Projects)." : undefined}
+                  >
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -682,17 +852,9 @@ export function CuFromSptProfileTab({
                         min="0"
                         value={row.sampleDepth}
                         onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
-                    </td>
-                    <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={row.plasticityIndex}
-                        onChange={(event) => updateRow(row.id, { plasticityIndex: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={depthLocked}
+                        title={depthLocked ? (soilRestricted ? "Soil type is not used with this tool." : lockHint) : undefined}
+                        className={cnProfileTableInput(depthLocked)}
                       />
                     </td>
                     <td className="px-2 py-3">
@@ -701,32 +863,64 @@ export function CuFromSptProfileTab({
                           type="number"
                           step="0.1"
                           min="0"
-                          value={row.n60}
+                          value={row.plasticityIndex}
                           onChange={(event) =>
                             updateRow(row.id, {
-                              n60: event.target.value,
-                              n60Source: "manual",
+                              plasticityIndex: event.target.value,
+                              piSource: "manual",
                             })
                           }
-                          className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                          disabled={piLocked}
+                          title={piLocked ? (soilRestricted ? "Soil type is not used with this tool." : lockHint) : undefined}
+                          className={cnProfileTableInput(piLocked)}
                         />
-                        {row.n60Source === "auto-spt-corrections" ? (
+                        {row.piSource === "auto-project" ? (
                           <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                            Auto-filled from SPT Corrections
+                            Auto-filled from Projects and Boreholes
                           </span>
                         ) : null}
                       </div>
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={f1.toFixed(2)} />
+                      {soilRestricted ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
+                          {restrictionHint ?? "Not used with this tool (soil type in Projects)."}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={row.n60}
+                            onChange={(event) =>
+                              updateRow(row.id, {
+                                n60: event.target.value,
+                                n60Source: "manual",
+                              })
+                            }
+                            disabled={n60Locked}
+                            title={n60Locked ? "Soil type is not used with this tool." : undefined}
+                            className={cnProfileTableInput(n60Locked)}
+                          />
+                          {row.n60Source === "auto-spt-corrections" ? (
+                            <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              Auto-filled from SPT Corrections
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={cuDisplay.toFixed(2)} />
+                      <OutputCell value={soilRestricted ? "—" : f1.toFixed(2)} />
+                    </td>
+                    <td className="px-2 py-3">
+                      <OutputCell value={soilRestricted ? "—" : cuDisplay.toFixed(2)} />
                     </td>
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-1.5 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -740,20 +934,20 @@ export function CuFromSptProfileTab({
             <tfoot className="border-t border-slate-200 bg-white">
               <tr>
                 <td className="px-2 py-3 text-left align-top">
-                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={addRow}>
+                  <button type="button" className={profileTableFooterButtonClass} onClick={addRow}>
                     Add Layer
                   </button>
                 </td>
                 <td colSpan={5} />
                 <td className="px-2 py-3 text-right align-top">
-                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={handleExportExcel}>
+                  <button type="button" className={profileTableFooterButtonClass} onClick={handleExportExcel}>
                     Export Excel
                   </button>
                 </td>
               </tr>
             </tfoot>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         {plotPoints.length ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-2">

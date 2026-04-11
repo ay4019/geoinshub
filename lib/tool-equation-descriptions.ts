@@ -203,12 +203,13 @@
     "This indicator gives the severity of differential settlement by dividing the settlement difference between two points by the evaluation length.",
   ],
   "spt-corrections": [
-    "This equation converts the measured field N value to the standard N60 value using energy and equipment corrections.",
-    "This ratio normalizes hammer energy to the 60 percent reference level.",
-    "This piecewise rule assigns C_r from sample depth range according to the Youd et al. (2001) table used in the tool.",
-    "This equation estimates vertical effective stress at sample depth using bulk unit weight and groundwater depth.",
-    "This Idriss and Boulanger (2008) expression estimates the overburden correction factor from effective vertical stress and applies an upper cap of 1.7.",
-    "This result applies C_N to N60 and then limits (N1)60 so it does not exceed twice N60 in the screening workflow.",
+    "This expression converts the recorded blow count N to the energy-standardised blow count N<sub>60</sub> by multiplying the selected correction factors.",
+    "This defines the energy correction C<sub>E</sub> by comparing hammer efficiency ER to the 60% reference used for N<sub>60</sub>.",
+    "This assigns the borehole diameter factor C<sub>b</sub> from the inside diameter class (Skempton, 1986).",
+    "This assigns the rod-length factor C<sub>r</sub> from sample depth z using the Youd et al. (2001) bands implemented in the tool.",
+    "This gives vertical effective stress at the sample depth: total stress &gamma;z minus hydrostatic pore pressure below the groundwater table.",
+    "This Idriss and Boulanger (2008) form gives C<sub>N</sub> from &sigma;'<sub>v0</sub> in kPa, with 0.40 &le; C<sub>N</sub> &le; 1.70 in this tool.",
+    "This computes (N<sub>1</sub>)<sub>60</sub> as C<sub>N</sub> N<sub>60</sub> and applies the screening limit (N<sub>1</sub>)<sub>60</sub> &le; 2 N<sub>60</sub>.",
   ],
   "cpt-parameter-correlation": [
     "This relationship uses the cone resistance above total overburden stress to estimate undrained shear strength approximately.",
@@ -225,15 +226,14 @@
     "This linear profile adds a depth-dependent strength increase to the surface undrained shear strength.",
   ],
   "cu-from-pi-and-spt": [
-    "This Stroud (1974) relationship is used directly to estimate undrained shear strength from the chart-derived f1 factor and corrected SPT resistance.",
-    "This step states that f1 is obtained by linearly interpolating between interpreted Stroud PI anchor points used in the tool.",
+    "This Stroud (1974) form gives c_u in kPa as the product of the PI-based factor f_1 and the corrected blow count N_60.",
+    "This rule fixes f_1 at 6.5 for PI &le; 15 and at 4.4 for PI &gt; 40, and linearly interpolates f_1 between the listed PI anchors for 15 &lt; PI &le; 40.",
   ],
   "cu-from-pressuremeter": [
     "This Baguelin (1978) pressuremeter correlation estimates undrained shear strength from net limit pressure for preliminary cohesive-soil screening.",
   ],
   "cprime-from-cu": [
-    "This expression converts undrained shear strength to effective cohesion using the simplified c' versus cu relationship cited for overconsolidated cohesive soils.",
-    "This screening form applies the chart-aligned upper limit so the interpreted effective cohesion does not exceed 30 kPa in preliminary checks.",
+    "This expression converts undrained shear strength to effective cohesion using the simplified c′ = 0.1c_u relationship cited for overconsolidated cohesive soils.",
   ],
   "friction-angle-from-spt": [
     "This empirical relationship, commonly cited after Peck, Hanson, and Thornburn (1974), gives an approximate effective friction angle for granular soils from corrected SPT resistance.",
@@ -265,6 +265,14 @@
   ],
   "resilient-modulus-from-cbr": [
     "This correlation gives a first-pass estimate of resilient modulus from CBR.",
+  ],
+  "integrated-settlement-analysis": [
+    "Net uniform pressure on the foundation plan after subtracting the vertical stress of soil removed by excavation (layer unit weights times excavated thickness in each layer).",
+    "Vertical effective stress at the evaluation depth z (layer mid-depth) using total vertical stress from bulk unit weight minus pore pressure below the groundwater table.",
+    "Additional vertical stress under the loaded rectangle; I_z is the Boussinesq-based influence factor from numerical integration over B×L at depth z.",
+    "Immediate (elastic) settlement of the layer from vertical strain using one-dimensional modulus E_s and Poisson ratio nu.",
+    "Primary consolidation settlement in clay when compressibility is entered as m_v (consistent stress units with the tool).",
+    "Primary consolidation settlement in clay from normally consolidated one-dimensional compression using C_c and e_0 with base-10 logarithm.",
   ],
 };
 

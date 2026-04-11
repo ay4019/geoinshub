@@ -4,31 +4,39 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import {
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  cnProfileTableInput,
+  profileTableClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
+import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface GmaxProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  /** Passed from tools; Gmax has no soil-based row lock (all samples used). */
+  soilPolicyToolSlug?: string;
 }
-
-type DensityInputMode = "unit-weight" | "mass-density";
 
 interface GmaxProfileRow {
   id: number;
-  topDepth: string;
   boreholeId: string;
-  bottomDepth: string;
+  sampleDepth: string;
   vs: string;
   unitWeight: string;
-  density: string;
 }
 
 interface ProfilePoint {
   boreholeId: string;
-  topDepth: number;
-  bottomDepth: number;
+  sampleDepth: number;
   vs: number;
   gmax: number;
 }
@@ -39,21 +47,17 @@ const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309",
 const initialRows: GmaxProfileRow[] = [
   {
     id: 1,
-    topDepth: "0",
     boreholeId: "",
-    bottomDepth: "2",
+    sampleDepth: "1",
     vs: "160",
     unitWeight: "17.5",
-    density: "1784",
   },
   {
     id: 2,
-    topDepth: "2",
     boreholeId: "",
-    bottomDepth: "6",
+    sampleDepth: "4",
     vs: "240",
     unitWeight: "19.0",
-    density: "1937",
   },
 ];
 
@@ -62,21 +66,8 @@ function parse(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="inline-flex flex-wrap items-baseline gap-1 leading-tight">
-      <span>{title}</span>
-      {unit ? <span className="text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function format(value: number, digits: number): string {
@@ -159,7 +150,7 @@ function buildChartSvgMarkup({
   const margin = { top: 54, right: 20, bottom: 24, left: 72 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.bottomDepth), 1);
+  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
   const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
   const xStep = getNiceTickStep(maxDataValue / 5);
   const xIntervals = Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
@@ -174,13 +165,11 @@ function buildChartSvgMarkup({
   const lineSeries = boreholeIds.map((boreholeId, boreholeIndex) => {
     const boreholeRows = rows
       .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.topDepth - b.topDepth);
+      .sort((a, b) => a.sampleDepth - b.sampleDepth);
     const colour = BOREHOLE_COLOURS[boreholeIndex % BOREHOLE_COLOURS.length];
     const points = boreholeRows.map((row) => ({
-      topY: yScale(row.topDepth),
-      bottomY: yScale(row.bottomDepth),
       x: xScale(row[valueKey]),
-      y: yScale((row.topDepth + row.bottomDepth) / 2),
+      y: yScale(row.sampleDepth),
     }));
 
     return { boreholeId, colour, points };
@@ -210,13 +199,6 @@ function buildChartSvgMarkup({
 
   const seriesMarkup = lineSeries
     .map((series) => {
-      const intervalLines = series.points
-        .map(
-          (point) =>
-            `<line x1="${point.x}" y1="${point.topY}" x2="${point.x}" y2="${point.bottomY}" stroke="${hexToRgba(series.colour, 0.22)}" stroke-width="4" stroke-linecap="round" />`,
-        )
-        .join("");
-
       const line =
         series.points.length > 1
           ? `<polyline fill="none" stroke="${series.colour}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${series.points.map((point) => `${point.x},${point.y}`).join(" ")}" />`
@@ -231,7 +213,7 @@ function buildChartSvgMarkup({
         )
         .join("");
 
-      return intervalLines + line + markers;
+      return line + markers;
     })
     .join("");
 
@@ -286,7 +268,7 @@ function buildChartPngDataUri({
   const margin = { top: 108, right: 56, bottom: 120, left: 130 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.bottomDepth), 1);
+  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
   const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
   const xStep = getNiceTickStep(maxDataValue / 5);
   const xIntervals = Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
@@ -300,26 +282,21 @@ function buildChartPngDataUri({
   const lineSeries = boreholeIds.map((boreholeId, boreholeIndex) => {
     const boreholeRows = rows
       .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.topDepth - b.topDepth);
+      .sort((a, b) => a.sampleDepth - b.sampleDepth);
     const colour = BOREHOLE_COLOURS[boreholeIndex % BOREHOLE_COLOURS.length];
     const points = boreholeRows.map((row) => ({
-      topY: yScale(row.topDepth),
-      bottomY: yScale(row.bottomDepth),
       x: xScale(row[valueKey]),
-      y: yScale((row.topDepth + row.bottomDepth) / 2),
+      y: yScale(row.sampleDepth),
     }));
 
     return { boreholeId, colour, points };
   });
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-
-  if (!context) {
+  const hi = getHiDpiCanvas2D(width, height);
+  if (!hi) {
     return "";
   }
+  const { canvas, context } = hi;
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
@@ -372,16 +349,6 @@ function buildChartPngDataUri({
   context.stroke();
 
   lineSeries.forEach((series) => {
-    series.points.forEach((point) => {
-      context.beginPath();
-      context.strokeStyle = hexToRgba(series.colour, 0.22);
-      context.lineWidth = 7;
-      context.lineCap = "round";
-      context.moveTo(point.x, point.topY);
-      context.lineTo(point.x, point.bottomY);
-      context.stroke();
-    });
-
     if (series.points.length > 1) {
       context.beginPath();
       context.strokeStyle = series.colour;
@@ -486,7 +453,7 @@ function ProfileChart({
   const margin = { top: 54, right: 20, bottom: 24, left: 72 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.bottomDepth), 1);
+  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
   const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
   const xStep = getNiceTickStep(maxDataValue / 5);
   const xIntervals = Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
@@ -501,13 +468,11 @@ function ProfileChart({
   const lineSeries = boreholeIds.map((boreholeId, boreholeIndex) => {
     const boreholeRows = rows
       .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.topDepth - b.topDepth);
+      .sort((a, b) => a.sampleDepth - b.sampleDepth);
     const colour = BOREHOLE_COLOURS[boreholeIndex % BOREHOLE_COLOURS.length];
     const points = boreholeRows.map((row) => ({
-      topY: yScale(row.topDepth),
-      bottomY: yScale(row.bottomDepth),
       x: xScale(row[valueKey]),
-      y: yScale((row.topDepth + row.bottomDepth) / 2),
+      y: yScale(row.sampleDepth),
     }));
 
     return { boreholeId, colour, points };
@@ -596,21 +561,6 @@ function ProfileChart({
         />
 
         <g clipPath={`url(#${keyPrefix}-clip)`}>
-          {lineSeries.flatMap((series) =>
-            series.points.map((point, index) => (
-              <line
-                key={`${keyPrefix}-${series.boreholeId}-interval-${index}`}
-                x1={point.x}
-                y1={point.topY}
-                x2={point.x}
-                y2={point.bottomY}
-                stroke={hexToRgba(series.colour, 0.22)}
-                strokeWidth="4"
-                strokeLinecap="round"
-              />
-            )),
-          )}
-
           {lineSeries.map((series) =>
             series.points.length > 1 ? (
               <polyline
@@ -676,14 +626,13 @@ function ProfileChart({
 }
 
 export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) {
-  const [densityInputMode, setDensityInputMode] = useState<DensityInputMode>("unit-weight");
   const [rows, setRows] = useState<GmaxProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
   const exportTableRef = useRef<HTMLDivElement | null>(null);
+  const importedFromBoreholes = Boolean(importRows && importRows.length > 0);
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const velocityUnit = getDisplayUnit("m/s", unitSystem) ?? "m/s";
   const unitWeightUnit = getDisplayUnit("kN/m3", unitSystem) ?? "kN/m3";
-  const densityUnit = getDisplayUnit("kg/m3", unitSystem) ?? "kg/m3";
   const gmaxUnit = getDisplayUnit("MPa", unitSystem) ?? "MPa";
 
   useEffect(() => {
@@ -694,11 +643,9 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
     setRows((current) =>
       current.map((row) => ({
         ...row,
-        topDepth: convertInputValueBetweenSystems(row.topDepth, "m", previousUnitSystem.current, unitSystem),
-        bottomDepth: convertInputValueBetweenSystems(row.bottomDepth, "m", previousUnitSystem.current, unitSystem),
+        sampleDepth: convertInputValueBetweenSystems(row.sampleDepth, "m", previousUnitSystem.current, unitSystem),
         vs: convertInputValueBetweenSystems(row.vs, "m/s", previousUnitSystem.current, unitSystem),
         unitWeight: convertInputValueBetweenSystems(row.unitWeight, "kN/m3", previousUnitSystem.current, unitSystem),
-        density: convertInputValueBetweenSystems(row.density, "kg/m3", previousUnitSystem.current, unitSystem),
       })),
     );
 
@@ -715,10 +662,14 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
         ...template,
         id: index + 1,
         boreholeId: item.boreholeLabel || template.boreholeId,
-        topDepth:
+        sampleDepth:
           item.sampleTopDepth === null
-            ? template.topDepth
+            ? template.sampleDepth
             : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+        unitWeight:
+          item.unitWeight === null || item.unitWeight === undefined
+            ? template.unitWeight
+            : convertInputValueBetweenSystems(String(item.unitWeight), "kN/m3", "metric", unitSystem),
       }));
     });
   }, [importRows, unitSystem]);
@@ -729,18 +680,16 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
 
   const addRow = () => {
     setRows((current) => {
-      const lastBottom = current[current.length - 1]?.bottomDepth ?? "0";
+      const lastDepth = current[current.length - 1]?.sampleDepth ?? "0";
       const nextId = Math.max(...current.map((row) => row.id), 0) + 1;
       return [
         ...current,
-          {
-            id: nextId,
-            topDepth: lastBottom,
-            boreholeId: "",
-            bottomDepth: String(parse(lastBottom) + 2),
-            vs: "220",
-            unitWeight: "18.5",
-          density: "1886",
+        {
+          id: nextId,
+          boreholeId: "",
+          sampleDepth: String(parse(lastDepth) + 2),
+          vs: "220",
+          unitWeight: "18.5",
         },
       ];
     });
@@ -750,26 +699,17 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
     setRows((current) => (current.length > 1 ? current.filter((row) => row.id !== id) : current));
   };
   const exportRows = rows.map((row) => {
-    const topDepth = parse(row.topDepth);
-    const bottomDepth = parse(row.bottomDepth);
+    const sampleDepth = parse(row.sampleDepth);
     const vsMetric = parse(convertInputValueBetweenSystems(row.vs, "m/s", unitSystem, "metric"));
-    const densityMetric =
-      densityInputMode === "mass-density"
-        ? parse(convertInputValueBetweenSystems(row.density, "kg/m3", unitSystem, "metric"))
-        : (parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric")) * 1000) / GRAVITY;
-    const unitWeightMetric =
-      densityInputMode === "mass-density"
-        ? (densityMetric * GRAVITY) / 1000
-        : parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric"));
+    const unitWeightMetric = parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric"));
+    const densityMetric = (unitWeightMetric * 1000) / GRAVITY;
     const gmaxMetric = densityMetric > 0 && vsMetric > 0 ? (densityMetric * vsMetric ** 2) / 1_000_000 : 0;
 
     return {
       boreholeId: row.boreholeId || "BH not set",
-      topDepth: format(topDepth, 1),
-      bottomDepth: format(bottomDepth, 1),
+      sampleDepth: format(sampleDepth, 1),
       vs: format(Number(convertInputValueBetweenSystems(String(vsMetric), "m/s", "metric", unitSystem)), 0),
       unitWeight: format(Number(convertInputValueBetweenSystems(String(unitWeightMetric), "kN/m3", "metric", unitSystem)), 3),
-      density: format(Number(convertInputValueBetweenSystems(String(densityMetric), "kg/m3", "metric", unitSystem)), 1),
       gmax: format(Number(convertInputValueBetweenSystems(String(gmaxMetric), "MPa", "metric", unitSystem)), 3),
     };
   });
@@ -777,27 +717,23 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
   const buildExportTableHtml = () => {
     const headerCells = [
       `Borehole ID`,
-      `Top (${depthUnit})`,
-      `Bottom (${depthUnit})`,
-      `Vs (${velocityUnit})`,
+      `Sample depth (${depthUnit})`,
       `Unit weight (${unitWeightUnit})`,
-      `Mass density (${densityUnit})`,
+      `Vs (${velocityUnit})`,
       `Gmax (${gmaxUnit})`,
     ]
-      .map((label) => `<th>${escapeHtml(label)}</th>`)
+      .map((label) => excelTextHeader(label))
       .join("");
 
     const bodyRows = exportRows
       .map(
         (row) => `
           <tr>
-            <td>${escapeHtml(row.boreholeId)}</td>
-            <td>${escapeHtml(row.topDepth)}</td>
-            <td>${escapeHtml(row.bottomDepth)}</td>
-            <td>${escapeHtml(row.vs)}</td>
-            <td>${escapeHtml(row.unitWeight)}</td>
-            <td>${escapeHtml(row.density)}</td>
-            <td>${escapeHtml(row.gmax)}</td>
+            ${excelTextCell(row.boreholeId)}
+            ${excelTextCell(row.sampleDepth)}
+            ${excelTextCell(row.unitWeight)}
+            ${excelTextCell(row.vs)}
+            ${excelTextCell(row.gmax)}
           </tr>
         `,
       )
@@ -845,8 +781,6 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
     return svgToDataUri(svgOnly);
   };
 
-  const wrapBase64 = (base64: string) => base64.replace(/(.{76})/g, "$1\r\n");
-
   const buildExcelMhtmlDocument = async () => {
     const tableHtml = buildExportTableHtml();
     const [vsChartImgSrc, gmaxChartImgSrc] = await Promise.all([
@@ -864,9 +798,8 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
       }),
     ]);
 
-    const boundary = "----=_NextPart_GmaxExport";
     const excelHtml = `<!doctype html>
-<html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office">
   <head>
     <meta charset="utf-8" />
     <title>Gmax from Vs Profile Export</title>
@@ -875,18 +808,14 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
       h1 { font-size: 22px; margin: 0 0 8px; }
       h2 { font-size: 16px; margin: 24px 0 10px; }
       p { font-size: 12px; color: #475569; margin: 0 0 12px; }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; vertical-align: top; }
-      th { background: #f1f5f9; }
+      ${EXCEL_TABLE_BLOCK_CSS}
       .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
-      .chart-grid img { width: 100%; height: auto; display: block; }
+      .chart-grid img { width: 100%; max-width: 1200px; height: auto; display: block; border: 1px solid #cbd5e1; border-radius: 6px; }
     </style>
   </head>
   <body>
     <h1>Gmax from Vs Soil Profile Export</h1>
-    <p>Density input mode: ${
-      densityInputMode === "unit-weight" ? "Use unit weight (kN/m3)" : "Use mass density (kg/m3)"
-    }</p>
+    <p>Gmax uses mass density derived from unit weight (ρ = γ / g).</p>
     <h2>Layered profile table</h2>
     ${tableHtml}
     <h2>Profile plots</h2>
@@ -897,44 +826,14 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
   </body>
 </html>`;
 
-    const vsBase64 = vsChartImgSrc.startsWith("data:image/png;base64,")
-      ? vsChartImgSrc.replace("data:image/png;base64,", "")
-      : "";
-    const gmaxBase64 = gmaxChartImgSrc.startsWith("data:image/png;base64,")
-      ? gmaxChartImgSrc.replace("data:image/png;base64,", "")
-      : "";
-
-    if (!vsBase64 || !gmaxBase64) {
+    if (!vsChartImgSrc.startsWith("data:image/png;base64,") || !gmaxChartImgSrc.startsWith("data:image/png;base64,")) {
       return excelHtml;
     }
 
-    return [
-      "MIME-Version: 1.0",
-      `Content-Type: multipart/related; boundary="${boundary}"; type="text/html"`,
-      "",
-      `--${boundary}`,
-      "Content-Type: text/html; charset=\"utf-8\"",
-      "Content-Transfer-Encoding: 8bit",
-      "Content-Location: file:///report.htm",
-      "",
-      excelHtml,
-      "",
-      `--${boundary}`,
-      "Content-Location: file:///gmax-vs.png",
-      "Content-Type: image/png",
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(vsBase64),
-      "",
-      `--${boundary}`,
-      "Content-Location: file:///gmax-gmax.png",
-      "Content-Type: image/png",
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(gmaxBase64),
-      "",
-      `--${boundary}--`,
-    ].join("\r\n");
+    return buildMhtmlMultipartDocument(excelHtml, [
+      { contentLocation: "file:///gmax-vs.png", base64Png: vsChartImgSrc },
+      { contentLocation: "file:///gmax-gmax.png", base64Png: gmaxChartImgSrc },
+    ]);
   };
 
   const handleExportExcel = async () => {
@@ -952,25 +851,21 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
 
   const plotRows: ProfilePoint[] = rows
     .map((row) => {
-      const topDepth = parse(convertInputValueBetweenSystems(row.topDepth, "m", unitSystem, "metric"));
-      const bottomDepth = parse(convertInputValueBetweenSystems(row.bottomDepth, "m", unitSystem, "metric"));
+      const sampleDepthMetric = parse(convertInputValueBetweenSystems(row.sampleDepth, "m", unitSystem, "metric"));
       const vsMetric = parse(convertInputValueBetweenSystems(row.vs, "m/s", unitSystem, "metric"));
-      const densityMetric =
-        densityInputMode === "mass-density"
-          ? parse(convertInputValueBetweenSystems(row.density, "kg/m3", unitSystem, "metric"))
-          : (parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric")) * 1000) / GRAVITY;
+      const unitWeightMetric = parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric"));
+      const densityMetric = (unitWeightMetric * 1000) / GRAVITY;
       const gmaxMetric = densityMetric > 0 && vsMetric > 0 ? (densityMetric * vsMetric ** 2) / 1_000_000 : 0;
 
       return {
         boreholeId: row.boreholeId || "BH not set",
-        topDepth,
-        bottomDepth,
+        sampleDepth: sampleDepthMetric,
         vs: Number(convertInputValueBetweenSystems(String(vsMetric), "m/s", "metric", unitSystem)),
         gmax: Number(convertInputValueBetweenSystems(String(gmaxMetric), "MPa", "metric", unitSystem)),
       };
     })
-    .filter((row) => row.bottomDepth > row.topDepth)
-    .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId) || a.topDepth - b.topDepth);
+    .filter((row) => Number.isFinite(row.sampleDepth) && row.sampleDepth >= 0)
+    .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId) || a.sampleDepth - b.sampleDepth);
 
   return (
     <section className="space-y-5">
@@ -979,104 +874,66 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Build a layered small-strain stiffness profile by entering shear wave velocity with either unit weight or
-              mass density for each layer.
+              Build a small-strain stiffness profile by borehole and sample depth: enter unit weight and V<sub>s</sub> at
+              each depth. Mass density is derived automatically from unit weight (ρ = γ / g).
             </p>
-          </div>
-          <div className="w-full max-w-[250px]">
-            <label htmlFor="gmax-density-mode" className="mb-1 block text-sm font-medium text-slate-700">
-              Density input mode
-            </label>
-            <select
-              id="gmax-density-mode"
-              value={densityInputMode}
-              onChange={(event) => setDensityInputMode(event.target.value as DensityInputMode)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-            >
-              <option value="unit-weight">Use unit weight (kN/m3)</option>
-              <option value="mass-density">Use mass density (kg/m3)</option>
-            </select>
+            {importedFromBoreholes ? (
+              <p className="mt-2 text-xs font-medium text-slate-500">
+                Sample depth and unit weight are imported from the selected boreholes (Use in Tools) and are locked.
+              </p>
+            ) : null}
           </div>
         </div>
 
-        <div ref={exportTableRef} className="mt-4 rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll scrollContainerRef={exportTableRef}>
+          <table className={profileTableClass("c6")}>
             <colgroup>
-              <col className="w-[10%]" />
-              <col className="w-[13%]" />
-              <col className="w-[10%]" />
-              <col className="w-[13%]" />
-              <col className="w-[15%]" />
+              <col className="w-[11%]" />
+              <col className="w-[14%]" />
+              <col className="w-[16%]" />
+              <col className="w-[14%]" />
               <col className="w-[15%]" />
               <col className="w-[14%]" />
-              <col className="w-[10%]" />
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Top" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Bottom" unit={depthUnit} />
-                </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>V<sub>s</sub></span>} unit={velocityUnit} />
-                </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell
-                    title={
-                      <span className="whitespace-nowrap">
-                        Unit weight ({unitWeightUnit})
-                      </span>
-                    }
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell
+                    title={<span className="whitespace-nowrap">Unit weight ({unitWeightUnit})</span>}
                   />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>Mass density</span>} unit={densityUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>V<sub>s</sub></span>} unit={velocityUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>G<sub>max</sub></span>} unit="MPa" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>G<sub>max</sub></span>} unit="MPa" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <span className="block leading-tight">Action</span>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
-                const topDepth = parse(row.topDepth);
-                const bottomDepth = parse(row.bottomDepth);
-                const hasDepthIssue = bottomDepth <= topDepth;
+                const sampleDepth = parse(row.sampleDepth);
+                const hasDepthIssue = !Number.isFinite(sampleDepth) || sampleDepth < 0;
                 const vsMetric = parse(convertInputValueBetweenSystems(row.vs, "m/s", unitSystem, "metric"));
-                const densityMetric =
-                  densityInputMode === "mass-density"
-                    ? parse(convertInputValueBetweenSystems(row.density, "kg/m3", unitSystem, "metric"))
-                    : (parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric")) * 1000) / GRAVITY;
-                const unitWeightMetric =
-                  densityInputMode === "mass-density"
-                    ? (densityMetric * GRAVITY) / 1000
-                    : parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric"));
-                const displayDensity = convertInputValueBetweenSystems(
-                  String(densityMetric),
-                  "kg/m3",
-                  "metric",
-                  unitSystem,
-                );
-                const displayUnitWeight = convertInputValueBetweenSystems(
-                  String(unitWeightMetric),
-                  "kN/m3",
-                  "metric",
-                  unitSystem,
-                );
+                const unitWeightMetric = parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric"));
+                const densityMetric = (unitWeightMetric * 1000) / GRAVITY;
+                const displayUnitWeight = convertInputValueBetweenSystems(String(unitWeightMetric), "kN/m3", "metric", unitSystem);
                 const gmaxMpa = densityMetric > 0 && vsMetric > 0 ? (densityMetric * vsMetric ** 2) / 1_000_000 : 0;
 
                 return (
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -1087,23 +944,29 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
                         type="number"
                         step="0.1"
                         min="0"
-                        value={row.topDepth}
-                        onChange={(event) => updateRow(row.id, { topDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        value={row.sampleDepth}
+                        onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
+                        disabled={importedFromBoreholes}
+                        className={
+                          importedFromBoreholes
+                            ? cnProfileTableInput(true)
+                            : hasDepthIssue
+                              ? "w-full min-w-0 rounded-lg border border-red-300 bg-red-50 px-1.5 py-1 text-xs text-slate-900 outline-none transition-colors duration-200 focus:border-red-400 sm:px-2 sm:py-1.5 sm:text-[13px]"
+                              : cnProfileTableInput(false)
+                        }
                       />
+                      {hasDepthIssue ? <p className="mt-1 text-xs text-red-700">Enter a valid sample depth.</p> : null}
                     </td>
                     <td className="px-2 py-3">
                       <input
                         type="number"
                         step="0.1"
-                        min="0"
-                        value={row.bottomDepth}
-                        onChange={(event) => updateRow(row.id, { bottomDepth: event.target.value })}
-                        className={`w-full rounded-lg border px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 ${
-                          hasDepthIssue ? "border-red-300 bg-red-50 focus:border-red-400" : "border-slate-300 focus:border-slate-500"
-                        }`}
+                        min="0.1"
+                        value={row.unitWeight}
+                        onChange={(event) => updateRow(row.id, { unitWeight: event.target.value })}
+                        disabled={importedFromBoreholes}
+                        className={cnProfileTableInput(importedFromBoreholes)}
                       />
-                      {hasDepthIssue ? <p className="mt-1 text-xs text-red-700">Bottom must exceed top.</p> : null}
                     </td>
                     <td className="px-2 py-3">
                       <input
@@ -1112,36 +975,8 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
                         min="1"
                         value={row.vs}
                         onChange={(event) => updateRow(row.id, { vs: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        className={cnProfileTableInput(false)}
                       />
-                    </td>
-                    <td className="px-2 py-3">
-                      {densityInputMode === "unit-weight" ? (
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0.1"
-                          value={row.unitWeight}
-                          onChange={(event) => updateRow(row.id, { unitWeight: event.target.value })}
-                          className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                        />
-                      ) : (
-                        <OutputCell value={format(Number(displayUnitWeight), 3)} />
-                      )}
-                    </td>
-                    <td className="px-2 py-3">
-                      {densityInputMode === "mass-density" ? (
-                        <input
-                          type="number"
-                          step="1"
-                          min="1"
-                          value={row.density}
-                          onChange={(event) => updateRow(row.id, { density: event.target.value })}
-                          className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                        />
-                      ) : (
-                        <OutputCell value={format(Number(displayDensity), 1)} />
-                      )}
                     </td>
                     <td className="px-2 py-3">
                       <OutputCell value={format(gmaxMpa, 3)} />
@@ -1149,7 +984,7 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-2 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -1161,7 +996,7 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
               })}
             </tbody>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <button type="button" className="btn-base btn-md" onClick={addRow}>

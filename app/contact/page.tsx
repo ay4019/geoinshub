@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 
+import { getMetricsAction } from "@/app/actions/analytics";
 import { ContactForm } from "@/components/contact-form";
+import { CounterGrid } from "@/components/counter-grid";
 
 export const metadata: Metadata = {
   title: "Contact",
   description: "Contact Geotechnical Insights Hub.",
 };
+
+export const dynamic = "force-dynamic";
 
 function EducationIcon() {
   return (
@@ -118,7 +122,9 @@ function PersonalInformationCard() {
   );
 }
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const counters = await getMetricsAction();
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-10 px-4 py-10 sm:px-6 sm:py-12">
       <header className="space-y-3">
@@ -127,6 +133,8 @@ export default function ContactPage() {
           Reach out with collaboration ideas, educational feedback, or suggested improvements for future tool releases.
         </p>
       </header>
+
+      <CounterGrid counters={counters} />
 
       <section className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
         <ContactForm />

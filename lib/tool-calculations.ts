@@ -118,6 +118,11 @@ function interpolateStroudF1(pi: number): { f1: number; band: string; anchorText
   return { f1: 4.4, band: "PI > 40", anchorText: "Anchored at PI >= 40 -> f1 = 4.4" };
 }
 
+/** Stroud (1974) f₁ from PI for profile tools using cᵤ = f₁ × N₆₀ (same as cu-from-pi-and-spt). */
+export function stroudF1FromPi(pi: number): number {
+  return interpolateStroudF1(Math.max(0, pi)).f1;
+}
+
 function computeCrFromSampleDepth(sampleDepth: number): number {
   if (sampleDepth < 3) {
     return 0.75;
@@ -266,6 +271,7 @@ function bearingCapacityCore(
   method: "terzaghi" | "meyerhof" | "hansen" | "vesic",
   values: FormValues,
 ): CalculationResult {
+  const GAMMA_W = 9.81; // kN/m3
   const c = parseNumber(values.cohesion, "Effective cohesion");
   const phiDeg = parseNumber(values.frictionAngle, "Effective friction angle");
   const gamma = ensurePositive(parseNumber(values.unitWeight, "Effective unit weight"), "Effective unit weight");
@@ -273,6 +279,7 @@ function bearingCapacityCore(
   const l = ensurePositive(parseNumber(values.length, "Foundation length"), "Foundation length");
   const df = parseNumber(values.embedment, "Embedment depth");
   const fs = ensurePositive(parseNumber(values.factorOfSafety, "Factor of safety"), "Factor of safety");
+  const gwt = Math.max(0, parseNumber(values.groundwaterDepth ?? "9999", "Groundwater table depth"));
 
   if (phiDeg < 0 || phiDeg > 50) {
     throw new Error("Friction angle should be between 0 and 50 degrees for this simplified method.");
@@ -303,11 +310,29 @@ function bearingCapacityCore(
   const dc = method === "terzaghi" ? 1 : 1 + 0.2 * Math.min(df / b, 5);
   const dq = method === "terzaghi" ? 1 : 1 + 0.1 * Math.min(df / b, 5);
   const dgamma = 1;
-  const surcharge = gamma * df;
+
+  const gammaSub = Math.max(gamma - GAMMA_W, 0.1);
+  const effectiveStressAtDepth = (z: number): number => Math.max(gamma * z - GAMMA_W * Math.max(z - gwt, 0), 0);
+  const surcharge = effectiveStressAtDepth(df);
+
+  const averageEffectiveUnitWeight = (zTop: number, zBottom: number): number => {
+    const top = Math.max(0, Math.min(zTop, zBottom));
+    const bottom = Math.max(top, zBottom);
+    if (bottom <= top) {
+      return gamma;
+    }
+    const len = bottom - top;
+    const unsatLen = Math.max(0, Math.min(bottom, gwt) - top);
+    const satLen = len - unsatLen;
+    return (gamma * unsatLen + gammaSub * satLen) / len;
+  };
+
+  // Common approximation: use an average effective unit weight over ~B below the base for the N_gamma term.
+  const gammaForNgamma = averageEffectiveUnitWeight(df, df + b);
   const qult =
     c * nc * sc * dc +
     surcharge * nq * sq * dq +
-    0.5 * gamma * b * ngamma * sgamma * dgamma;
+    0.5 * gammaForNgamma * b * ngamma * sgamma * dgamma;
   const qall = qult / fs;
 
   return {
@@ -320,18 +345,22 @@ function bearingCapacityCore(
       { label: "N_c", value: round(nc, 3) },
       { label: "N_q", value: round(nq, 3) },
       { label: "N_gamma", value: round(ngamma, 3) },
+      { label: "q (effective surcharge @ Df)", value: round(surcharge, 2), unit: "kPa" },
+      { label: "gamma' used (avg over Df→Df+B)", value: round(gammaForNgamma, 3), unit: "kN/m3" },
       { label: "q_ult", value: round(qult, 2), unit: "kPa" },
       { label: "q_all", value: round(qall, 2), unit: "kPa" },
     ],
     notes: [
       `Shape factors were simplified with B/L = ${round(ratio, 2)}.`,
-      "Groundwater, inclination, base inclination, and eccentricity are not included in this check.",
+      `GWT correction uses gamma' = gamma - ${GAMMA_W} below the water table (simplified).`,
+      "Inclination, base inclination, and eccentricity are not included in this check.",
     ],
     warnings: baseWarnings(),
   };
 }
 
 function ec7BearingCapacity(values: FormValues): CalculationResult {
+  const GAMMA_W = 9.81; // kN/m3
   const designApproach = values.designApproach || "da1-combination-1";
   const c = parseNumber(values.cohesion, "Effective cohesion");
   const phiDeg = parseNumber(values.frictionAngle, "Effective friction angle");
@@ -339,6 +368,7 @@ function ec7BearingCapacity(values: FormValues): CalculationResult {
   const b = ensurePositive(parseNumber(values.width, "Foundation width"), "Foundation width");
   const l = ensurePositive(parseNumber(values.length, "Foundation length"), "Foundation length");
   const df = parseNumber(values.embedment, "Embedment depth");
+  const gwt = Math.max(0, parseNumber(values.groundwaterDepth ?? "9999", "Groundwater table depth"));
 
   const factorSets: Record<
     string,
@@ -368,11 +398,26 @@ function ec7BearingCapacity(values: FormValues): CalculationResult {
   const sgamma = Math.max(0.6, 1 - 0.4 * ratio);
   const dc = 1 + 0.2 * Math.min(df / b, 5);
   const dq = 1 + 0.1 * Math.min(df / b, 5);
-  const surcharge = gamma * df;
+
+  const gammaSub = Math.max(gamma - GAMMA_W, 0.1);
+  const effectiveStressAtDepth = (z: number): number => Math.max(gamma * z - GAMMA_W * Math.max(z - gwt, 0), 0);
+  const surcharge = effectiveStressAtDepth(df);
+  const averageEffectiveUnitWeight = (zTop: number, zBottom: number): number => {
+    const top = Math.max(0, Math.min(zTop, zBottom));
+    const bottom = Math.max(top, zBottom);
+    if (bottom <= top) {
+      return gamma;
+    }
+    const len = bottom - top;
+    const unsatLen = Math.max(0, Math.min(bottom, gwt) - top);
+    const satLen = len - unsatLen;
+    return (gamma * unsatLen + gammaSub * satLen) / len;
+  };
+  const gammaForNgamma = averageEffectiveUnitWeight(df, df + b);
   const qultDesign =
     cDesign * nc * sc * dc +
     surcharge * nq * sq * dq +
-    0.5 * gamma * b * ngamma * sgamma;
+    0.5 * gammaForNgamma * b * ngamma * sgamma;
   const qrd = qultDesign / factors.gammaR;
 
   return {
@@ -384,6 +429,8 @@ function ec7BearingCapacity(values: FormValues): CalculationResult {
       { label: "N_q", value: round(nq, 3) },
       { label: "N_c", value: round(nc, 3) },
       { label: "N_gamma", value: round(ngamma, 3) },
+      { label: "q (effective surcharge @ Df)", value: round(surcharge, 2), unit: "kPa" },
+      { label: "gamma' used (avg over Df→Df+B)", value: round(gammaForNgamma, 3), unit: "kN/m3" },
       { label: "q_ult,d", value: round(qultDesign, 2), unit: "kPa" },
       { label: "q_Rd", value: round(qrd, 2), unit: "kPa" },
       { label: "gamma_R,v", value: round(factors.gammaR, 2) },
@@ -656,6 +703,57 @@ const calculators: Record<string, Calculator> = {
       notes: [
         "Eccentricities are derived internally from the input axial load and moments.",
         "This effective-area concept should be paired with a separate bearing or settlement check.",
+      ],
+      warnings: baseWarnings(),
+    };
+  },
+  "integrated-settlement-analysis": (values) => {
+    const loadCase = values.loadCase === "structure" ? "structure" : "embankment";
+    const q0 = ensurePositive(parseNumber(values.surfaceLoad, "Surface load"), "Surface load");
+    const excavationDepth =
+      loadCase === "structure"
+        ? Math.max(0, parseNumber(values.excavationDepth ?? "0", "Excavation depth"))
+        : 0;
+    const gammaExc = 18;
+    const qApplied = loadCase === "structure" ? Math.max(q0 - gammaExc * excavationDepth, 0) : q0;
+    const zRef = 3;
+
+    let influence = 0;
+    if (loadCase === "embankment") {
+      const a = ensurePositive(parseNumber(values.a, "Embankment parameter a"), "Embankment parameter a");
+      const b = ensurePositive(parseNumber(values.b, "Embankment parameter b"), "Embankment parameter b");
+      const az = Math.max(a / zRef, 0);
+      const bz = Math.max(b / zRef, 0);
+      // Osterberg-inspired screening interpolation (v1).
+      const azTerm = 1 - Math.exp(-0.55 * az);
+      const bzTerm = 1 - Math.exp(-0.35 * Math.pow(bz, 0.85));
+      influence = Math.max(0, Math.min(0.5, 0.5 * azTerm * (0.45 + 0.55 * bzTerm)));
+    } else {
+      const width = ensurePositive(parseNumber(values.width, "Structure width B"), "Structure width B");
+      const length = ensurePositive(parseNumber(values.length, "Structure length L"), "Structure length L");
+      influence = (width * length) / ((width + zRef) * (length + zRef));
+    }
+
+    const deltaSigma = qApplied * influence;
+
+    return {
+      title: "Integrated Settlement Screening",
+      summary:
+        "Use the Soil Profile tab for full layered immediate + consolidation settlement totals with clay/sand assignment and mv or Cc/Cr alternatives.",
+      items: [
+        { label: "Selected load case", value: loadCase === "embankment" ? "Embankment" : "Structure" },
+        ...(loadCase === "structure"
+          ? [
+              { label: "Excavation depth, D_exc", value: round(excavationDepth, 3), unit: "m" },
+              { label: "Net surface load, q_net", value: round(qApplied, 2), unit: "kPa" },
+            ]
+          : []),
+        { label: "Reference influence factor, I", value: round(influence, 4) },
+        { label: "Reference stress increase, Δσ", value: round(deltaSigma, 2), unit: "kPa" },
+      ],
+      notes: [
+        "This Calculation tab gives a compact stress-screening preview only.",
+        "The full settlement workflow is implemented in the Soil Profile tab.",
       ],
       warnings: baseWarnings(),
     };
@@ -1397,18 +1495,16 @@ const calculators: Record<string, Calculator> = {
       parseNumber(values.cu, "Undrained shear strength"),
       "Undrained shear strength",
     );
-    const cprimeRaw = 0.1 * cu;
-    const cprimeChart = Math.min(cprimeRaw, 30);
+    const cprime = 0.1 * cu;
 
     return {
       title: "Effective Cohesion from c_u",
-      summary: "Sorensen and Okkels (2013) style screening interpretation.",
+      summary: "Simplified c′ = 0.1c_u correlation for cohesive soils.",
       items: [
         { label: "Input c_u", value: round(cu, 2), unit: "kPa" },
-        { label: "c'_oc = 0.1c_u", value: round(cprimeRaw, 2), unit: "kPa" },
-        { label: "c'_oc, screened", value: round(cprimeChart, 2), unit: "kPa" },
+        { label: "c′ = 0.1c_u", value: round(cprime, 2), unit: "kPa" },
       ],
-      notes: ["Chart-aligned screening cap of 30 kPa is applied to c'_oc,screened."],
+      notes: [],
       warnings: baseWarnings(),
     };
   },
@@ -1417,7 +1513,7 @@ const calculators: Record<string, Calculator> = {
     const phi = 27.1 + 0.3 * n60 - 0.00054 * n60 ** 2;
     return {
       title: "Estimated Friction Angle",
-      items: [{ label: "phi'", value: round(phi, 2), unit: "deg" }],
+      items: [{ label: "φ′", value: round(phi, 2), unit: "deg" }],
       notes: ["Use this only as an initial estimate for granular soils."],
       warnings: baseWarnings(),
     };
@@ -1431,9 +1527,9 @@ const calculators: Record<string, Calculator> = {
       summary: "PI-based cohesive-soil screening relation.",
       items: [
         { label: "Input PI", value: round(pi, 2), unit: "%" },
-        { label: "Estimated phi'", value: round(phi, 2), unit: "deg" },
+        { label: "Estimated φ′", value: round(phi, 2), unit: "deg" },
       ],
-      notes: ["Computed with phi' = 45 - 14log10(PI)."],
+      notes: ["Computed with φ′ = 45 − 14 log₁₀(PI)."],
       warnings: baseWarnings(),
     };
   },

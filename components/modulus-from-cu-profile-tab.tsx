@@ -1,18 +1,38 @@
 ﻿"use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import {
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  profileTableClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
 import { EngineeringText } from "@/components/engineering-text";
-import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { isActiveProjectToolLocked, type SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
+import {
+  matchImportSummaryForProfileRow,
+  profileRowSoilRestricted,
+  soilRestrictionUserHint,
+} from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface ModulusFromCuProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  soilPolicyToolSlug?: string;
+  projectParameters?: Array<{
+    boreholeLabel: string;
+    sampleDepth: number | null;
+    parameterCode: string;
+    value: number;
+    sourceToolSlug?: string | null;
+  }>;
 }
 
 type RatioBasis = "soft-clay" | "medium-clay" | "stiff-clay";
@@ -20,20 +40,18 @@ type RatioMode = "auto" | "manual";
 
 interface ProfileRow {
   id: number;
-  topDepth: string;
   boreholeId: string;
-  bottomDepth: string;
+  sampleDepth: string;
   ratioBasis: RatioBasis;
   ratioMode: RatioMode;
   manualRatio: string;
   cu: string;
+  cuSource: "manual" | "auto-cu-tool";
 }
 
 interface PlotPoint {
   boreholeId: string;
-  topDepth: number;
-  bottomDepth: number;
-  midDepth: number;
+  sampleDepth: number;
   cu: number;
   eu: number;
 }
@@ -49,29 +67,45 @@ const basisOptions: Array<{ value: RatioBasis; label: string; ratio: number; ran
 const initialRows: ProfileRow[] = [
   {
     id: 1,
-    topDepth: "0",
     boreholeId: "",
-    bottomDepth: "2",
+    sampleDepth: "1",
     ratioBasis: "soft-clay",
     ratioMode: "auto",
     manualRatio: "150",
     cu: "25",
+    cuSource: "manual",
   },
   {
     id: 2,
-    topDepth: "2",
     boreholeId: "",
-    bottomDepth: "6",
+    sampleDepth: "4",
     ratioBasis: "medium-clay",
     ratioMode: "auto",
     manualRatio: "300",
     cu: "55",
+    cuSource: "manual",
   },
 ];
 
 function parse(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sanitiseBoreholeLabel(value: string | null | undefined): string {
+  const cleaned = (value ?? "")
+    .replace(/[â–¼â–¾â–¿â–²â–³]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "BH not set";
+}
+
+function normaliseBoreholeLabelKey(value: string | null | undefined): string {
+  return sanitiseBoreholeLabel(value).toLowerCase();
+}
+
+function depthKey(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(4) : "na";
 }
 
 function format(value: number, digits: number): string {
@@ -105,21 +139,8 @@ function getNiceTickStep(rawStep: number): number {
   return 10 * magnitude;
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="inline-flex flex-wrap items-baseline gap-1 leading-tight">
-      <span>{title}</span>
-      {unit ? <span className="text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function renderProfileChart({
@@ -140,7 +161,7 @@ function renderProfileChart({
   const margin = { top: 54, right: 20, bottom: 24, left: 72 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...points.map((point) => point.bottomDepth), 1);
+  const maxDepth = Math.max(...points.map((point) => point.sampleDepth), 1);
   const maxValue = Math.max(...points.map((point) => point[valueKey]), 1);
   const xStep = getNiceTickStep(maxValue / 6);
   const xIntervals = Math.max(Math.floor(maxValue / xStep) + 1, 2);
@@ -159,7 +180,7 @@ function renderProfileChart({
 
   const pointsByBorehole = boreholeIds.map((boreholeId) => ({
     boreholeId,
-    points: points.filter((point) => point.boreholeId === boreholeId).sort((a, b) => a.midDepth - b.midDepth),
+    points: points.filter((point) => point.boreholeId === boreholeId).sort((a, b) => a.sampleDepth - b.sampleDepth),
   }));
 
   return (
@@ -217,26 +238,9 @@ function renderProfileChart({
           strokeWidth={1.5}
         />
 
-        {points.map((point, index) => {
-          const colour = colourByBorehole.get(point.boreholeId) ?? BOREHOLE_COLOURS[0];
-          return (
-            <line
-              key={`interval-${point.boreholeId}-${point.topDepth}-${point.bottomDepth}-${index}`}
-              x1={xScale(point[valueKey])}
-              y1={yScale(point.topDepth)}
-              x2={xScale(point[valueKey])}
-              y2={yScale(point.bottomDepth)}
-              stroke={colour}
-              strokeOpacity={0.18}
-              strokeWidth={4}
-              strokeLinecap="round"
-            />
-          );
-        })}
-
         {pointsByBorehole.map(({ boreholeId, points: group }) => {
           const colour = colourByBorehole.get(boreholeId) ?? BOREHOLE_COLOURS[0];
-          const polyline = group.map((point) => `${xScale(point[valueKey])},${yScale(point.midDepth)}`).join(" ");
+          const polyline = group.map((point) => `${xScale(point[valueKey])},${yScale(point.sampleDepth)}`).join(" ");
           if (group.length < 2) {
             return null;
           }
@@ -256,9 +260,9 @@ function renderProfileChart({
         {points.map((point, index) => {
           const colour = colourByBorehole.get(point.boreholeId) ?? BOREHOLE_COLOURS[0];
           return (
-            <g key={`${point.boreholeId}-${point.midDepth}-${point[valueKey]}-${index}`}>
-              <circle cx={xScale(point[valueKey])} cy={yScale(point.midDepth)} r={5.5} fill="#ffffff" stroke={colour} strokeWidth={2.4} />
-              <circle cx={xScale(point[valueKey])} cy={yScale(point.midDepth)} r={2.2} fill={colour} />
+            <g key={`${point.boreholeId}-${point.sampleDepth}-${point[valueKey]}-${index}`}>
+              <circle cx={xScale(point[valueKey])} cy={yScale(point.sampleDepth)} r={5.5} fill="#ffffff" stroke={colour} strokeWidth={2.4} />
+              <circle cx={xScale(point[valueKey])} cy={yScale(point.sampleDepth)} r={2.2} fill={colour} />
             </g>
           );
         })}
@@ -297,7 +301,7 @@ function renderProfileChart({
   );
 }
 
-export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromCuProfileTabProps) {
+export function ModulusFromCuProfileTab({ unitSystem, importRows, soilPolicyToolSlug }: ModulusFromCuProfileTabProps) {
   const [rows, setRows] = useState<ProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
@@ -311,8 +315,7 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
     setRows((current) =>
       current.map((row) => ({
         ...row,
-        topDepth: convertInputValueBetweenSystems(row.topDepth, "m", previousUnitSystem.current, unitSystem),
-        bottomDepth: convertInputValueBetweenSystems(row.bottomDepth, "m", previousUnitSystem.current, unitSystem),
+        sampleDepth: convertInputValueBetweenSystems(row.sampleDepth, "m", previousUnitSystem.current, unitSystem),
         cu: convertInputValueBetweenSystems(row.cu, "kPa", previousUnitSystem.current, unitSystem),
       })),
     );
@@ -327,26 +330,20 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
     setRows((current) => {
       const template = current[0] ?? initialRows[0];
       return importRows.map((item, index) => {
-        const topDepthDisplay =
-          item.sampleTopDepth === null
-            ? template.topDepth
-            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem);
-
-        let bottomDepthDisplay =
-          item.sampleBottomDepth === null
-            ? String(parse(topDepthDisplay) + 0.5)
-            : convertInputValueBetweenSystems(String(item.sampleBottomDepth), "m", "metric", unitSystem);
-
-        if (parse(bottomDepthDisplay) <= parse(topDepthDisplay)) {
-          bottomDepthDisplay = String(parse(topDepthDisplay) + 0.5);
+        const topM = item.sampleTopDepth;
+        const botM = item.sampleBottomDepth;
+        let sampleDepth =
+          topM === null || topM === undefined
+            ? template.sampleDepth
+            : convertInputValueBetweenSystems(String(topM), "m", "metric", unitSystem);
+        if (typeof topM === "number" && Number.isFinite(topM) && typeof botM === "number" && Number.isFinite(botM) && botM > topM) {
+          sampleDepth = convertInputValueBetweenSystems(String((topM + botM) / 2), "m", "metric", unitSystem);
         }
-
         return {
           ...template,
           id: index + 1,
           boreholeId: item.boreholeLabel || template.boreholeId,
-          topDepth: topDepthDisplay,
-          bottomDepth: bottomDepthDisplay,
+          sampleDepth,
         };
       });
     });
@@ -373,19 +370,19 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
 
   const addRow = () => {
     setRows((current) => {
-      const lastBottom = current[current.length - 1]?.bottomDepth ?? "0";
+      const lastDepth = current[current.length - 1]?.sampleDepth ?? "0";
       const nextId = Math.max(...current.map((row) => row.id), 0) + 1;
       return [
         ...current,
         {
           id: nextId,
-          topDepth: lastBottom,
           boreholeId: "",
-          bottomDepth: String(parse(lastBottom) + 2),
+          sampleDepth: String(parse(lastDepth) + 2),
           ratioBasis: "medium-clay",
           ratioMode: "auto",
           manualRatio: "300",
           cu: "50",
+          cuSource: "manual",
         },
       ];
     });
@@ -395,28 +392,32 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
     setRows((current) => (current.length > 1 ? current.filter((row) => row.id !== id) : current));
   };
 
-  const plotPoints: PlotPoint[] = rows
-    .map((row) => {
-      const topDepth = parse(row.topDepth);
-      const bottomDepth = parse(row.bottomDepth);
-      if (!Number.isFinite(topDepth) || !Number.isFinite(bottomDepth) || bottomDepth <= topDepth || topDepth < 0) {
-        return null;
-      }
+  const plotPoints: PlotPoint[] = useMemo(
+    () =>
+      rows
+        .map((row) => {
+          if (profileRowSoilRestricted(soilPolicyToolSlug, importRows, row.boreholeId, row.sampleDepth, unitSystem, parse)) {
+            return null;
+          }
+          const sampleDepth = parse(row.sampleDepth);
+          if (!Number.isFinite(sampleDepth) || sampleDepth < 0) {
+            return null;
+          }
 
-      const ratio = row.ratioMode === "auto" ? getRecommendedRatio(row.ratioBasis) : parse(row.manualRatio);
-      const cu = Math.max(0, parse(row.cu));
-      const eu = cu * ratio;
+          const ratio = row.ratioMode === "auto" ? getRecommendedRatio(row.ratioBasis) : parse(row.manualRatio);
+          const cu = Math.max(0, parse(row.cu));
+          const eu = cu * ratio;
 
-      return {
-        boreholeId: row.boreholeId?.trim() || "BH not set",
-        topDepth,
-        bottomDepth,
-        midDepth: (topDepth + bottomDepth) / 2,
-        cu,
-        eu,
-      };
-    })
-    .filter((point): point is PlotPoint => point !== null);
+          return {
+            boreholeId: row.boreholeId?.trim() || "BH not set",
+            sampleDepth,
+            cu,
+            eu,
+          };
+        })
+        .filter((point): point is PlotPoint => point !== null),
+    [rows, soilPolicyToolSlug, importRows, unitSystem],
+  );
 
   return (
     <section className="space-y-5">
@@ -425,7 +426,7 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Soil Layer Profile</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Enter soil layers with depth intervals and undrained strength to build a layered
+              Enter borehole, sample depth, and undrained strength to build a layered
               <EngineeringText text=" E_u " />
               profile using the selected
               <EngineeringText text=" E/c_u " />
@@ -448,40 +449,70 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll>
+          <table className={profileTableClass("c8")}>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Borehole ID</th>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Top ({depthUnit})</th>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Bottom ({depthUnit})</th>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Suggested basis</th>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Ratio mode</th>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>c<sub>u</sub></span>} unit={stressUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>E/c<sub>u</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample depth" unit={depthUnit} />
                 </th>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>E<sub>u</sub></span>} unit={stressUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Suggested basis" />
                 </th>
-                <th className="whitespace-nowrap px-2 py-3 text-left font-semibold">Action</th>
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Ratio mode" />
+                </th>
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>c<sub>u</sub></span>} unit={stressUnit} />
+                </th>
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>E/c<sub>u</sub></span>} />
+                </th>
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>E<sub>u</sub></span>} unit={stressUnit} />
+                </th>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
-                const topDepth = parse(row.topDepth);
-                const bottomDepth = parse(row.bottomDepth);
+                const soilRestricted = profileRowSoilRestricted(
+                  soilPolicyToolSlug,
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const matchedSoil = matchImportSummaryForProfileRow(
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const restrictionHint = soilRestrictionUserHint(soilPolicyToolSlug, matchedSoil?.soilBehavior ?? null);
+                const sampleDepth = parse(row.sampleDepth);
                 const cu = parse(row.cu);
                 const ratio = row.ratioMode === "auto" ? getRecommendedRatio(row.ratioBasis) : parse(row.manualRatio);
                 const eu = cu * ratio;
-                const hasDepthIssue = bottomDepth <= topDepth;
+                const hasDepthIssue = !Number.isFinite(sampleDepth) || sampleDepth < 0;
+                const lockCls = soilRestricted ? "cursor-not-allowed bg-slate-100 text-slate-500" : "";
 
                 return (
-                  <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                  <tr
+                    key={row.id}
+                    className={`border-t border-slate-200 align-top ${soilRestricted ? "bg-slate-50/90 opacity-[0.85]" : "bg-white"}`}
+                    title={soilRestricted ? "Soil type is not used with this tool (set under Projects)." : undefined}
+                  >
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -492,29 +523,25 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
                         type="number"
                         step="0.1"
                         min="0"
-                        value={row.topDepth}
-                        onChange={(event) => updateRow(row.id, { topDepth: event.target.value })}
-                        className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
-                    </td>
-                    <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={row.bottomDepth}
-                        onChange={(event) => updateRow(row.id, { bottomDepth: event.target.value })}
+                        value={row.sampleDepth}
+                        onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
+                        disabled={soilRestricted}
                         className={`w-full min-w-0 rounded-lg border px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 ${
-                          hasDepthIssue ? "border-red-300 bg-red-50 focus:border-red-400" : "border-slate-300 focus:border-slate-500"
+                          soilRestricted
+                            ? `${lockCls} border-slate-300`
+                            : hasDepthIssue
+                              ? "border-red-300 bg-red-50 focus:border-red-400"
+                              : "border-slate-300 focus:border-slate-500"
                         }`}
                       />
-                      {hasDepthIssue ? <p className="mt-1 text-xs text-red-700">Bottom must exceed top depth.</p> : null}
+                      {hasDepthIssue ? <p className="mt-1 text-xs text-red-700">Enter a valid sample depth.</p> : null}
                     </td>
                     <td className="px-2 py-3">
                       <select
                         value={row.ratioBasis}
                         onChange={(event) => updateRow(row.id, { ratioBasis: event.target.value as RatioBasis })}
-                        className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={soilRestricted}
+                        className={`w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500 ${lockCls}`}
                       >
                         {basisOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -528,21 +555,28 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
                       <select
                         value={row.ratioMode}
                         onChange={(event) => updateRow(row.id, { ratioMode: event.target.value as RatioMode })}
-                        className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={soilRestricted}
+                        className={`w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500 ${lockCls}`}
                       >
                         <option value="auto">Auto</option>
                         <option value="manual">Manual</option>
                       </select>
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={row.cu}
-                        onChange={(event) => updateRow(row.id, { cu: event.target.value })}
-                        className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
+                      {soilRestricted ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
+                          {restrictionHint ?? "Not used with this tool (soil type in Projects)."}
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={row.cu}
+                          onChange={(event) => updateRow(row.id, { cu: event.target.value })}
+                          className="w-full min-w-0 rounded-lg border border-slate-300 px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        />
+                      )}
                     </td>
                     <td className="px-2 py-3">
                       <input
@@ -550,12 +584,14 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
                         step="1"
                         min="10"
                         value={row.ratioMode === "auto" ? String(getRecommendedRatio(row.ratioBasis)) : row.manualRatio}
-                        disabled={row.ratioMode === "auto"}
+                        disabled={row.ratioMode === "auto" || soilRestricted}
                         onChange={(event) => updateRow(row.id, { manualRatio: event.target.value })}
                         className={`w-full min-w-0 rounded-lg border px-2.5 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 ${
-                          row.ratioMode === "auto"
-                            ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500"
-                            : "border-slate-300 bg-white focus:border-slate-500"
+                          soilRestricted
+                            ? lockCls
+                            : row.ratioMode === "auto"
+                              ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500"
+                              : "border-slate-300 bg-white focus:border-slate-500"
                         }`}
                       />
                       <p className="mt-1 text-xs text-slate-500">
@@ -563,12 +599,12 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
                       </p>
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={Number.isFinite(eu) ? format(eu, eu >= 100 ? 0 : 1) : "-"} />
+                      <OutputCell value={soilRestricted ? "—" : Number.isFinite(eu) ? format(eu, eu >= 100 ? 0 : 1) : "-"} />
                     </td>
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-2 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -580,7 +616,7 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows }: ModulusFromC
               })}
             </tbody>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         {plotPoints.length ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-2">

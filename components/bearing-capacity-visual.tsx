@@ -42,74 +42,69 @@ export function BearingCapacityVisual({ values, unitSystem, title }: BearingCapa
   const lengthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
   const densityUnit = getDisplayUnit("kN/m3", unitSystem) ?? "kN/m3";
+  const footingStroke = "#0f172a";
+  const dimStroke = "#334155";
+  const soilStroke = "#6b4f33";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f4f8fc_100%)] shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Interactive Foundation Sketch</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Foundation sketch</p>
           <p className="mt-1 text-sm text-slate-700">
             <EngineeringText text={`Method: ${methodLabel}`} />
           </p>
         </div>
-        <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-          Rectangular footing
-        </div>
       </div>
 
-      <div className="grid gap-4 p-4 lg:grid-cols-[1.4fr_0.9fr]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-          <svg viewBox="0 0 360 280" className="h-auto w-full" role="img" aria-label="Bearing capacity soil and footing visual">
+      <div className="p-3">
+        <div className="w-full rounded-2xl border border-slate-200 bg-white p-2">
+          <svg
+            viewBox="0 0 360 280"
+            preserveAspectRatio="xMidYMid meet"
+            className="h-auto w-full max-h-64"
+            role="img"
+            aria-label="Bearing capacity soil and footing visual"
+          >
             <defs>
-              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f8fbff" />
-                <stop offset="100%" stopColor="#eef4fb" />
-              </linearGradient>
-              <linearGradient id="soil" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#caa67a" />
-                <stop offset="100%" stopColor="#9f764d" />
-              </linearGradient>
-              <linearGradient id="footing" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#dbe7f3" />
-                <stop offset="100%" stopColor="#94a9be" />
-              </linearGradient>
-              <pattern id="soilDots" width="18" height="18" patternUnits="userSpaceOnUse">
-                <circle cx="4" cy="4" r="1.1" fill="#8f6642" opacity="0.5" />
-                <circle cx="13" cy="10" r="1.4" fill="#7d5738" opacity="0.45" />
-                <circle cx="8" cy="15" r="1" fill="#c7a27f" opacity="0.55" />
+              <pattern id="soilHatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(20)">
+                <line x1="0" y1="0" x2="0" y2="14" stroke="#b08a62" strokeWidth="3" opacity="0.28" />
               </pattern>
+              <linearGradient id="stressBulb" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.24" />
+                <stop offset="100%" stopColor="#2563eb" stopOpacity="0.06" />
+              </linearGradient>
               <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-                <path d="M0,0 L8,4 L0,8 z" fill="#475569" />
+                <path d="M0,0 L8,4 L0,8 z" fill={dimStroke} />
               </marker>
             </defs>
 
-            <rect x="0" y="0" width="360" height="280" fill="url(#sky)" />
-            <rect x="0" y={soilSurfaceY} width="360" height={280 - soilSurfaceY} fill="url(#soil)" />
-            <rect x="0" y={soilSurfaceY} width="360" height={280 - soilSurfaceY} fill="url(#soilDots)" opacity="0.55" />
+            <rect x="0" y="0" width="360" height="280" fill="#ffffff" />
+            <rect x="0" y={soilSurfaceY} width="360" height={280 - soilSurfaceY} fill="#d7b48c" />
+            <rect x="0" y={soilSurfaceY} width="360" height={280 - soilSurfaceY} fill="url(#soilHatch)" />
 
-            <line x1="0" y1={soilSurfaceY} x2="360" y2={soilSurfaceY} stroke="#8b6946" strokeWidth="2" />
+            <line x1="0" y1={soilSurfaceY} x2="360" y2={soilSurfaceY} stroke={soilStroke} strokeWidth="2" />
 
             <ellipse
               cx="180"
               cy={footingY + 26 + bulbDepth / 2}
               rx={Math.min(130, widthScale * 0.58)}
               ry={bulbDepth / 2}
-              fill="#f6d365"
-              opacity="0.16"
+              fill="url(#stressBulb)"
             />
             <path
               d={`M ${footingX + 12} ${footingY + 22}
                   C ${footingX + 26} ${footingY + 54}, ${footingX + 32} ${footingY + 78}, 180 ${footingY + 24 + bulbDepth}
                   C ${footingX + widthScale - 32} ${footingY + 78}, ${footingX + widthScale - 26} ${footingY + 54}, ${footingX + widthScale - 12} ${footingY + 22}`}
               fill="none"
-              stroke="#f8fafc"
-              strokeWidth="2"
-              strokeDasharray="5 5"
-              opacity="0.75"
+              stroke="#2563eb"
+              strokeWidth="1.5"
+              strokeDasharray="4 4"
+              opacity="0.5"
             />
 
-            <rect x={footingX - 10} y={footingY - 14} width={widthScale + 20} height="14" rx="4" fill="#71859b" opacity="0.75" />
-            <rect x={footingX} y={footingY} width={widthScale} height="26" rx="6" fill="url(#footing)" stroke="#62768b" strokeWidth="1.5" />
+            <rect x={footingX - 10} y={footingY - 14} width={widthScale + 20} height="14" rx="4" fill="#0f172a" opacity="0.12" />
+            <rect x={footingX} y={footingY} width={widthScale} height="26" rx="6" fill="#e2e8f0" stroke={footingStroke} strokeWidth="1.2" />
 
             {[0, 1, 2, 3].map((index) => {
               const x = footingX + 22 + index * ((widthScale - 44) / 3);
@@ -120,91 +115,95 @@ export function BearingCapacityVisual({ values, unitSystem, title }: BearingCapa
                   y1="74"
                   x2={x}
                   y2={footingY - 2}
-                  stroke="#5f7388"
-                  strokeWidth="2.6"
+                  stroke="#64748b"
+                  strokeWidth="2.2"
                   markerEnd="url(#arrow)"
                   opacity="0.8"
                 />
               );
             })}
 
-            <line x1={footingX} y1="228" x2={footingX + widthScale} y2="228" stroke="#475569" strokeWidth="1.6" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
-            <text x="180" y="222" textAnchor="middle" fill="#334155" fontSize="13" fontWeight="600">
+            <line
+              x1={footingX}
+              y1="228"
+              x2={footingX + widthScale}
+              y2="228"
+              stroke={dimStroke}
+              strokeWidth="1.6"
+              markerStart="url(#arrow)"
+              markerEnd="url(#arrow)"
+            />
+            <text x="180" y="222" textAnchor="middle" fill="#0f172a" fontSize="13" fontWeight="600">
               {`B = ${formatValue(width)} ${lengthUnit}`}
             </text>
 
-            <line x1="302" y1={soilSurfaceY} x2="302" y2={footingY} stroke="#475569" strokeWidth="1.6" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
-            <text x="314" y={(soilSurfaceY + footingY) / 2 + 4} fill="#334155" fontSize="13" fontWeight="600">
-              {`D_f = ${formatValue(embedment)} ${lengthUnit}`}
+            <line
+              x1="302"
+              y1={soilSurfaceY}
+              x2="302"
+              y2={footingY}
+              stroke={dimStroke}
+              strokeWidth="1.6"
+              markerStart="url(#arrow)"
+              markerEnd="url(#arrow)"
+            />
+            <text
+              x="292"
+              y={(soilSurfaceY + footingY) / 2 + 4}
+              fill="#0f172a"
+              fontSize="12"
+              fontWeight="700"
+              textAnchor="end"
+            >
+              <tspan>D</tspan>
+              <tspan baselineShift="sub" fontSize="9">
+                f
+              </tspan>
+              <tspan>{` = ${formatValue(embedment)} ${lengthUnit}`}</tspan>
             </text>
 
-            <rect x="18" y="18" width="108" height="68" rx="12" fill="#ffffff" stroke="#d6e2ee" />
-            <text x="30" y="38" fill="#334155" fontSize="12" fontWeight="700">
-              Plan ratio
+            <rect x="18" y="18" width="150" height="86" rx="12" fill="#ffffff" stroke="#cbd5e1" />
+            <text x="30" y="38" fill="#0f172a" fontSize="12" fontWeight="700">
+              Soil parameters
             </text>
-            <rect x="38" y="50" width="52" height="24" rx="4" fill="#dfe8f2" stroke="#8aa0b5" />
-            <text x="64" y="66" textAnchor="middle" fill="#334155" fontSize="11" fontWeight="700">
-              {`B`}
+            <text x="30" y="58" fill="#334155" fontSize="11" fontWeight="600">
+              <tspan>c</tspan>
+              <tspan>′</tspan>
+              <tspan>{` = ${formatValue(cohesion, 1)} ${stressUnit}`}</tspan>
             </text>
-            <line x1="98" y1="50" x2="98" y2="74" stroke="#8aa0b5" strokeWidth="2" />
-            <text x="108" y="66" fill="#334155" fontSize="11" fontWeight="700">
-              {`L = ${formatValue(length)} ${lengthUnit}`}
+            <text x="30" y="74" fill="#334155" fontSize="11" fontWeight="600">
+              <tspan>ϕ</tspan>
+              <tspan>′</tspan>
+              <tspan>{` = ${formatValue(frictionAngle, 1)} deg`}</tspan>
             </text>
+            <text x="30" y="90" fill="#334155" fontSize="11" fontWeight="600">
+              <tspan>γ</tspan>
+              <tspan>{` = ${formatValue(unitWeight, 1)} ${densityUnit}`}</tspan>
+            </text>
+
+            {/* Plan view inset showing B and L */}
+            <g opacity="0.98">
+              <rect x="242" y="18" width="100" height="88" rx="12" fill="#ffffff" stroke="#cbd5e1" />
+              <text x="254" y="38" fill="#0f172a" fontSize="12" fontWeight="700">
+                Plan
+              </text>
+
+              {/* Footing rectangle */}
+              <rect x="268" y="50" width="48" height="34" rx="4" fill="#e2e8f0" stroke={footingStroke} strokeWidth="1.1" />
+
+              {/* B dimension (horizontal) */}
+              <line x1="268" y1="92" x2="316" y2="92" stroke={dimStroke} strokeWidth="1.3" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+              <text x="292" y="104" fill="#0f172a" fontSize="11" fontWeight="700" textAnchor="middle">
+                {`B = ${formatValue(width, 2)} ${lengthUnit}`}
+              </text>
+
+              {/* L dimension (vertical) */}
+              <line x1="256" y1="50" x2="256" y2="84" stroke={dimStroke} strokeWidth="1.3" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+              <text x="252" y="70" fill="#0f172a" fontSize="11" fontWeight="700" textAnchor="end">
+                {`L = ${formatValue(length, 2)} ${lengthUnit}`}
+              </text>
+            </g>
           </svg>
-        </div>
-
-        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Current Inputs</p>
-            <div className="mt-3 space-y-2 text-sm text-slate-700">
-              <div className="flex items-center justify-between gap-4">
-                <span>
-                  <EngineeringText text={"c'"} />
-                </span>
-                <span className="font-semibold">{`${formatValue(cohesion)} ${stressUnit}`}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>
-                  <EngineeringText text={"phi'"} />
-                </span>
-                <span className="font-semibold">{`${formatValue(frictionAngle)} deg`}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>
-                  <EngineeringText text={"gamma"} />
-                </span>
-                <span className="font-semibold">{`${formatValue(unitWeight)} ${densityUnit}`}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>
-                  <EngineeringText text={"FS"} />
-                </span>
-                <span className="font-semibold">{formatValue(factorOfSafety)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-[linear-gradient(135deg,#f8fbff_0%,#eef4fb_100%)] p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">What Changes Live</p>
-            <ul className="mt-2 space-y-1 text-sm text-slate-600">
-              <li className="flex gap-2">
-                <span className="text-slate-400">-</span>
-                <span>Footing width scales with <EngineeringText text={"B"} />.</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-slate-400">-</span>
-                <span>Embedment arrow updates with <EngineeringText text={"D_f"} />.</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-slate-400">-</span>
-                <span>Method badge reflects Terzaghi, Meyerhof, Hansen, or Vesic.</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-slate-400">-</span>
-                <span>Plan inset updates the rectangular footing geometry using <EngineeringText text={"B"} /> and <EngineeringText text={"L"} />.</span>
-              </li>
-            </ul>
-          </div>
         </div>
       </div>
     </div>

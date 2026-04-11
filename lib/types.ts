@@ -75,6 +75,8 @@ export interface ToolDefinition {
   information: ToolInformation;
 }
 
+export type ArticleStatus = "active" | "archived";
+
 export interface InsightArticle {
   slug: string;
   title: string;
@@ -86,6 +88,8 @@ export interface InsightArticle {
   readTimeMinutes: number;
   content: string[];
   blocks?: InsightArticleBlock[];
+  /** Omitted or "active" = shown in listings; "archived" = hidden from blog and static routes. */
+  status?: ArticleStatus;
 }
 
 export type InsightArticleBlock =
@@ -108,6 +112,13 @@ export type InsightArticleBlock =
   | {
       type: "bibliography";
       items: string[];
+    }
+  | {
+      type: "further_reading_dialog";
+      triggerLabel: string;
+      dialogTitle: string;
+      /** Built-in extended content (e.g. long Q&A from a source document). */
+      preset?: "hardening-soil-further-questions";
     };
 
 export interface CounterStore {

@@ -1,19 +1,33 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { tools as TOOL_DEFINITIONS } from "@/data/tools";
+import { downloadElementAsPdf } from "@/lib/download-user-guide-pdf";
+import { EXCEL_TABLE_BLOCK_CSS, buildMhtmlMultipartDocument, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
   clearActiveProjectBorehole,
+  mergeBoreholeExtrasIntoRows,
+  removeBoreholeExtras,
   readActiveProjectBorehole,
+  upsertBoreholeExtras,
   type ActiveProjectBorehole,
   type BoreholeRecord,
   type ProjectRecord,
   writeActiveProjectBorehole,
 } from "@/lib/project-boreholes";
+import {
+  MAX_BOREHOLES_PER_PROJECT,
+  MAX_PROJECTS_PER_USER,
+  countDistinctBoreholeLabels,
+  wouldExceedBoreholeLimit,
+} from "@/lib/project-limits";
+import type { SoilBehavior } from "@/lib/soil-behavior-policy";
 
 interface SavedToolResultRecord {
   id: string;
@@ -43,6 +57,70 @@ interface ProjectParameterRecord {
   created_at?: string;
 }
 
+type ToolSlugForReport =
+  | "spt-corrections"
+  | "cu-from-pi-and-spt"
+  | "modulus-from-cu"
+  | "eu-from-spt-butler-1975"
+  | "effective-modulus-eprime-cohesive"
+  | "eprime-from-spt-cohesionless"
+  | "gmax-from-vs"
+  | "eoed-from-mv"
+  | "ocr-calculator"
+  | "k0-earth-pressure";
+
+type ReportToolPayload = {
+  toolSlug: ToolSlugForReport;
+  toolTitle: string;
+  createdAt: string | null;
+  plots: Array<{ title?: string; dataUrl?: string; width?: number; height?: number }>;
+};
+
+function formatTodayEnGb(): string {
+  return new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "2-digit" });
+}
+
+function formatSoilBehaviorLabel(value: SoilBehavior | null | undefined): string {
+  if (value === "cohesive") {
+    return "Cohesive";
+  }
+  if (value === "granular") {
+    return "Granular";
+  }
+  return "-";
+}
+
+function getToolTitle(slug: string): string {
+  const match = (TOOL_DEFINITIONS ?? []).find((tool) => tool.slug === slug);
+  return match?.title ?? slug;
+}
+
+function extractPlotsFromPayload(
+  payload: unknown,
+): Array<{ title?: string; dataUrl?: string; width?: number; height?: number }> {
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+  const obj = payload as {
+    profileSnapshot?: {
+      plots?: Array<{ title?: string; dataUrl?: string; width?: number; height?: number }>;
+    };
+  };
+  const plots = Array.isArray(obj.profileSnapshot?.plots) ? obj.profileSnapshot?.plots : [];
+  return plots.filter((plot) => typeof plot?.dataUrl === "string" && plot.dataUrl.startsWith("data:image/"));
+}
+
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 const PARAMETER_COLUMN_ORDER = [
   "n",
   "n60",
@@ -65,30 +143,233 @@ const PARAMETER_COLUMN_ORDER = [
   "sigma_h0_eff",
 ];
 
-const PARAMETER_COLUMN_LABELS: Record<string, string> = {
-  n: "N",
-  n60: "N60",
-  n160: "(N1)60",
-  cu: "cu (kPa)",
-  c_prime: "c' (kPa)",
-  phi_prime: "φ' (deg)",
-  eu: "Eu (kPa)",
-  e_prime: "E' (kPa)",
-  ocr: "OCR",
-  sigma_v0_eff: "σ'v0 (kPa)",
-  gmax: "Gmax (MPa)",
-  vs: "Vs (m/s)",
-  eoed: "Eoed (MPa)",
-  mv: "mv (m²/MN)",
-  k0_nc: "K0,NC",
-  k0_oc: "K0,OC",
-  ka: "Ka",
-  kp: "Kp",
-  sigma_h0_eff: "σ'h,0 (kPa)",
+const PARAMETER_META: Record<
+  string,
+  {
+    label: React.ReactNode;
+    tooltip: string;
+    tools: Array<{ slug: string; label: string }>;
+  }
+> = {
+  n: {
+    label: "N",
+    tooltip: "Recorded SPT blow count (N).",
+    tools: [{ slug: "spt-corrections", label: "SPT corrections" }],
+  },
+  n60: {
+    label: (
+      <>
+        N<sub>60</sub>
+      </>
+    ),
+    tooltip: "Energy-corrected SPT resistance (N60).",
+    tools: [{ slug: "spt-corrections", label: "SPT corrections" }],
+  },
+  n160: {
+    label: (
+      <>
+        (N<sub>1</sub>)<sub>60</sub>
+      </>
+    ),
+    tooltip: "Overburden-corrected SPT resistance ((N1)60).",
+    tools: [{ slug: "spt-corrections", label: "SPT corrections" }],
+  },
+  cu: {
+    label: (
+      <>
+        c<sub>u</sub> (kPa)
+      </>
+    ),
+    tooltip: "Undrained shear strength.",
+    tools: [
+      { slug: "cu-from-pi-and-spt", label: "cu from PI & SPT" },
+      { slug: "cu-from-pressuremeter", label: "cu from pressuremeter" },
+      { slug: "cu-vs-depth", label: "cu vs depth" },
+    ],
+  },
+  c_prime: {
+    label: (
+      <>
+        c&apos; (kPa)
+      </>
+    ),
+    tooltip: "Effective cohesion (c').",
+    tools: [{ slug: "cprime-from-cu", label: "c' from cu" }],
+  },
+  phi_prime: {
+    label: (
+      <>
+        &phi;&apos; (deg)
+      </>
+    ),
+    tooltip: "Effective friction angle (phi').",
+    tools: [
+      { slug: "friction-angle-from-spt", label: "phi' from SPT" },
+      { slug: "friction-angle-from-pi", label: "phi' from PI" },
+    ],
+  },
+  eu: {
+    label: (
+      <>
+        E<sub>u</sub> (kPa)
+      </>
+    ),
+    tooltip: "Undrained Young's modulus (Eu).",
+    tools: [{ slug: "eu-from-spt-butler-1975", label: "Eu from SPT (Butler 1975)" }],
+  },
+  e_prime: {
+    label: (
+      <>
+        E&apos; (kPa)
+      </>
+    ),
+    tooltip: "Effective modulus (E').",
+    tools: [
+      { slug: "effective-modulus-eprime-cohesive", label: "E' (cohesive)" },
+      { slug: "eprime-from-spt-cohesionless", label: "E' from SPT (cohesionless)" },
+    ],
+  },
+  ocr: {
+    label: "OCR",
+    tooltip: "Overconsolidation ratio (OCR).",
+    tools: [{ slug: "ocr-calculator", label: "OCR calculator" }],
+  },
+  sigma_v0_eff: {
+    label: (
+      <>
+        &sigma;&apos;<sub>v0</sub> (kPa)
+      </>
+    ),
+    tooltip: "Vertical effective stress at depth (sigma'v0).",
+    tools: [{ slug: "spt-corrections", label: "SPT corrections" }],
+  },
+  gmax: {
+    label: (
+      <>
+        G<sub>max</sub> (MPa)
+      </>
+    ),
+    tooltip: "Small-strain shear modulus (Gmax).",
+    tools: [{ slug: "gmax-from-vs", label: "Gmax from Vs" }],
+  },
+  vs: {
+    label: (
+      <>
+        V<sub>s</sub> (m/s)
+      </>
+    ),
+    tooltip: "Shear-wave velocity (Vs).",
+    tools: [{ slug: "gmax-from-vs", label: "Gmax from Vs" }],
+  },
+  eoed: {
+    label: (
+      <>
+        E<sub>oed</sub> (MPa)
+      </>
+    ),
+    tooltip: "Oedometric modulus (Eoed).",
+    tools: [{ slug: "eoed-from-mv", label: "Eoed from mv" }],
+  },
+  mv: {
+    label: (
+      <>
+        m<sub>v</sub> (m²/MN)
+      </>
+    ),
+    tooltip: "Coefficient of volume compressibility (mv).",
+    tools: [{ slug: "eoed-from-mv", label: "Eoed from mv" }],
+  },
+  k0_nc: {
+    label: (
+      <>
+        K<sub>0,NC</sub>
+      </>
+    ),
+    tooltip: "At-rest earth pressure coefficient for normally consolidated soils (K0,NC).",
+    tools: [{ slug: "k0-earth-pressure", label: "K0 earth pressure" }],
+  },
+  k0_oc: {
+    label: (
+      <>
+        K<sub>0,OC</sub>
+      </>
+    ),
+    tooltip: "At-rest earth pressure coefficient for overconsolidated soils (K0,OC).",
+    tools: [{ slug: "k0-earth-pressure", label: "K0 earth pressure" }],
+  },
+  ka: {
+    label: (
+      <>
+        K<sub>a</sub>
+      </>
+    ),
+    tooltip: "Active earth pressure coefficient (Ka).",
+    tools: [
+      { slug: "rankine-earth-pressure", label: "Rankine earth pressure" },
+      { slug: "coulomb-earth-pressure", label: "Coulomb earth pressure" },
+    ],
+  },
+  kp: {
+    label: (
+      <>
+        K<sub>p</sub>
+      </>
+    ),
+    tooltip: "Passive earth pressure coefficient (Kp).",
+    tools: [
+      { slug: "rankine-earth-pressure", label: "Rankine earth pressure" },
+      { slug: "coulomb-earth-pressure", label: "Coulomb earth pressure" },
+    ],
+  },
+  sigma_h0_eff: {
+    label: (
+      <>
+        &sigma;&apos;<sub>h,0</sub> (kPa)
+      </>
+    ),
+    tooltip: "Horizontal effective stress at rest (sigma'h,0).",
+    tools: [{ slug: "k0-earth-pressure", label: "K0 earth pressure" }],
+  },
 };
+
+const ACTIVE_TOOL_SLUGS = new Set(
+  (TOOL_DEFINITIONS ?? [])
+    .filter((tool) => (tool.status ?? "active") === "active")
+    .map((tool) => tool.slug),
+);
 
 function compareBoreholeIds(a: string, b: string): number {
   return a.trim().localeCompare(b.trim(), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function ParameterHeader({ code }: { code: string }) {
+  const meta = PARAMETER_META[code] ?? null;
+  const label = meta?.label ?? code;
+  const tooltip = meta?.tooltip ?? code;
+  const tools = (meta?.tools ?? []).filter((tool) => ACTIVE_TOOL_SLUGS.has(tool.slug));
+
+  return (
+    <div className="group inline-flex items-center gap-1">
+      <span title={tooltip} className="whitespace-nowrap">
+        {label}
+      </span>
+      {tools.length > 0 ? (
+        <span className="ml-1 inline-flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {tools.map((tool) => (
+            <Link
+              key={tool.slug}
+              href={`/tools/${tool.slug}`}
+              className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold leading-none text-slate-600 hover:border-slate-300 hover:text-slate-900"
+              title={`Open ${tool.label}`}
+              aria-label={`Open ${tool.label}`}
+            >
+              ↗
+            </Link>
+          ))}
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function boreholeSampleComparator(a: BoreholeRecord, b: BoreholeRecord): number {
@@ -103,12 +384,6 @@ function boreholeSampleComparator(a: BoreholeRecord, b: BoreholeRecord): number 
     return aTop - bTop;
   }
 
-  const aBottom = a.sample_bottom_depth ?? Number.POSITIVE_INFINITY;
-  const bBottom = b.sample_bottom_depth ?? Number.POSITIVE_INFINITY;
-  if (aBottom !== bBottom) {
-    return aBottom - bBottom;
-  }
-
   return (a.created_at ?? "").localeCompare(b.created_at ?? "");
 }
 
@@ -119,6 +394,36 @@ function toNullableNumber(value: string): number | null {
   }
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatBoreholeNumericInput(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return "";
+  }
+  return String(value);
+}
+
+/** Uses the first matching sample (sorted by depth) that has GWT or unit weight, else first sample. */
+function getFieldDefaultsForBoreholeId(samples: BoreholeRecord[], boreholeId: string): { gwt: string; unitWeight: string } {
+  const trimmed = boreholeId.trim();
+  if (!trimmed) {
+    return { gwt: "", unitWeight: "" };
+  }
+  const matches = samples.filter((s) => s.borehole_id.trim() === trimmed);
+  if (!matches.length) {
+    return { gwt: "", unitWeight: "" };
+  }
+  const sorted = [...matches].sort(boreholeSampleComparator);
+  const withData =
+    sorted.find(
+      (s) =>
+        (s.gwt_depth !== null && s.gwt_depth !== undefined && Number.isFinite(s.gwt_depth)) ||
+        (s.unit_weight !== null && s.unit_weight !== undefined && Number.isFinite(s.unit_weight)),
+    ) ?? sorted[0];
+  return {
+    gwt: formatBoreholeNumericInput(withData.gwt_depth),
+    unitWeight: formatBoreholeNumericInput(withData.unit_weight),
+  };
 }
 
 function sanitiseBoreholeLabel(value: string | null | undefined): string {
@@ -133,6 +438,18 @@ function normaliseBoreholeLabelKey(value: string | null | undefined): string {
   return sanitiseBoreholeLabel(value).toLowerCase();
 }
 
+function isExtendedBoreholeColumnError(message: string): boolean {
+  return /pi_value|gwt_depth|unit_weight|column/i.test(message);
+}
+
+function isMissingBoreholesTableError(message: string): boolean {
+  return (
+    /relation .*boreholes.* does not exist/i.test(message) ||
+    /Could not find the table 'public\.boreholes'/i.test(message) ||
+    /table.*boreholes.*schema cache/i.test(message)
+  );
+}
+
 export function AccountProjectsPanel() {
   const router = useRouter();
   const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
@@ -140,20 +457,28 @@ export function AccountProjectsPanel() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [activeSelection, setActiveSelection] = useState<ActiveProjectBorehole | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [confirmRemoveProjectId, setConfirmRemoveProjectId] = useState<string | null>(null);
   const [boreholeEntryMode, setBoreholeEntryMode] = useState<"new" | "existing">("new");
   const [existingBoreholeId, setExistingBoreholeId] = useState("");
   const [newBoreholeId, setNewBoreholeId] = useState("");
   const [newSampleTopDepth, setNewSampleTopDepth] = useState("");
-  const [newSampleBottomDepth, setNewSampleBottomDepth] = useState("");
   const [newNValue, setNewNValue] = useState("");
-  const [boreholeFilter, setBoreholeFilter] = useState("all");
+  const [newPiValue, setNewPiValue] = useState("");
+  const [newSoilBehavior, setNewSoilBehavior] = useState<"" | Exclude<SoilBehavior, null>>("");
+  const [newGwtDepth, setNewGwtDepth] = useState("");
+  const [newUnitWeight, setNewUnitWeight] = useState("");
   const [selectedSampleIds, setSelectedSampleIds] = useState<string[]>([]);
   const [editingSampleId, setEditingSampleId] = useState<string | null>(null);
   const [editBoreholeId, setEditBoreholeId] = useState("");
   const [editSampleTopDepth, setEditSampleTopDepth] = useState("");
-  const [editSampleBottomDepth, setEditSampleBottomDepth] = useState("");
   const [editNValue, setEditNValue] = useState("");
+  const [editPiValue, setEditPiValue] = useState("");
+  const [editSoilBehavior, setEditSoilBehavior] = useState<"" | Exclude<SoilBehavior, null>>("");
+  const [editGwtDepth, setEditGwtDepth] = useState("");
+  const [editUnitWeight, setEditUnitWeight] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [authUserId, setAuthUserId] = useState<string>("");
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [isSavingBorehole, setIsSavingBorehole] = useState(false);
   const [isUpdatingSample, setIsUpdatingSample] = useState(false);
@@ -170,13 +495,23 @@ export function AccountProjectsPanel() {
   const [isLoadingSavedResultDetails, setIsLoadingSavedResultDetails] = useState(false);
   const [savedResultDetails, setSavedResultDetails] = useState<SavedToolResultDetails | null>(null);
   const [savedResultPlotIndex, setSavedResultPlotIndex] = useState(0);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportTools, setReportTools] = useState<ReportToolPayload[]>([]);
+  const reportRootRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"ok" | "error">("ok");
-  const [pendingJump, setPendingJump] = useState<"boreholes" | "analyses" | null>(null);
+  const [pendingJump, setPendingJump] = useState<"boreholes" | "addSample" | "analyses" | "matrix" | null>(null);
   const boreholesSectionRef = useRef<HTMLDivElement | null>(null);
+  const addSampleFormRef = useRef<HTMLDetailsElement | null>(null);
   const analysesSectionRef = useRef<HTMLElement | null>(null);
+  const matrixSectionRef = useRef<HTMLElement | null>(null);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
+
+  const distinctBoreholeCount = useMemo(
+    () => countDistinctBoreholeLabels(selectedProject?.boreholes ?? []),
+    [selectedProject?.boreholes],
+  );
   const existingBoreholeIds = useMemo(
     () =>
       Array.from(new Set((selectedProject?.boreholes ?? []).map((item) => item.borehole_id).filter(Boolean))).sort(
@@ -184,18 +519,25 @@ export function AccountProjectsPanel() {
       ),
     [selectedProject],
   );
-  const filteredBoreholes = useMemo(() => {
-    const samples = selectedProject?.boreholes ?? [];
-    if (boreholeFilter === "all") {
-      return samples;
+
+  useEffect(() => {
+    if (
+      boreholeEntryMode === "new" &&
+      distinctBoreholeCount >= MAX_BOREHOLES_PER_PROJECT &&
+      existingBoreholeIds.length > 0
+    ) {
+      setBoreholeEntryMode("existing");
+      setExistingBoreholeId((prev) => prev || existingBoreholeIds[0] || "");
     }
-    return samples.filter((sample) => sample.borehole_id === boreholeFilter);
-  }, [boreholeFilter, selectedProject]);
+  }, [boreholeEntryMode, distinctBoreholeCount, existingBoreholeIds]);
+
+  const visibleBoreholes = useMemo(() => selectedProject?.boreholes ?? [], [selectedProject]);
   const integratedMatrixRows = useMemo(() => {
     const rowMap = new Map<
       string,
       {
         boreholeLabel: string;
+        soilBehavior: SoilBehavior | null;
         sampleDepth: number | null;
         values: Record<string, string>;
       }
@@ -217,6 +559,7 @@ export function AccountProjectsPanel() {
       if (!rowMap.has(key)) {
         rowMap.set(key, {
           boreholeLabel,
+          soilBehavior: sample.soil_behavior ?? null,
           sampleDepth,
           values: {},
         });
@@ -243,6 +586,7 @@ export function AccountProjectsPanel() {
       if (!rowMap.has(key)) {
         rowMap.set(key, {
           boreholeLabel,
+          soilBehavior: null,
           sampleDepth,
           values: {},
         });
@@ -251,6 +595,17 @@ export function AccountProjectsPanel() {
       const target = rowMap.get(key);
       if (!target) {
         return;
+      }
+      if (!target.soilBehavior) {
+        const matchingBorehole = seedFromProjectBoreholes.find((sample) => {
+          const sampleLabel = sanitiseBoreholeLabel(sample.borehole_id);
+          const sampleTopDepth =
+            typeof sample.sample_top_depth === "number" && Number.isFinite(sample.sample_top_depth)
+              ? sample.sample_top_depth
+              : null;
+          return toRowKey(sampleLabel, sampleTopDepth) === key;
+        });
+        target.soilBehavior = matchingBorehole?.soil_behavior ?? null;
       }
       if (target.values[record.parameter_code] !== undefined) {
         return;
@@ -274,6 +629,119 @@ export function AccountProjectsPanel() {
     });
   }, [projectParameters, selectedProject]);
 
+  const reportReady = useMemo(() => {
+    if (!selectedProject) {
+      return false;
+    }
+    if (integratedMatrixRows.length === 0) {
+      return false;
+    }
+    const hasAnyToolOutputs = projectParameters.some((row) => (row.source_tool_slug ?? "").trim().length > 0);
+    const hasNonN = integratedMatrixRows.some((row) => Object.keys(row.values).some((code) => code !== "n"));
+    return hasAnyToolOutputs && hasNonN;
+  }, [integratedMatrixRows, projectParameters, selectedProject]);
+
+  const generateReportPdf = async () => {
+    if (!selectedProject || !supabaseReady) {
+      return;
+    }
+    setIsGeneratingReport(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const toolSlugs: ToolSlugForReport[] = [
+        "spt-corrections",
+        "cu-from-pi-and-spt",
+        "modulus-from-cu",
+        "eu-from-spt-butler-1975",
+        "effective-modulus-eprime-cohesive",
+        "eprime-from-spt-cohesionless",
+        "gmax-from-vs",
+        "eoed-from-mv",
+        "ocr-calculator",
+        "k0-earth-pressure",
+      ];
+
+      const fetched: ReportToolPayload[] = [];
+      for (const slug of toolSlugs) {
+        const { data, error } = await supabase
+          .from("tool_results")
+          .select("created_at,tool_slug,tool_title,result_payload")
+          .eq("project_id", selectedProject.id)
+          .eq("tool_slug", slug)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error || !data) {
+          continue;
+        }
+        fetched.push({
+          toolSlug: slug,
+          toolTitle: typeof data.tool_title === "string" && data.tool_title.trim() ? data.tool_title : getToolTitle(slug),
+          createdAt: typeof data.created_at === "string" ? data.created_at : null,
+          plots: extractPlotsFromPayload((data as { result_payload?: unknown }).result_payload),
+        });
+      }
+
+      setReportTools(fetched);
+      await new Promise((resolve) => window.setTimeout(resolve, 60));
+      const root = reportRootRef.current;
+      if (!root) {
+        return;
+      }
+      await downloadElementAsPdf(root, `Geotechnical Parameter Report - ${selectedProject.name}.pdf`);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const exportIntegratedMatrixExcel = () => {
+    if (!selectedProject) {
+      return;
+    }
+
+    const headers = ["#", "Borehole ID", "Soil behavior", "Sample depth", ...PARAMETER_COLUMN_ORDER];
+    const headerCells = headers.map((label) => excelTextHeader(label)).join("");
+
+    const bodyRows = integratedMatrixRows
+      .map((row, index) => {
+        const cells = [
+          String(index + 1),
+          row.boreholeLabel,
+          formatSoilBehaviorLabel(row.soilBehavior),
+          row.sampleDepth === null ? "-" : String(row.sampleDepth),
+          ...PARAMETER_COLUMN_ORDER.map((code) => row.values[code] ?? "-"),
+        ];
+        return `<tr>${cells.map((value) => excelTextCell(String(value ?? ""))).join("")}</tr>`;
+      })
+      .join("");
+
+    const tableHtml = `<table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+    const doc = `<!doctype html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office">
+  <head>
+    <meta charset="utf-8" />
+    <title>Integrated Parameter Matrix Export</title>
+    <style>
+      body { font-family: Calibri, Arial, sans-serif; color: #0f172a; margin: 24px; }
+      h1 { font-size: 18px; margin: 0 0 10px; }
+      p { font-size: 12px; color: #475569; margin: 0 0 12px; }
+      ${EXCEL_TABLE_BLOCK_CSS}
+    </style>
+  </head>
+  <body>
+    <h1>Integrated Parameter Matrix</h1>
+    <p>Project: ${selectedProject.name}</p>
+    ${tableHtml}
+  </body>
+</html>`;
+
+    const payload = buildMhtmlMultipartDocument(doc, []);
+    downloadBlob(
+      `integrated-parameter-matrix-${selectedProject.name.replaceAll(/[^a-z0-9-_]+/gi, "-")}.xls`,
+      new Blob([payload], { type: "application/vnd.ms-excel;charset=utf-8" }),
+    );
+  };
+
   useEffect(() => {
     if (!existingBoreholeIds.length) {
       setBoreholeEntryMode("new");
@@ -285,15 +753,35 @@ export function AccountProjectsPanel() {
   }, [existingBoreholeIds]);
 
   useEffect(() => {
+    if (boreholeEntryMode !== "existing") {
+      return;
+    }
+    const id = existingBoreholeId.trim();
+    if (!id) {
+      return;
+    }
+    const samples = selectedProject?.boreholes ?? [];
+    const { gwt, unitWeight } = getFieldDefaultsForBoreholeId(samples, id);
+    setNewGwtDepth(gwt);
+    setNewUnitWeight(unitWeight);
+  }, [boreholeEntryMode, existingBoreholeId, selectedProject?.boreholes]);
+
+  useEffect(() => {
     setEditingSampleId(null);
     setEditBoreholeId("");
     setEditSampleTopDepth("");
-    setEditSampleBottomDepth("");
     setEditNValue("");
+    setEditPiValue("");
+    setEditGwtDepth("");
+    setEditUnitWeight("");
+    setNewPiValue("");
+    setNewGwtDepth("");
+    setNewUnitWeight("");
     setSelectedSampleIds([]);
-    setBoreholeFilter("all");
     setIsEditingProjectName(false);
     setEditProjectName("");
+    setIsNewProjectOpen(false);
+    setConfirmRemoveProjectId(null);
   }, [selectedProjectId]);
 
   useEffect(() => {
@@ -304,37 +792,36 @@ export function AccountProjectsPanel() {
   }, [selectedProject]);
 
   useEffect(() => {
-    if (boreholeFilter === "all") {
-      return;
-    }
-    if (!existingBoreholeIds.includes(boreholeFilter)) {
-      setBoreholeFilter("all");
-    }
-  }, [boreholeFilter, existingBoreholeIds]);
-
-  useEffect(() => {
     if (!pendingJump || !selectedProject) {
       return;
     }
-    const targetRef = pendingJump === "boreholes" ? boreholesSectionRef.current : analysesSectionRef.current;
+    if (pendingJump === "addSample" && addSampleFormRef.current) {
+      addSampleFormRef.current.open = true;
+    }
+    const targetRef =
+      pendingJump === "boreholes"
+        ? boreholesSectionRef.current
+        : pendingJump === "addSample"
+          ? addSampleFormRef.current
+          : pendingJump === "analyses"
+            ? analysesSectionRef.current
+            : matrixSectionRef.current;
     if (!targetRef) {
       return;
     }
     targetRef.scrollIntoView({ behavior: "smooth", block: "start" });
     setPendingJump(null);
-  }, [pendingJump, selectedProject, selectedProjectId, filteredBoreholes.length, savedResults.length]);
+  }, [pendingJump, selectedProject, selectedProjectId, visibleBoreholes.length, savedResults.length, integratedMatrixRows.length]);
 
-  const jumpToProjectSection = (projectId: string, target: "boreholes" | "analyses", boreholeId?: string) => {
+  const jumpToProjectSection = (projectId: string, target: "boreholes" | "addSample" | "analyses" | "matrix") => {
     setSelectedProjectId(projectId);
-    if (target === "boreholes") {
-      setBoreholeFilter(boreholeId ?? "all");
-    }
     setPendingJump(target);
   };
 
   const refreshProjects = async () => {
     if (!supabaseReady) {
       setProjects([]);
+      setAuthUserId("");
       setIsLoading(false);
       return;
     }
@@ -347,28 +834,83 @@ export function AccountProjectsPanel() {
 
     if (userError || !user) {
       setProjects([]);
+      setAuthUserId("");
       setIsLoading(false);
       return;
     }
+    setAuthUserId(user.id);
 
-    const { data, error } = await supabase
+    const projectsQuery = await supabase
       .from("projects")
-      .select(
-        "id,name,created_at,boreholes(id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,created_at)",
-      )
+      .select("id,name,created_at")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      setMessage(error.message);
+    if (projectsQuery.error) {
+      setMessage(projectsQuery.error.message);
       setMessageType("error");
       setProjects([]);
       setIsLoading(false);
       return;
     }
 
-    const mappedProjects = ((data ?? []) as unknown as ProjectRecord[]).map((project) => ({
+    const baseProjects = ((projectsQuery.data ?? []) as unknown as ProjectRecord[]).map((project) => ({
       ...project,
-      boreholes: [...(project.boreholes ?? [])].sort(boreholeSampleComparator),
+      boreholes: [],
+    }));
+
+    let boreholeRows: BoreholeRecord[] = [];
+    let boreholesError: string | null = null;
+
+    const extendedBoreholesQuery = await supabase
+      .from("boreholes")
+      .select("id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,pi_value,gwt_depth,unit_weight,created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+
+    if (extendedBoreholesQuery.error) {
+      if (isExtendedBoreholeColumnError(extendedBoreholesQuery.error.message)) {
+        const legacyBoreholesQuery = await supabase
+          .from("boreholes")
+          .select("id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true });
+
+        if (legacyBoreholesQuery.error) {
+          if (!isMissingBoreholesTableError(legacyBoreholesQuery.error.message)) {
+            boreholesError = legacyBoreholesQuery.error.message;
+          }
+        } else {
+          boreholeRows = ((legacyBoreholesQuery.data ?? []) as unknown as BoreholeRecord[]).map((row) => ({
+            ...row,
+            pi_value: null,
+            gwt_depth: null,
+            unit_weight: null,
+          }));
+        }
+      } else if (!isMissingBoreholesTableError(extendedBoreholesQuery.error.message)) {
+        boreholesError = extendedBoreholesQuery.error.message;
+      }
+    } else {
+      boreholeRows = (extendedBoreholesQuery.data ?? []) as unknown as BoreholeRecord[];
+    }
+
+    const mergedRows = mergeBoreholeExtrasIntoRows(user.id, boreholeRows);
+
+    const boreholesByProject = mergedRows.reduce<Map<string, BoreholeRecord[]>>((acc, row) => {
+      const current = acc.get(row.project_id) ?? [];
+      current.push({
+        ...row,
+        pi_value: row.pi_value ?? null,
+        gwt_depth: row.gwt_depth ?? null,
+        unit_weight: row.unit_weight ?? null,
+      });
+      acc.set(row.project_id, current);
+      return acc;
+    }, new Map());
+
+    const mappedProjects = baseProjects.map((project) => ({
+      ...project,
+      boreholes: [...(boreholesByProject.get(project.id) ?? [])].sort(boreholeSampleComparator),
     }));
 
     setProjects(mappedProjects);
@@ -378,6 +920,12 @@ export function AccountProjectsPanel() {
       }
       return mappedProjects[0]?.id ?? "";
     });
+    if (boreholesError) {
+      setMessage(boreholesError);
+      setMessageType("error");
+    } else if (message && messageType === "error") {
+      setMessage(null);
+    }
     setIsLoading(false);
   };
 
@@ -492,6 +1040,12 @@ export function AccountProjectsPanel() {
       return;
     }
 
+    if (projects.length >= MAX_PROJECTS_PER_USER) {
+      setMessage(`You can create at most ${MAX_PROJECTS_PER_USER} projects.`);
+      setMessageType("error");
+      return;
+    }
+
     if (!supabaseReady) {
       setMessage("Supabase is not configured.");
       setMessageType("error");
@@ -524,6 +1078,7 @@ export function AccountProjectsPanel() {
       }
 
       setNewProjectName("");
+      setIsNewProjectOpen(false);
       setMessage("Project created.");
       setMessageType("ok");
       await refreshProjects();
@@ -549,6 +1104,15 @@ export function AccountProjectsPanel() {
       return;
     }
 
+    const projectSamples = selectedProject?.boreholes ?? [];
+    if (wouldExceedBoreholeLimit(projectSamples, boreholeId)) {
+      setMessage(
+        `Each project can have at most ${MAX_BOREHOLES_PER_PROJECT} boreholes. Add a sample under an existing borehole ID, or remove samples until fewer than ${MAX_BOREHOLES_PER_PROJECT} IDs remain.`,
+      );
+      setMessageType("error");
+      return;
+    }
+
     if (!supabaseReady) {
       setMessage("Supabase is not configured.");
       setMessageType("error");
@@ -569,19 +1133,55 @@ export function AccountProjectsPanel() {
         return;
       }
 
-      const { error } = await supabase.from("boreholes").insert({
-        project_id: selectedProjectId,
-        user_id: user.id,
-        borehole_id: boreholeId,
-        sample_top_depth: toNullableNumber(newSampleTopDepth),
-        sample_bottom_depth: toNullableNumber(newSampleBottomDepth),
-        n_value: toNullableNumber(newNValue),
-      });
+      let error: { message: string } | null = null;
+      let insertedSampleId: string | null = null;
+      const piForStore = newSoilBehavior === "granular" ? null : toNullableNumber(newPiValue);
+      const extendedInsert = await supabase
+        .from("boreholes")
+        .insert({
+          project_id: selectedProjectId,
+          user_id: user.id,
+          borehole_id: boreholeId,
+          sample_top_depth: toNullableNumber(newSampleTopDepth),
+          sample_bottom_depth: null,
+          n_value: toNullableNumber(newNValue),
+          pi_value: piForStore,
+          gwt_depth: toNullableNumber(newGwtDepth),
+          unit_weight: toNullableNumber(newUnitWeight),
+        })
+        .select("id")
+        .maybeSingle();
+      error = extendedInsert.error ? { message: extendedInsert.error.message } : null;
+      insertedSampleId = (extendedInsert.data as { id?: string } | null)?.id ?? null;
+
+      if (error && /pi_value|gwt_depth|unit_weight|column/i.test(error.message)) {
+        const legacyInsert = await supabase.from("boreholes").insert({
+          project_id: selectedProjectId,
+          user_id: user.id,
+          borehole_id: boreholeId,
+          sample_top_depth: toNullableNumber(newSampleTopDepth),
+          sample_bottom_depth: null,
+          n_value: toNullableNumber(newNValue),
+        })
+          .select("id")
+          .maybeSingle();
+        error = legacyInsert.error ? { message: legacyInsert.error.message } : null;
+        insertedSampleId = (legacyInsert.data as { id?: string } | null)?.id ?? null;
+      }
 
       if (error) {
         setMessage(error.message);
         setMessageType("error");
         return;
+      }
+
+      if (insertedSampleId) {
+        upsertBoreholeExtras(user.id, insertedSampleId, {
+          piValue: piForStore,
+          gwtDepth: toNullableNumber(newGwtDepth),
+          unitWeight: toNullableNumber(newUnitWeight),
+          soilBehavior: newSoilBehavior === "" ? null : newSoilBehavior,
+        });
       }
 
       if (boreholeEntryMode === "new") {
@@ -590,8 +1190,11 @@ export function AccountProjectsPanel() {
       setBoreholeEntryMode("existing");
       setExistingBoreholeId(boreholeId);
       setNewSampleTopDepth("");
-      setNewSampleBottomDepth("");
       setNewNValue("");
+      setNewPiValue("");
+      setNewSoilBehavior("");
+      setNewGwtDepth("");
+      setNewUnitWeight("");
       setMessage(`Sample added under "${boreholeId}".`);
       setMessageType("ok");
       await refreshProjects();
@@ -608,6 +1211,10 @@ export function AccountProjectsPanel() {
       sampleTopDepth: sample.sample_top_depth ?? null,
       sampleBottomDepth: sample.sample_bottom_depth ?? null,
       nValue: sample.n_value ?? null,
+      piValue: sample.pi_value ?? null,
+      gwtDepth: sample.gwt_depth ?? null,
+      unitWeight: sample.unit_weight ?? null,
+      soilBehavior: sample.soil_behavior ?? null,
     }));
     const primary = selectedBoreholes[0];
 
@@ -619,6 +1226,10 @@ export function AccountProjectsPanel() {
       sampleTopDepth: primary?.sampleTopDepth ?? null,
       sampleBottomDepth: primary?.sampleBottomDepth ?? null,
       nValue: primary?.nValue ?? null,
+      piValue: primary?.piValue ?? null,
+      gwtDepth: primary?.gwtDepth ?? null,
+      unitWeight: primary?.unitWeight ?? null,
+      soilBehavior: primary?.soilBehavior ?? null,
       selectedBoreholes,
     };
     writeActiveProjectBorehole(payload);
@@ -640,6 +1251,10 @@ export function AccountProjectsPanel() {
       sampleTopDepth: borehole.sample_top_depth ?? null,
       sampleBottomDepth: borehole.sample_bottom_depth ?? null,
       nValue: borehole.n_value ?? null,
+      piValue: borehole.pi_value ?? null,
+      gwtDepth: borehole.gwt_depth ?? null,
+      unitWeight: borehole.unit_weight ?? null,
+      soilBehavior: borehole.soil_behavior ?? null,
     };
     writeActiveProjectBorehole(payload);
     setActiveSelection(payload);
@@ -671,6 +1286,10 @@ export function AccountProjectsPanel() {
         sampleTopDepth: sample.sample_top_depth ?? null,
         sampleBottomDepth: sample.sample_bottom_depth ?? null,
         nValue: sample.n_value ?? null,
+        piValue: sample.pi_value ?? null,
+        gwtDepth: sample.gwt_depth ?? null,
+        unitWeight: sample.unit_weight ?? null,
+        soilBehavior: sample.soil_behavior ?? null,
       }));
 
     const primary = selectedBoreholes[0];
@@ -682,6 +1301,10 @@ export function AccountProjectsPanel() {
       sampleTopDepth: primary?.sampleTopDepth ?? null,
       sampleBottomDepth: primary?.sampleBottomDepth ?? null,
       nValue: primary?.nValue ?? null,
+      piValue: primary?.piValue ?? null,
+      gwtDepth: primary?.gwtDepth ?? null,
+      unitWeight: primary?.unitWeight ?? null,
+      soilBehavior: primary?.soilBehavior ?? null,
       selectedBoreholes,
     };
 
@@ -715,12 +1338,17 @@ export function AccountProjectsPanel() {
         ? ""
         : String(borehole.sample_top_depth),
     );
-    setEditSampleBottomDepth(
-      borehole.sample_bottom_depth === null || borehole.sample_bottom_depth === undefined
-        ? ""
-        : String(borehole.sample_bottom_depth),
-    );
     setEditNValue(borehole.n_value === null || borehole.n_value === undefined ? "" : String(borehole.n_value));
+    setEditPiValue(borehole.pi_value === null || borehole.pi_value === undefined ? "" : String(borehole.pi_value));
+    setEditGwtDepth(
+      borehole.gwt_depth === null || borehole.gwt_depth === undefined ? "" : String(borehole.gwt_depth),
+    );
+    setEditUnitWeight(
+      borehole.unit_weight === null || borehole.unit_weight === undefined ? "" : String(borehole.unit_weight),
+    );
+    setEditSoilBehavior(
+      borehole.soil_behavior === "cohesive" || borehole.soil_behavior === "granular" ? borehole.soil_behavior : "",
+    );
     setMessage(null);
   };
 
@@ -728,8 +1356,11 @@ export function AccountProjectsPanel() {
     setEditingSampleId(null);
     setEditBoreholeId("");
     setEditSampleTopDepth("");
-    setEditSampleBottomDepth("");
     setEditNValue("");
+    setEditPiValue("");
+    setEditSoilBehavior("");
+    setEditGwtDepth("");
+    setEditUnitWeight("");
   };
 
   const saveEditSample = async () => {
@@ -747,20 +1378,59 @@ export function AccountProjectsPanel() {
     setIsUpdatingSample(true);
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase
+      let error: { message: string } | null = null;
+      let affectedRows = 0;
+      const piForStore = editSoilBehavior === "granular" ? null : toNullableNumber(editPiValue);
+      const extendedUpdate = await supabase
         .from("boreholes")
         .update({
           borehole_id: boreholeId,
           sample_top_depth: toNullableNumber(editSampleTopDepth),
-          sample_bottom_depth: toNullableNumber(editSampleBottomDepth),
+          sample_bottom_depth: null,
           n_value: toNullableNumber(editNValue),
+          pi_value: piForStore,
+          gwt_depth: toNullableNumber(editGwtDepth),
+          unit_weight: toNullableNumber(editUnitWeight),
         })
-        .eq("id", editingSampleId);
+        .eq("id", editingSampleId)
+        .select("id");
+      error = extendedUpdate.error ? { message: extendedUpdate.error.message } : null;
+      affectedRows = extendedUpdate.data?.length ?? 0;
+
+      if (error && /pi_value|gwt_depth|unit_weight|column/i.test(error.message)) {
+        const legacyUpdate = await supabase
+          .from("boreholes")
+          .update({
+            borehole_id: boreholeId,
+            sample_top_depth: toNullableNumber(editSampleTopDepth),
+            sample_bottom_depth: null,
+            n_value: toNullableNumber(editNValue),
+          })
+          .eq("id", editingSampleId)
+          .select("id");
+        error = legacyUpdate.error ? { message: legacyUpdate.error.message } : null;
+        affectedRows = legacyUpdate.data?.length ?? 0;
+      }
 
       if (error) {
         setMessage(error.message);
         setMessageType("error");
         return;
+      }
+
+      if (affectedRows === 0) {
+        setMessage("Sample could not be updated. Please refresh the page and try again.");
+        setMessageType("error");
+        return;
+      }
+
+      if (editingSampleId) {
+        upsertBoreholeExtras(authUserId, editingSampleId, {
+          piValue: piForStore,
+          gwtDepth: toNullableNumber(editGwtDepth),
+          unitWeight: toNullableNumber(editUnitWeight),
+          soilBehavior: editSoilBehavior === "" ? null : editSoilBehavior,
+        });
       }
 
       setMessage("Sample updated.");
@@ -794,6 +1464,8 @@ export function AccountProjectsPanel() {
         cancelEditSample();
       }
 
+      removeBoreholeExtras(authUserId, borehole.id);
+
       setMessage("Sample removed.");
       setMessageType("ok");
       await refreshProjects();
@@ -802,12 +1474,19 @@ export function AccountProjectsPanel() {
     }
   };
 
-  const removeProject = async (project: ProjectRecord) => {
-    const confirmed = window.confirm(
-      `Remove project "${project.name}"? This will also remove all boreholes and saved tool results in this project.`,
-    );
-    if (!confirmed) {
-      return;
+  const removeProject = async (project: ProjectRecord, options?: { confirmedByUi?: boolean }) => {
+    if (!options?.confirmedByUi) {
+      const confirmed = window.confirm(
+        [
+          `Are you sure you want to remove the project "${project.name}"?`,
+          "",
+          "This will permanently delete all boreholes, samples, and saved analyses linked to this project.",
+          "This cannot be undone.",
+        ].join("\n"),
+      );
+      if (!confirmed) {
+        return;
+      }
     }
 
     setDeletingProjectId(project.id);
@@ -1017,93 +1696,148 @@ export function AccountProjectsPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h3 className="text-base font-semibold text-slate-900">Projects</h3>
-          <form onSubmit={onCreateProject} className="mt-3 space-y-2">
-            <input
-              value={newProjectName}
-              onChange={(event) => setNewProjectName(event.target.value)}
-              placeholder="New project name"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-            />
-            <button type="submit" className="btn-base btn-md" disabled={isSavingProject}>
-              {isSavingProject ? "Creating..." : "Create Project"}
-            </button>
-          </form>
-
-          <div className="mt-4 space-y-2">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1 space-y-2">
+            <label htmlFor="active-project-select" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Active project
+            </label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <select
+                id="active-project-select"
+                value={selectedProjectId}
+                onChange={(event) => setSelectedProjectId(event.target.value)}
+                disabled={isLoading || projects.length === 0}
+                className="min-h-[44px] w-full min-w-0 max-w-xl rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm outline-none transition-colors focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100 sm:flex-1"
+              >
+                {projects.length === 0 ? (
+                  <option value="">No projects yet — create one below</option>
+                ) : (
+                  projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))
+                )}
+              </select>
+              <button
+                type="button"
+                className="btn-base btn-md shrink-0"
+                onClick={() => setIsNewProjectOpen((prev) => !prev)}
+              >
+                New Project
+              </button>
+              <button
+                type="button"
+                className="btn-base btn-md shrink-0"
+                onClick={() => {
+                  if (selectedProject) {
+                    startEditProjectName(selectedProject);
+                  }
+                }}
+                disabled={!selectedProject || isEditingProjectName || isUpdatingProjectName}
+              >
+                Edit Project
+              </button>
+              <button
+                type="button"
+                className="btn-base btn-md btn-danger shrink-0"
+                onClick={() => {
+                  if (!selectedProject) {
+                    return;
+                  }
+                  setConfirmRemoveProjectId((current) =>
+                    current === selectedProject.id ? null : selectedProject.id,
+                  );
+                }}
+                disabled={!selectedProject || deletingProjectId === selectedProject.id}
+              >
+                {selectedProject && deletingProjectId === selectedProject.id ? "Removing..." : "Remove Project"}
+              </button>
+            </div>
             {isLoading ? <p className="text-sm text-slate-600">Loading projects...</p> : null}
-            {!isLoading && projects.length === 0 ? (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                No projects yet.
-              </p>
-            ) : null}
-
-            {projects.map((project) => {
-              const isSelected = selectedProjectId === project.id;
-              const groupedBoreholes = Array.from(
-                (project.boreholes ?? []).reduce<Map<string, number>>((acc, sample) => {
-                  const key = sample.borehole_id.trim();
-                  acc.set(key, (acc.get(key) ?? 0) + 1);
-                  return acc;
-                }, new Map()),
-              ).sort(([a], [b]) => compareBoreholeIds(a, b));
-              return (
-                <div key={project.id} className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProjectId((current) => (current === project.id ? "" : project.id))}
-                    className={`block w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors duration-200 ${
-                      isSelected
-                        ? "border-slate-400 bg-slate-100 text-slate-900"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <p className="font-semibold">{project.name}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {new Set((project.boreholes ?? []).map((item) => item.borehole_id)).size} boreholes -{" "}
-                      {project.boreholes?.length ?? 0} samples
-                    </p>
-                  </button>
-
-                  {isSelected ? (
-                    <div className="ml-3 border-l border-slate-200 pl-3">
-                      <button
-                        type="button"
-                        onClick={() => jumpToProjectSection(project.id, "boreholes")}
-                        className="block text-left text-xs font-medium text-slate-700 hover:text-slate-900"
-                      >
-                        - Boreholes ({groupedBoreholes.length})
-                      </button>
-                      <div className="mt-1 space-y-0.5">
-                        {groupedBoreholes.map(([boreholeId, sampleCount]) => (
-                          <button
-                            key={`${project.id}-${boreholeId}`}
-                            type="button"
-                            onClick={() => jumpToProjectSection(project.id, "boreholes", boreholeId)}
-                            className="block w-full text-left text-xs text-slate-600 hover:text-slate-900"
-                          >
-                            -- {boreholeId} ({sampleCount} samples)
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => jumpToProjectSection(project.id, "analyses")}
-                        className="mt-1 block text-left text-xs font-medium text-slate-700 hover:text-slate-900"
-                      >
-                        - Saved analyses ({savedResults.length})
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        {isNewProjectOpen ? (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <form onSubmit={onCreateProject} className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">Create new project</p>
+                <button type="button" className="btn-base px-3 py-1.5 text-xs" onClick={() => setIsNewProjectOpen(false)}>
+                  Close
+                </button>
+              </div>
+              <input
+                value={newProjectName}
+                onChange={(event) => setNewProjectName(event.target.value)}
+                placeholder="Project name"
+                disabled={projects.length >= MAX_PROJECTS_PER_USER}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-slate-500">
+                  {projects.length}/{MAX_PROJECTS_PER_USER} projects
+                </p>
+                <button
+                  type="submit"
+                  className="btn-base btn-md"
+                  disabled={isSavingProject || projects.length >= MAX_PROJECTS_PER_USER}
+                >
+                  {isSavingProject ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+
+        {selectedProject && confirmRemoveProjectId === selectedProject.id ? (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1 text-sm text-red-900">
+                <p className="font-semibold">Remove project "{selectedProject.name}"?</p>
+                <p className="text-red-800">
+                  This will permanently delete all boreholes, samples, and saved analyses linked to this project. This
+                  cannot be undone.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn-base px-3 py-1.5 text-xs"
+                  onClick={() => setConfirmRemoveProjectId(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-base border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-100"
+                  onClick={() => {
+                    setConfirmRemoveProjectId(null);
+                    void removeProject(selectedProject, { confirmedByUi: true });
+                  }}
+                  disabled={deletingProjectId === selectedProject.id}
+                >
+                  {deletingProjectId === selectedProject.id ? "Removing..." : "Remove permanently"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+          {message ? (
+            <div
+              className={`mb-3 rounded-lg border px-3 py-2 text-sm ${
+                messageType === "ok"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-red-200 bg-red-50 text-red-800"
+              }`}
+            >
+              {message}
+            </div>
+          ) : null}
           {selectedProject ? (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1136,45 +1870,44 @@ export function AccountProjectsPanel() {
                       </button>
                     </div>
                   ) : (
-                    <h3 className="text-base font-semibold text-slate-900">{selectedProject.name}</h3>
+                    <h3 className="text-xl font-semibold text-slate-900 sm:text-2xl">{selectedProject.name}</h3>
                   )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="btn-base px-3 py-1.5 text-xs"
-                    onClick={() => startEditProjectName(selectedProject)}
-                    disabled={isEditingProjectName || isUpdatingProjectName}
-                  >
-                    Edit Project
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-base border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
-                    onClick={() => {
-                      void removeProject(selectedProject);
-                    }}
-                    disabled={deletingProjectId === selectedProject.id}
-                  >
-                    {deletingProjectId === selectedProject.id ? "Removing..." : "Remove Project"}
-                  </button>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <select
-                  value={boreholeFilter}
-                  onChange={(event) => setBoreholeFilter(event.target.value)}
-                  className="btn-base btn-md min-w-[180px] bg-white text-slate-700"
-                  aria-label="Filter by borehole"
+                <span className="mr-1 self-center text-xs font-semibold uppercase tracking-wide text-slate-500">Jump to</span>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  onClick={() => jumpToProjectSection(selectedProject.id, "boreholes")}
                 >
-                  <option value="all">All Boreholes</option>
-                  {existingBoreholeIds.map((id) => (
-                    <option key={id} value={id}>
-                      {id}
-                    </option>
-                  ))}
-                </select>
+                  Borehole table
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  onClick={() => jumpToProjectSection(selectedProject.id, "addSample")}
+                >
+                  Add sample form
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  onClick={() => jumpToProjectSection(selectedProject.id, "analyses")}
+                >
+                  Saved analyses ({savedResults.length})
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  onClick={() => jumpToProjectSection(selectedProject.id, "matrix")}
+                >
+                  Parameter matrix ({integratedMatrixRows.length})
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-base btn-md" onClick={() => setActiveSelectedBoreholes(selectedProject)}>
                   Use Selected in Tools
                 </button>
@@ -1200,18 +1933,6 @@ export function AccountProjectsPanel() {
                 </div>
               ) : null}
 
-              {message ? (
-                <div
-                  className={`rounded-lg border px-3 py-2 text-sm ${
-                    messageType === "ok"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-red-200 bg-red-50 text-red-800"
-                  }`}
-                >
-                  {message}
-                </div>
-              ) : null}
-
               <div ref={boreholesSectionRef} className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="min-w-full border-collapse text-sm">
                   <thead className="bg-slate-100 text-slate-600">
@@ -1220,22 +1941,24 @@ export function AccountProjectsPanel() {
                         <input
                           type="checkbox"
                           checked={
-                            filteredBoreholes.length > 0 &&
-                            filteredBoreholes.every((sample) => selectedSampleIds.includes(sample.id))
+                            visibleBoreholes.length > 0 && visibleBoreholes.every((sample) => selectedSampleIds.includes(sample.id))
                           }
-                          onChange={() => toggleSelectAllSamples(filteredBoreholes)}
+                          onChange={() => toggleSelectAllSamples(visibleBoreholes)}
                           aria-label="Select all samples"
                         />
                       </th>
                       <th className="px-3 py-2 text-left font-semibold">Borehole ID</th>
-                      <th className="px-3 py-2 text-left font-semibold">Sample top depth (m)</th>
-                      <th className="px-3 py-2 text-left font-semibold">Sample bottom depth (m)</th>
+                      <th className="px-3 py-2 text-left font-semibold">Sample depth</th>
                       <th className="px-3 py-2 text-left font-semibold">N value</th>
+                      <th className="px-3 py-2 text-left font-semibold">Soil (optional)</th>
+                      <th className="px-3 py-2 text-left font-semibold">PI (%)</th>
+                      <th className="px-3 py-2 text-left font-semibold">GWT (m)</th>
+                      <th className="px-3 py-2 text-left font-semibold">Unit Weight (kN/m3)</th>
                       <th className="px-3 py-2 text-left font-semibold">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredBoreholes.map((borehole) => {
+                    {visibleBoreholes.map((borehole) => {
                       const isEditing = editingSampleId === borehole.id;
                       const isDeleting = deletingSampleId === borehole.id;
                       return (
@@ -1275,19 +1998,6 @@ export function AccountProjectsPanel() {
                           <td className="px-3 py-2">
                             {isEditing ? (
                               <input
-                                value={editSampleBottomDepth}
-                                onChange={(event) => setEditSampleBottomDepth(event.target.value)}
-                                type="number"
-                                step="0.1"
-                                className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                              />
-                            ) : (
-                              borehole.sample_bottom_depth ?? "-"
-                            )}
-                          </td>
-                          <td className="px-3 py-2">
-                            {isEditing ? (
-                              <input
                                 value={editNValue}
                                 onChange={(event) => setEditNValue(event.target.value)}
                                 type="number"
@@ -1300,7 +2010,75 @@ export function AccountProjectsPanel() {
                           </td>
                           <td className="px-3 py-2">
                             {isEditing ? (
-                              <div className="flex flex-wrap gap-2">
+                              <select
+                                value={editSoilBehavior}
+                                onChange={(event) => {
+                                  const next = event.target.value as "" | "cohesive" | "granular";
+                                  setEditSoilBehavior(next);
+                                  if (next === "granular") {
+                                    setEditPiValue("");
+                                  }
+                                }}
+                                className="w-full max-w-[140px] rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                              >
+                                <option value="">—</option>
+                                <option value="cohesive">Cohesive</option>
+                                <option value="granular">Granular</option>
+                              </select>
+                            ) : borehole.soil_behavior === "cohesive" ? (
+                              "Cohesive"
+                            ) : borehole.soil_behavior === "granular" ? (
+                              "Granular"
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isEditing ? (
+                              <input
+                                value={editPiValue}
+                                onChange={(event) => setEditPiValue(event.target.value)}
+                                type="number"
+                                step="0.1"
+                                disabled={editSoilBehavior === "granular"}
+                                title={editSoilBehavior === "granular" ? "PI is not used for granular soils." : undefined}
+                                className={`w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500 ${
+                                  editSoilBehavior === "granular" ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""
+                                }`}
+                              />
+                            ) : (
+                              borehole.pi_value ?? "-"
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isEditing ? (
+                              <input
+                                value={editGwtDepth}
+                                onChange={(event) => setEditGwtDepth(event.target.value)}
+                                type="number"
+                                step="0.1"
+                                className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                              />
+                            ) : (
+                              borehole.gwt_depth ?? "-"
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isEditing ? (
+                              <input
+                                value={editUnitWeight}
+                                onChange={(event) => setEditUnitWeight(event.target.value)}
+                                type="number"
+                                step="0.1"
+                                className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                              />
+                            ) : (
+                              borehole.unit_weight ?? "-"
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {isEditing ? (
+                              <div className="flex flex-nowrap gap-2">
                                 <button
                                   type="button"
                                   className="btn-base px-3 py-1.5 text-xs"
@@ -1321,7 +2099,7 @@ export function AccountProjectsPanel() {
                                 </button>
                               </div>
                             ) : (
-                              <div className="flex flex-wrap gap-2">
+                              <div className="flex flex-nowrap gap-2">
                                 <button
                                   type="button"
                                   className="btn-base px-3 py-1.5 text-xs"
@@ -1345,12 +2123,10 @@ export function AccountProjectsPanel() {
                         </tr>
                       );
                     })}
-                    {filteredBoreholes.length === 0 ? (
+                    {visibleBoreholes.length === 0 ? (
                       <tr className="border-t border-slate-200 bg-white">
-                        <td colSpan={6} className="px-3 py-3 text-sm text-slate-600">
-                          {boreholeFilter === "all"
-                            ? "No boreholes in this project yet."
-                            : "No samples found for the selected borehole filter."}
+                        <td colSpan={9} className="px-3 py-3 text-sm text-slate-600">
+                          No boreholes in this project yet.
                         </td>
                       </tr>
                     ) : null}
@@ -1358,15 +2134,44 @@ export function AccountProjectsPanel() {
                 </table>
               </div>
 
-              <form onSubmit={onAddBorehole} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-sm font-semibold text-slate-900">Add borehole sample</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <details ref={addSampleFormRef} open className="rounded-lg border border-slate-200 bg-slate-50">
+                <summary className="cursor-pointer list-none px-3 py-3 text-sm font-semibold text-slate-900 [&::-webkit-details-marker]:hidden">
+                  <span className="flex items-center justify-between gap-2">
+                    <span>Add borehole sample</span>
+                    <span className="text-xs font-normal text-slate-500">Show / hide</span>
+                  </span>
+                </summary>
+                <div className="border-t border-slate-200 px-3 pb-3">
+                <p className="mt-2 text-xs text-slate-600">
+                  For a <span className="font-medium text-slate-800">new</span> borehole, enter Borehole ID, GWT, and
+                  unit weight here. For an <span className="font-medium text-slate-800">existing</span> borehole, pick
+                  the ID and those fields fill from the project; add further sample depths below.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {distinctBoreholeCount}/{MAX_BOREHOLES_PER_PROJECT} boreholes in this project
+                  {distinctBoreholeCount >= MAX_BOREHOLES_PER_PROJECT
+                    ? " — new borehole IDs are not allowed; add samples under an existing ID."
+                    : null}
+                </p>
+                <form onSubmit={onAddBorehole} className="mt-3 space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {/* Order: Borehole → ID → GWT → Unit weight → Sample depth → Soil type → N → PI */}
                   <select
                     value={boreholeEntryMode}
-                    onChange={(event) => setBoreholeEntryMode(event.target.value as "new" | "existing")}
+                    onChange={(event) => {
+                      const mode = event.target.value as "new" | "existing";
+                      setBoreholeEntryMode(mode);
+                      if (mode === "new") {
+                        setNewGwtDepth("");
+                        setNewUnitWeight("");
+                      }
+                    }}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                    aria-label="New or existing borehole"
                   >
-                    <option value="new">New Borehole ID</option>
+                    <option value="new" disabled={distinctBoreholeCount >= MAX_BOREHOLES_PER_PROJECT}>
+                      New Borehole ID
+                    </option>
                     <option value="existing" disabled={!existingBoreholeIds.length}>
                       Existing Borehole ID
                     </option>
@@ -1376,6 +2181,7 @@ export function AccountProjectsPanel() {
                       value={existingBoreholeId}
                       onChange={(event) => setExistingBoreholeId(event.target.value)}
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                      aria-label="Borehole ID"
                     >
                       {existingBoreholeIds.length === 0 ? <option value="">No existing boreholes</option> : null}
                       {existingBoreholeIds.map((id) => (
@@ -1393,21 +2199,45 @@ export function AccountProjectsPanel() {
                     />
                   )}
                   <input
+                    value={newGwtDepth}
+                    onChange={(event) => setNewGwtDepth(event.target.value)}
+                    type="number"
+                    step="0.1"
+                    placeholder="GWT (m)"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                  />
+                  <input
+                    value={newUnitWeight}
+                    onChange={(event) => setNewUnitWeight(event.target.value)}
+                    type="number"
+                    step="0.1"
+                    placeholder="Unit Weight (kN/m3)"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                  />
+                  <input
                     value={newSampleTopDepth}
                     onChange={(event) => setNewSampleTopDepth(event.target.value)}
                     type="number"
                     step="0.1"
-                    placeholder="Sample top depth (m)"
+                    placeholder="Sample depth (m)"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
                   />
-                  <input
-                    value={newSampleBottomDepth}
-                    onChange={(event) => setNewSampleBottomDepth(event.target.value)}
-                    type="number"
-                    step="0.1"
-                    placeholder="Sample bottom depth (m)"
+                  <select
+                    value={newSoilBehavior}
+                    onChange={(event) => {
+                      const next = event.target.value as "" | "cohesive" | "granular";
+                      setNewSoilBehavior(next);
+                      if (next === "granular") {
+                        setNewPiValue("");
+                      }
+                    }}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                  />
+                    aria-label="Soil behaviour (optional)"
+                  >
+                    <option value="">Soil: not set</option>
+                    <option value="cohesive">Cohesive</option>
+                    <option value="granular">Granular</option>
+                  </select>
                   <input
                     value={newNValue}
                     onChange={(event) => setNewNValue(event.target.value)}
@@ -1416,13 +2246,35 @@ export function AccountProjectsPanel() {
                     placeholder="N value"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
                   />
+                  <input
+                    value={newPiValue}
+                    onChange={(event) => setNewPiValue(event.target.value)}
+                    type="number"
+                    step="0.1"
+                    placeholder="PI (%)"
+                    disabled={newSoilBehavior === "granular"}
+                    title={newSoilBehavior === "granular" ? "PI is not used for granular soils." : undefined}
+                    className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500 ${
+                      newSoilBehavior === "granular" ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""
+                    }`}
+                  />
                 </div>
                 <div className="mt-3">
-                  <button type="submit" className="btn-base btn-md" disabled={isSavingBorehole}>
+                  <button
+                    type="submit"
+                    className="btn-base btn-md"
+                    disabled={
+                      isSavingBorehole ||
+                      (boreholeEntryMode === "new" &&
+                        wouldExceedBoreholeLimit(selectedProject?.boreholes ?? [], newBoreholeId))
+                    }
+                  >
                     {isSavingBorehole ? "Saving..." : "Add Sample"}
                   </button>
                 </div>
-              </form>
+                </form>
+                </div>
+              </details>
 
               <section ref={analysesSectionRef} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1452,7 +2304,6 @@ export function AccountProjectsPanel() {
                         <tr>
                           <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Saved at</th>
                           <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Tool</th>
-                          <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Title</th>
                           <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Action</th>
                         </tr>
                       </thead>
@@ -1463,7 +2314,6 @@ export function AccountProjectsPanel() {
                               {result.created_at ? new Date(result.created_at).toLocaleString("en-GB") : "-"}
                             </td>
                             <td className="px-3 py-2 text-slate-900 whitespace-nowrap">{result.tool_title ?? "-"}</td>
-                            <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{result.result_title ?? "-"}</td>
                             <td className="px-3 py-2 whitespace-nowrap">
                               <div className="flex flex-nowrap gap-2">
                                 <button
@@ -1505,19 +2355,43 @@ export function AccountProjectsPanel() {
                 )}
               </section>
 
-              <section className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <section ref={matrixSectionRef} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-900">Integrated parameter matrix</p>
-                  <button
-                    type="button"
-                    className="btn-base px-3 py-1.5 text-xs"
-                    onClick={() => {
-                      void refreshProjectParameters(selectedProject.id);
-                    }}
-                    disabled={isLoadingProjectParameters}
-                  >
-                    {isLoadingProjectParameters ? "Refreshing..." : "Refresh"}
-                  </button>
+                  <p className="text-lg font-bold tracking-[0.01em] text-slate-900 sm:text-xl">
+                    Integrated Parameter Matrix
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn-base px-3 py-1.5 text-xs"
+                      onClick={() => {
+                        void refreshProjectParameters(selectedProject.id);
+                      }}
+                      disabled={isLoadingProjectParameters}
+                    >
+                      {isLoadingProjectParameters ? "Refreshing..." : "Refresh"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-base px-3 py-1.5 text-xs"
+                      onClick={exportIntegratedMatrixExcel}
+                      disabled={!selectedProject || integratedMatrixRows.length === 0}
+                      title={integratedMatrixRows.length === 0 ? "Matrix is empty." : undefined}
+                    >
+                      Export Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-base px-3 py-1.5 text-xs"
+                      onClick={() => {
+                        void generateReportPdf();
+                      }}
+                      disabled
+                      title="Report generation is temporarily disabled."
+                    >
+                      {isGeneratingReport ? "Preparing report..." : "Generate report"}
+                    </button>
+                  </div>
                 </div>
 
                 {isLoadingProjectParameters ? (
@@ -1531,24 +2405,34 @@ export function AccountProjectsPanel() {
                     <table className="min-w-max border-collapse text-sm whitespace-nowrap">
                       <thead className="bg-slate-100 text-slate-600">
                         <tr>
+                          <th className="px-3 py-2 text-left font-semibold">#</th>
                           <th className="px-3 py-2 text-left font-semibold">Borehole ID</th>
-                          <th className="px-3 py-2 text-left font-semibold">Sample depth (m)</th>
+                          <th className="px-3 py-2 text-left font-semibold">Soil behavior</th>
+                          <th className="px-3 py-2 text-left font-semibold">Sample depth</th>
                           {PARAMETER_COLUMN_ORDER.map((code) => (
                             <th key={code} className="px-3 py-2 text-left font-semibold">
-                              {PARAMETER_COLUMN_LABELS[code] ?? code}
+                              <ParameterHeader code={code} />
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {integratedMatrixRows.map((row, index) => (
-                          <tr key={`${row.boreholeLabel}-${row.sampleDepth ?? "na"}-${index}`} className="border-t border-slate-200">
+                          <tr
+                            key={`${row.boreholeLabel}-${row.sampleDepth ?? "na"}`}
+                            className="border-t border-slate-200"
+                          >
+                            <td className="px-3 py-2 text-slate-500">{index + 1}</td>
                             <td className="px-3 py-2 text-slate-900">{row.boreholeLabel}</td>
+                            <td className="px-3 py-2 text-slate-700">{formatSoilBehaviorLabel(row.soilBehavior)}</td>
                             <td className="px-3 py-2 text-slate-700">
                               {row.sampleDepth === null ? "-" : row.sampleDepth}
                             </td>
                             {PARAMETER_COLUMN_ORDER.map((code) => (
-                              <td key={`${code}-${index}`} className="px-3 py-2 text-slate-700">
+                              <td
+                                key={`${row.boreholeLabel}-${row.sampleDepth ?? "na"}-${code}`}
+                                className="px-3 py-2 text-slate-700"
+                              >
                                 {row.values[code] ?? "-"}
                               </td>
                             ))}
@@ -1559,12 +2443,239 @@ export function AccountProjectsPanel() {
                   </div>
                 )}
               </section>
+
+              {/* Offscreen report root rendered for PDF capture */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "fixed",
+                  left: "-10000px",
+                  top: 0,
+                  width: "794px",
+                  opacity: 0,
+                  pointerEvents: "none",
+                  zIndex: -1,
+                }}
+              >
+                <div ref={reportRootRef} data-pdf-safe-colors="1" className="space-y-8 bg-white p-10 text-slate-900">
+                  <header className="space-y-2 border-b border-slate-200 pb-6">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Geotechnical Insights Hub</p>
+                    <h1 className="text-2xl font-semibold">Geotechnical Parameter Report</h1>
+                    <p className="text-sm text-slate-600">
+                      Project: <span className="font-semibold text-slate-900">{selectedProject?.name ?? "-"}</span>
+                    </p>
+                    <p className="text-sm text-slate-600">Date: {formatTodayEnGb()}</p>
+                  </header>
+
+                  <section className="space-y-3">
+                    <h2 className="text-lg font-semibold">1. Determination of Soil Parameters</h2>
+                    <p className="text-sm leading-7 text-slate-700">
+                      The geotechnical design parameters adopted in the analyses are derived from field and laboratory test
+                      results, interpreted using widely accepted empirical correlations available in the literature. The
+                      following sections summarise each adopted correlation, the assumptions applied, and the resulting
+                      parameters stored for the selected project and boreholes.
+                    </p>
+                    <p className="text-sm leading-7 text-slate-700">
+                      Where multiple correlations exist in the literature, the selected correlation should be verified
+                      against project-specific evidence and engineering judgement.
+                    </p>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h2 className="text-lg font-semibold">2. Tool-based derivations and results</h2>
+
+                    {reportTools.length === 0 ? (
+                      <p className="text-sm text-slate-600">
+                        No saved tool plots were found for this project. Save analyses in tool profile tabs to include plots
+                        in this report.
+                      </p>
+                    ) : (
+                      reportTools.map((tool, idx) => (
+                        <section key={tool.toolSlug} className="space-y-3">
+                          <h3 className="text-base font-semibold">
+                            2.{idx + 1}. {tool.toolTitle}
+                          </h3>
+
+                          <div className="space-y-2 text-sm leading-7 text-slate-700">
+                            {tool.toolSlug === "spt-corrections" ? (
+                              <>
+                                <p>
+                                  Corrected SPT resistance N<sub>60</sub> is obtained by applying energy and procedural
+                                  corrections to the recorded blow count N. The correction factors depend on hammer energy
+                                  ratio, rod length, borehole diameter, sampler type, and other test details.
+                                </p>
+                                <p>
+                                  For the selected project and boreholes, the corrected SPT outputs have been saved and are
+                                  summarised in the tables below; corresponding plots are provided where available.
+                                </p>
+                              </>
+                            ) : tool.toolSlug === "cu-from-pi-and-spt" ? (
+                              <>
+                                <p>
+                                  The undrained shear strength c<sub>u</sub> of cohesive soils can be estimated empirically
+                                  from SPT N<sub>60</sub> values using a plasticity-dependent factor f<sub>1</sub> (Stroud,
+                                  1974).
+                                </p>
+                                <p className="font-semibold">
+                                  c<sub>u</sub> = f<sub>1</sub> × N<sub>60</sub>
+                                </p>
+                                <p>
+                                  The adopted \(f_1\) is selected from the reference chart based on the relevant PI and
+                                  applied per sample depth.
+                                </p>
+                              </>
+                            ) : tool.toolSlug === "eu-from-spt-butler-1975" ? (
+                              <>
+                                <p>
+                                  For cohesive soils, the undrained deformation modulus E<sub>u</sub> may be estimated from
+                                  corrected SPT resistance using screening ratios (Butler, 1975).
+                                </p>
+                                <p className="font-semibold">
+                                  E<sub>u</sub> = (E<sub>u</sub>/N<sub>60</sub>) · N<sub>60</sub>
+                                </p>
+                              </>
+                            ) : tool.toolSlug === "eoed-from-mv" ? (
+                              <>
+                                <p>
+                                  Oedometer constrained modulus E<sub>oed</sub> is derived from the coefficient of volume
+                                  compressibility m<sub>v</sub> at the relevant stress level:
+                                </p>
+                                <p className="font-semibold">
+                                  E<sub>oed</sub> = 1/m<sub>v</sub>
+                                </p>
+                              </>
+                            ) : tool.toolSlug === "gmax-from-vs" ? (
+                              <>
+                                <p>
+                                  Small-strain shear modulus G<sub>max</sub> is derived from shear wave velocity V<sub>s</sub>{" "}
+                                  and mass density ρ:
+                                </p>
+                                <p className="font-semibold">
+                                  G<sub>max</sub> = ρ · V<sub>s</sub>
+                                  <sup>2</sup>
+                                </p>
+                              </>
+                            ) : tool.toolSlug === "ocr-calculator" ? (
+                              <>
+                                <p>
+                                  Overconsolidation Ratio (OCR) is calculated as the ratio of preconsolidation stress σ′
+                                  <sub>p</sub> to current vertical effective stress σ′<sub>v0</sub>:
+                                </p>
+                                <p className="font-semibold">
+                                  OCR = σ′<sub>p</sub> / σ′<sub>v0</sub>
+                                </p>
+                              </>
+                            ) : tool.toolSlug === "k0-earth-pressure" ? (
+                              <>
+                                <p>
+                                  Earth pressure coefficients are computed from φ′, OCR and σ′<sub>v0</sub>. A common
+                                  expression for normally consolidated at-rest earth pressure is Jaky’s formula K
+                                  <sub>0,NC</sub> = 1 − sin φ′ (Jaky, 1944). Overconsolidated at-rest pressure may be
+                                  estimated with K<sub>0,OC</sub> = K<sub>0,NC</sub> · OCR<sup>sin φ′</sup>. Active and passive
+                                  coefficients may be computed using Rankine expressions.
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p>
+                                  This section summarises the saved tool outputs for the selected project and boreholes.
+                                </p>
+                              </>
+                            )}
+                          </div>
+
+                          <p className="text-sm text-slate-600">
+                            For project <span className="font-semibold text-slate-900">{selectedProject?.name ?? "-"}</span>,
+                            results are presented in the following figures (where available).
+                          </p>
+
+                          {tool.plots.length ? (
+                            <div className="space-y-3">
+                              {tool.plots.slice(0, 2).map((plot, plotIdx) => (
+                                <figure key={`${tool.toolSlug}-plot-${plotIdx}`} className="space-y-2">
+                                  <figcaption className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                                    Figure {idx + 1}.{plotIdx + 1}: {plot.title ?? tool.toolTitle}
+                                  </figcaption>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={plot.dataUrl}
+                                    alt={plot.title ?? tool.toolTitle}
+                                    className="w-full rounded-lg border border-slate-200"
+                                  />
+                                </figure>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-500">No saved plot images were found for this tool.</p>
+                          )}
+                        </section>
+                      ))
+                    )}
+                  </section>
+
+                  <section className="space-y-3">
+                    <h2 className="text-lg font-semibold">3. Integrated Parameter Matrix</h2>
+                    <p className="text-sm leading-7 text-slate-700">
+                      The following integrated parameter matrix compiles the saved tool outputs by borehole and sample depth.
+                    </p>
+                    <div className="overflow-hidden rounded-xl border border-slate-200">
+                      <table className="w-full border-collapse text-xs">
+                        <thead className="bg-slate-50 text-slate-600">
+                          <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold">
+                            <th>#</th>
+                            <th>Borehole ID</th>
+                            <th>Soil behavior</th>
+                            <th>Sample depth</th>
+                            {PARAMETER_COLUMN_ORDER.map((code) => (
+                              <th key={`rep-${code}`}>{code}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white text-slate-800">
+                          {integratedMatrixRows.map((row, index) => (
+                            <tr
+                              key={`rep-row-${row.boreholeLabel}-${row.sampleDepth ?? "na"}`}
+                              className="border-t border-slate-200"
+                            >
+                              <td className="px-3 py-2 text-slate-500">{index + 1}</td>
+                              <td className="px-3 py-2">{row.boreholeLabel}</td>
+                              <td className="px-3 py-2">{formatSoilBehaviorLabel(row.soilBehavior)}</td>
+                              <td className="px-3 py-2">{row.sampleDepth === null ? "-" : row.sampleDepth}</td>
+                              {PARAMETER_COLUMN_ORDER.map((code) => (
+                                <td key={`rep-cell-${index}-${code}`} className="px-3 py-2">
+                                  {row.values[code] ?? "-"}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h2 className="text-lg font-semibold">4. References (Harvard)</h2>
+                    <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+                      <li>Das, B.M. (2011) <i>Principles of Foundation Engineering</i>. 7th edn. Stamford, CT: Cengage Learning.</li>
+                      <li>
+                        Stroud, M.A. (1974) ‘The Standard Penetration Test in insensitive clays and soft rocks’,{" "}
+                        <i>Proceedings of the European Symposium on Penetration Testing (ESOPT)</i>, Stockholm, Vol. 2, pp. 367–375.
+                      </li>
+                      <li>Butler, F.G. (1975) Correlations of SPT resistance with undrained deformation modulus from case-history interpretation.</li>
+                      <li>Kulhawy, F.H. and Mayne, P.W. (1990) <i>Manual on Estimating Soil Properties for Foundation Design</i> (EPRI EL-6800).</li>
+                      <li>
+                        Jaky, J. (1944) ‘The coefficient of earth pressure at rest’, <i>Journal of the Society of Hungarian Architects and Engineers</i>, 78(22), pp. 355–358.
+                      </li>
+                      <li>Bowles, J.E. (1996) <i>Foundation Analysis and Design</i>. 5th edn. New York: McGraw-Hill.</li>
+                    </ul>
+                  </section>
+                </div>
+              </div>
             </div>
           ) : (
             <p className="text-sm text-slate-600">Select or create a project to manage boreholes.</p>
           )}
         </section>
-      </div>
 
       {savedResultDetails && typeof document !== "undefined"
         ? createPortal(
@@ -1593,9 +2704,7 @@ export function AccountProjectsPanel() {
                 <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3">
                   <div>
                     <h4 className="text-lg font-semibold text-slate-900">Saved Analysis Details</h4>
-                    <p className="text-sm text-slate-600">
-                      {savedResultDetails.tool_title ?? "-"} - {savedResultDetails.result_title ?? "-"}
-                    </p>
+                    <p className="text-sm text-slate-600">{savedResultDetails.tool_title ?? "-"}</p>
                   </div>
                   <button type="button" className="btn-base px-3 py-1.5 text-xs" onClick={closeSavedResultDetails}>
                     Close

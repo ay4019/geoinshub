@@ -1,21 +1,33 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
-import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import {
+  cnProfileTableInput,
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  profileTableClassXl,
+  profileTableFooterButtonClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
+import { isActiveProjectToolLocked, type SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import type { UnitSystem } from "@/lib/types";
+import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
+import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 
 interface SptProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  soilPolicyToolSlug?: string;
 }
 
 interface SptProfileRow {
   id: number;
-  topDepth: string;
+  sampleDepth: string;
   boreholeId: string;
   nField: string;
 }
@@ -62,13 +74,68 @@ const ENERGY_RATIO_OPTIONS = [
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
 
 const initialRows: SptProfileRow[] = [
-  { id: 1, topDepth: "1.5", boreholeId: "", nField: "12" },
-  { id: 2, topDepth: "3.0", boreholeId: "", nField: "18" },
+  { id: 1, sampleDepth: "1.5", boreholeId: "", nField: "12" },
+  { id: 2, sampleDepth: "3.0", boreholeId: "", nField: "18" },
 ];
 
 function parse(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+const DEPTH_MATCH_EPS_M = 0.005;
+
+function normaliseBoreholeKey(value: string): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+/** When project samples are locked, GWT and γ use each import row matched by borehole label + sample depth (metric). */
+function resolveGwtAndGammaMetricForRow(
+  row: SptProfileRow,
+  unitSystem: UnitSystem,
+  importRows: SelectedBoreholeSummary[] | undefined,
+  useProjectPerSample: boolean,
+  fallbackGwtMetric: number,
+  fallbackGammaMetric: number,
+): { gwtMetric: number; gammaMetric: number } {
+  if (!useProjectPerSample || !importRows?.length) {
+    return { gwtMetric: fallbackGwtMetric, gammaMetric: fallbackGammaMetric };
+  }
+
+  const key = normaliseBoreholeKey(row.boreholeId);
+  const depthDisplay = parse(row.sampleDepth);
+  const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
+  if (!Number.isFinite(depthMetric) || depthMetric < 0) {
+    return { gwtMetric: fallbackGwtMetric, gammaMetric: fallbackGammaMetric };
+  }
+
+  const sameLabel = importRows.filter((r) => normaliseBoreholeKey(r.boreholeLabel) === key);
+
+  const byBhDepth = sameLabel.find(
+    (r) =>
+      r.sampleTopDepth !== null &&
+      r.sampleTopDepth !== undefined &&
+      Number.isFinite(r.sampleTopDepth) &&
+      Math.abs(r.sampleTopDepth - depthMetric) < DEPTH_MATCH_EPS_M,
+  );
+
+  const resolved = byBhDepth ?? sameLabel[0] ?? null;
+
+  if (!resolved) {
+    return { gwtMetric: fallbackGwtMetric, gammaMetric: fallbackGammaMetric };
+  }
+
+  let gwtM = fallbackGwtMetric;
+  let gamM = fallbackGammaMetric;
+
+  if (typeof resolved.gwtDepth === "number" && Number.isFinite(resolved.gwtDepth)) {
+    gwtM = resolved.gwtDepth;
+  }
+  if (typeof resolved.unitWeight === "number" && Number.isFinite(resolved.unitWeight)) {
+    gamM = resolved.unitWeight;
+  }
+
+  return { gwtMetric: gwtM, gammaMetric: gamM };
 }
 
 function computeCnIdrissBoulanger2008(sigmaEffKpa: number): number {
@@ -123,21 +190,8 @@ function computeCbFromBoreholeDiameterSelection(selection: string): number {
   return 1.0;
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="block leading-tight">
-      <span className="block">{title}</span>
-      {unit ? <span className="mt-0.5 block text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function getNiceTickStep(rawStep: number): number {
@@ -169,19 +223,6 @@ function downloadBlob(filename: string, blob: Blob) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function wrapBase64(base64: string) {
-  return base64.replace(/(.{76})/g, "$1\r\n");
 }
 
 function buildScatterChartPngDataUri({
@@ -223,13 +264,11 @@ function buildScatterChartPngDataUri({
     colourByBorehole.set(id, BOREHOLE_COLOURS[index % BOREHOLE_COLOURS.length]);
   });
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) {
+  const hi = getHiDpiCanvas2D(width, height);
+  if (!hi) {
     return "";
   }
+  const { canvas, context } = hi;
 
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
@@ -444,11 +483,25 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
   const [globalSamplerFactor, setGlobalSamplerFactor] = useState("1.00");
   const [globalGroundwaterDepth, setGlobalGroundwaterDepth] = useState("1.5");
   const [globalUnitWeight, setGlobalUnitWeight] = useState("18.5");
+  const [isProjectLocked, setIsProjectLocked] = useState(false);
   const previousUnitSystem = useRef(unitSystem);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
   const unitWeightUnit = getDisplayUnit("kN/m3", unitSystem) ?? "kN/m3";
+  const hasImportedSelection = (importRows?.length ?? 0) > 0;
+  const shouldLockImportedFields = isProjectLocked && hasImportedSelection;
+  const useProjectPerSampleGwtGamma = shouldLockImportedFields;
+  const lockHint = "Locked from Projects and Boreholes. Edit values in Account > Projects.";
+
+  useEffect(() => {
+    const syncLockState = () => setIsProjectLocked(isActiveProjectToolLocked());
+    syncLockState();
+    window.addEventListener("gih:active-project-changed", syncLockState);
+    return () => {
+      window.removeEventListener("gih:active-project-changed", syncLockState);
+    };
+  }, []);
 
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
@@ -458,7 +511,7 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
     setRows((current) =>
       current.map((row) => ({
         ...row,
-        topDepth: convertInputValueBetweenSystems(row.topDepth, "m", previousUnitSystem.current, unitSystem),
+        sampleDepth: convertInputValueBetweenSystems(row.sampleDepth, "m", previousUnitSystem.current, unitSystem),
       })),
     );
     setGlobalGroundwaterDepth((current) =>
@@ -481,7 +534,7 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
       return importRows.map((item, index) => {
         const depth =
           item.sampleTopDepth === null
-            ? template.topDepth
+            ? template.sampleDepth
             : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem);
         const nField = item.nValue === null ? template.nField : String(item.nValue);
 
@@ -489,7 +542,7 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
           ...template,
           id: index + 1,
           boreholeId: item.boreholeLabel || template.boreholeId,
-          topDepth: depth,
+          sampleDepth: depth,
           nField,
         };
       });
@@ -502,13 +555,13 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
 
   const addRow = () => {
     setRows((current) => {
-      const lastDepth = current[current.length - 1]?.topDepth ?? "0";
+      const lastDepth = current[current.length - 1]?.sampleDepth ?? "0";
       const nextId = Math.max(...current.map((row) => row.id), 0) + 1;
       return [
         ...current,
         {
           id: nextId,
-          topDepth: String(parse(lastDepth) + 1.5),
+          sampleDepth: String(parse(lastDepth) + 1.5),
           boreholeId: "",
           nField: "15",
         },
@@ -523,15 +576,25 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
   const ce = parse(globalEnergyRatio) / 60;
   const cb = computeCbFromBoreholeDiameterSelection(globalBoreholeFactor);
   const cs = parse(globalSamplerFactor);
-  const gwtMetric = Number(convertInputValueBetweenSystems(globalGroundwaterDepth, "m", unitSystem, "metric"));
-  const gammaMetric = Number(convertInputValueBetweenSystems(globalUnitWeight, "kN/m3", unitSystem, "metric"));
+  const fallbackGwtMetric = Number(convertInputValueBetweenSystems(globalGroundwaterDepth, "m", unitSystem, "metric"));
+  const fallbackGammaMetric = Number(
+    convertInputValueBetweenSystems(globalUnitWeight, "kN/m3", unitSystem, "metric"),
+  );
   const plotPoints: SptPlotPoint[] = rows
     .map((row) => {
-      const depthDisplay = parse(row.topDepth);
+      const depthDisplay = parse(row.sampleDepth);
       const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
       if (!Number.isFinite(depthMetric) || depthMetric < 0) {
         return null;
       }
+      const { gwtMetric, gammaMetric } = resolveGwtAndGammaMetricForRow(
+        row,
+        unitSystem,
+        importRows,
+        useProjectPerSampleGwtGamma,
+        fallbackGwtMetric,
+        fallbackGammaMetric,
+      );
       const sigmaEffMetric = Math.max(
         gammaMetric * depthMetric - 9.81 * Math.max(depthMetric - Math.max(gwtMetric, 0), 0),
         0.1,
@@ -550,8 +613,16 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
     .filter((point): point is SptPlotPoint => point !== null);
 
   const exportRows = rows.map((row) => {
-    const depthDisplay = parse(row.topDepth);
+    const depthDisplay = parse(row.sampleDepth);
     const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
+    const { gwtMetric, gammaMetric } = resolveGwtAndGammaMetricForRow(
+      row,
+      unitSystem,
+      importRows,
+      useProjectPerSampleGwtGamma,
+      fallbackGwtMetric,
+      fallbackGammaMetric,
+    );
     const sigmaEffMetric = Math.max(
       gammaMetric * depthMetric - 9.81 * Math.max(depthMetric - Math.max(gwtMetric, 0), 0),
       0.1,
@@ -589,23 +660,23 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
       "C_N",
       "(N1)60",
     ]
-      .map((label) => `<th>${escapeHtml(label)}</th>`)
+      .map((label) => excelTextHeader(label))
       .join("");
 
     const bodyRows = exportRows
       .map(
         (row) => `
           <tr>
-            <td>${escapeHtml(row.boreholeId)}</td>
-            <td>${escapeHtml(row.sampleDepth)}</td>
-            <td>${escapeHtml(row.nField)}</td>
-            <td>${escapeHtml(row.sigmaV0)}</td>
-            <td>${escapeHtml(row.ce)}</td>
-            <td>${escapeHtml(row.cb)}</td>
-            <td>${escapeHtml(row.cr)}</td>
-            <td>${escapeHtml(row.n60)}</td>
-            <td>${escapeHtml(row.cn)}</td>
-            <td>${escapeHtml(row.n160)}</td>
+            ${excelTextCell(row.boreholeId)}
+            ${excelTextCell(row.sampleDepth)}
+            ${excelTextCell(row.nField)}
+            ${excelTextCell(row.sigmaV0)}
+            ${excelTextCell(row.ce)}
+            ${excelTextCell(row.cb)}
+            ${excelTextCell(row.cr)}
+            ${excelTextCell(row.n60)}
+            ${excelTextCell(row.cn)}
+            ${excelTextCell(row.n160)}
           </tr>
         `,
       )
@@ -631,9 +702,8 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
       depthUnit,
     });
 
-    const boundary = "----=_NextPart_SptExport";
     const excelHtml = `<!doctype html>
-<html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office">
   <head>
     <meta charset="utf-8" />
     <title>SPT Profile Export</title>
@@ -642,11 +712,9 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
       h1 { font-size: 22px; margin: 0 0 8px; }
       h2 { font-size: 16px; margin: 24px 0 10px; }
       p { font-size: 12px; color: #475569; margin: 0 0 12px; }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; vertical-align: top; }
-      th { background: #f1f5f9; }
+      ${EXCEL_TABLE_BLOCK_CSS}
       .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
-      .chart-grid img { width: 100%; height: auto; display: block; }
+      .chart-grid img { width: 100%; max-width: 1200px; height: auto; display: block; border: 1px solid #cbd5e1; border-radius: 6px; }
     </style>
   </head>
   <body>
@@ -662,42 +730,14 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
   </body>
 </html>`;
 
-    const n60Base64 = n60Img.startsWith("data:image/png;base64,") ? n60Img.replace("data:image/png;base64,", "") : "";
-    const n160Base64 = n160Img.startsWith("data:image/png;base64,")
-      ? n160Img.replace("data:image/png;base64,", "")
-      : "";
-
-    if (!n60Base64 || !n160Base64) {
+    if (!n60Img.startsWith("data:image/png;base64,") || !n160Img.startsWith("data:image/png;base64,")) {
       return excelHtml;
     }
 
-    return [
-      "MIME-Version: 1.0",
-      `Content-Type: multipart/related; boundary="${boundary}"; type="text/html"`,
-      "",
-      `--${boundary}`,
-      "Content-Type: text/html; charset=\"utf-8\"",
-      "Content-Transfer-Encoding: 8bit",
-      "Content-Location: file:///report.htm",
-      "",
-      excelHtml,
-      "",
-      `--${boundary}`,
-      "Content-Location: file:///spt-n60.png",
-      "Content-Type: image/png",
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(n60Base64),
-      "",
-      `--${boundary}`,
-      "Content-Location: file:///spt-n160.png",
-      "Content-Type: image/png",
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(n160Base64),
-      "",
-      `--${boundary}--`,
-    ].join("\r\n");
+    return buildMhtmlMultipartDocument(excelHtml, [
+      { contentLocation: "file:///spt-n60.png", base64Png: n60Img },
+      { contentLocation: "file:///spt-n160.png", base64Png: n160Img },
+    ]);
   };
 
   const handleExportExcel = () => {
@@ -716,9 +756,20 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
           <div className="max-w-4xl">
             <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Vertical effective stress is computed automatically from sample depth, GWT, and bulk unit weight (BHA).
-              C<sub>r</sub> is assigned from sample depth ranges, and overburden correction follows Idriss and
-              Boulanger (2008), with 0.40 &le; C<sub>N</sub> &le; 1.70.
+              {shouldLockImportedFields ? (
+                <>
+                  GWT and bulk unit weight (BHA) come from Account → Projects for each row (matched by Borehole ID and
+                  sample depth). Vertical effective stress uses those values with sample depth. C<sub>r</sub> is assigned
+                  from sample depth ranges, and overburden correction follows Idriss and Boulanger (2008), with 0.40 &le;{" "}
+                  C<sub>N</sub> &le; 1.70.
+                </>
+              ) : (
+                <>
+                  Vertical effective stress is computed automatically from sample depth, GWT, and bulk unit weight
+                  (BHA). C<sub>r</sub> is assigned from sample depth ranges, and overburden correction follows Idriss and
+                  Boulanger (2008), with 0.40 &le; C<sub>N</sub> &le; 1.70.
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -796,39 +847,52 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
             </select>
           </div>
 
-          <div className="min-w-0">
-            <label htmlFor="spt-gwt" className="mb-1 block text-xs font-medium text-slate-700">
-              Groundwater depth, GWT ({depthUnit})
-            </label>
-            <input
-              id="spt-gwt"
-              type="number"
-              min="0"
-              step="0.1"
-              value={globalGroundwaterDepth}
-              onChange={(event) => setGlobalGroundwaterDepth(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-            />
-          </div>
+          {shouldLockImportedFields ? (
+            <div className="min-w-0 sm:col-span-2 lg:col-span-2 xl:col-span-2 2xl:col-span-2">
+              <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs leading-relaxed text-sky-950">
+                <span className="font-semibold">GWT &amp; BHA (per sample)</span>
+                <span className="block mt-1 text-sky-900/90">
+                  Values are taken from Account → Projects for each borehole and sample depth. Edit them there if needed.
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="min-w-0">
+                <label htmlFor="spt-gwt" className="mb-1 block text-xs font-medium text-slate-700">
+                  Groundwater depth, GWT ({depthUnit})
+                </label>
+                <input
+                  id="spt-gwt"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={globalGroundwaterDepth}
+                  onChange={(event) => setGlobalGroundwaterDepth(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                />
+              </div>
 
-          <div className="min-w-0">
-            <label htmlFor="spt-bha" className="mb-1 block text-xs font-medium text-slate-700">
-              Bulk unit weight, BHA ({unitWeightUnit})
-            </label>
-            <input
-              id="spt-bha"
-              type="number"
-              min="0.1"
-              step="0.1"
-              value={globalUnitWeight}
-              onChange={(event) => setGlobalUnitWeight(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-            />
-          </div>
+              <div className="min-w-0">
+                <label htmlFor="spt-bha" className="mb-1 block text-xs font-medium text-slate-700">
+                  Bulk unit weight, BHA ({unitWeightUnit})
+                </label>
+                <input
+                  id="spt-bha"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={globalUnitWeight}
+                  onChange={(event) => setGlobalUnitWeight(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                />
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[11px] xl:text-[12px]">
+        <ProfileTableScroll>
+          <table className={profileTableClassXl("c11")}>
             <colgroup>
               <col className="w-[12%]" />
               <col className="w-[10%]" />
@@ -844,17 +908,17 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Sample Depth" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="N" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="N" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell
                     title={
                       <span>
                         &sigma;&prime;<sub>v0</sub>
@@ -863,23 +927,23 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
                     unit={stressUnit}
                   />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>C<sub>E</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>C<sub>E</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>C<sub>b</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>C<sub>b</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>C<sub>r</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>C<sub>r</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>N<sub>60</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>N<sub>60</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>C<sub>N</sub></span>} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>C<sub>N</sub></span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell
                     title={
                       <span>
                         (N<sub>1</sub>)<sub>60</sub>
@@ -887,16 +951,24 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
                     }
                   />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <span className="block leading-tight">Action</span>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
-                const topDepth = parse(row.topDepth);
+                const sampleDepthParsed = parse(row.sampleDepth);
                 const sampleDepthMetric = Number(
-                  convertInputValueBetweenSystems(String(topDepth), "m", unitSystem, "metric"),
+                  convertInputValueBetweenSystems(String(sampleDepthParsed), "m", unitSystem, "metric"),
+                );
+                const { gwtMetric, gammaMetric } = resolveGwtAndGammaMetricForRow(
+                  row,
+                  unitSystem,
+                  importRows,
+                  useProjectPerSampleGwtGamma,
+                  fallbackGwtMetric,
+                  fallbackGammaMetric,
                 );
                 const sigmaEffMetric = Math.max(
                   gammaMetric * sampleDepthMetric - 9.81 * Math.max(sampleDepthMetric - Math.max(gwtMetric, 0), 0),
@@ -914,6 +986,7 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
                   <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -924,9 +997,11 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
                         type="number"
                         step="0.1"
                         min="0"
-                        value={row.topDepth}
-                        onChange={(event) => updateRow(row.id, { topDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        value={row.sampleDepth}
+                        onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
+                        disabled={shouldLockImportedFields}
+                        title={shouldLockImportedFields ? lockHint : undefined}
+                        className={cnProfileTableInput(shouldLockImportedFields)}
                       />
                     </td>
                     <td className="px-2 py-3">
@@ -936,7 +1011,9 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
                         min="1"
                         value={row.nField}
                         onChange={(event) => updateRow(row.id, { nField: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={shouldLockImportedFields}
+                        title={shouldLockImportedFields ? lockHint : undefined}
+                        className={cnProfileTableInput(shouldLockImportedFields)}
                       />
                     </td>
                     <td className="px-2 py-3">
@@ -963,7 +1040,7 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-1.5 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -977,20 +1054,20 @@ export function SptProfileTab({ unitSystem, importRows }: SptProfileTabProps) {
             <tfoot className="border-t border-slate-200 bg-white">
               <tr>
                 <td className="px-2 py-3 text-left align-top">
-                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={addRow}>
+                  <button type="button" className={profileTableFooterButtonClass} onClick={addRow}>
                     Add Sample
                   </button>
                 </td>
                 <td colSpan={9} />
                 <td className="px-2 py-3 text-right align-top">
-                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={handleExportExcel}>
+                  <button type="button" className={profileTableFooterButtonClass} onClick={handleExportExcel}>
                     Export Excel
                   </button>
                 </td>
               </tr>
             </tfoot>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         {plotPoints.length ? (
           <div className="mt-4 grid gap-4 xl:grid-cols-2">

@@ -16,14 +16,35 @@
   box-sizing: border-box;
 }
 
+/* Tool calculator tabs: ensure layout even if utility order/purge misbehaves */
+[role="tablist"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
 }
 
+/* Mobile: default 16px root for compact UI; scale up from tablet to match prior desktop (120%). */
 html {
-  font-size: 120%;
+  font-size: 100%;
+}
+
+@media (min-width: 640px) {
+  html {
+    font-size: 112.5%;
+  }
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 120%;
+  }
 }
 
 body {
@@ -114,6 +135,24 @@ a {
   min-height: 3.5rem;
   padding: 1rem 1.5rem;
   font-size: 1rem;
+}
+
+@media (max-width: 639px) {
+  .btn-base {
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .btn-md {
+    min-height: 2.375rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .btn-lg {
+    min-height: 2.75rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+  }
 }
 
 @media (min-width: 640px) {

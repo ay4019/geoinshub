@@ -169,9 +169,9 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
 
           {activePersonalTab === "information" ? (
           <dl className="text-sm">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <dt className="font-medium text-slate-700">Email</dt>
-              <dd className="text-slate-900">{email}</dd>
+              <dd className="min-w-0 break-all text-slate-900">{email}</dd>
             </div>
           </dl>
         ) : null}

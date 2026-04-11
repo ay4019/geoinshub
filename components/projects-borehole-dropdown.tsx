@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
   clearActiveProjectBorehole,
+  mergeBoreholeExtrasIntoRows,
   readActiveProjectBorehole,
   type BoreholeRecord,
   type ProjectRecord,
@@ -45,6 +46,18 @@ function groupProjectBoreholes(project: ProjectRecord | null | undefined) {
       samples,
     };
   });
+}
+
+function isExtendedBoreholeColumnError(message: string): boolean {
+  return /pi_value|gwt_depth|unit_weight|column/i.test(message);
+}
+
+function isMissingBoreholesTableError(message: string): boolean {
+  return (
+    /relation .*boreholes.* does not exist/i.test(message) ||
+    /Could not find the table 'public\.boreholes'/i.test(message) ||
+    /table.*boreholes.*schema cache/i.test(message)
+  );
 }
 
 export function ProjectsBoreholeDropdown() {
@@ -90,24 +103,76 @@ export function ProjectsBoreholeDropdown() {
 
     setIsAuthenticated(true);
 
-    const { data, error } = await supabase
+    const projectsQuery = await supabase
       .from("projects")
-      .select(
-        "id,name,created_at,boreholes(id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,created_at)",
-      )
+      .select("id,name,created_at")
       .order("created_at", { ascending: false });
 
-    if (error) {
+    if (projectsQuery.error) {
       setProjects([]);
-      setStatusMessage(error.message);
+      setStatusMessage(projectsQuery.error.message);
       setStatusType("error");
       setIsLoading(false);
       return;
     }
 
-    const mappedProjects = ((data ?? []) as unknown as ProjectRecord[]).map((project) => ({
+    const baseProjects = ((projectsQuery.data ?? []) as unknown as ProjectRecord[]).map((project) => ({
       ...project,
-      boreholes: [...(project.boreholes ?? [])].sort((a, b) => {
+      boreholes: [],
+    }));
+
+    let boreholeRows: BoreholeRecord[] = [];
+    let boreholesError: string | null = null;
+
+    const extendedBoreholesQuery = await supabase
+      .from("boreholes")
+      .select("id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,pi_value,gwt_depth,unit_weight,created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+
+    if (extendedBoreholesQuery.error) {
+      if (isExtendedBoreholeColumnError(extendedBoreholesQuery.error.message)) {
+        const legacyBoreholesQuery = await supabase
+          .from("boreholes")
+          .select("id,project_id,borehole_id,sample_top_depth,sample_bottom_depth,n_value,created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true });
+        if (legacyBoreholesQuery.error) {
+          if (!isMissingBoreholesTableError(legacyBoreholesQuery.error.message)) {
+            boreholesError = legacyBoreholesQuery.error.message;
+          }
+        } else {
+          boreholeRows = ((legacyBoreholesQuery.data ?? []) as unknown as BoreholeRecord[]).map((row) => ({
+            ...row,
+            pi_value: null,
+            gwt_depth: null,
+            unit_weight: null,
+          }));
+        }
+      } else if (!isMissingBoreholesTableError(extendedBoreholesQuery.error.message)) {
+        boreholesError = extendedBoreholesQuery.error.message;
+      }
+    } else {
+      boreholeRows = (extendedBoreholesQuery.data ?? []) as unknown as BoreholeRecord[];
+    }
+
+    const mergedRows = mergeBoreholeExtrasIntoRows(user.id, boreholeRows);
+
+    const boreholesByProject = mergedRows.reduce<Map<string, BoreholeRecord[]>>((acc, row) => {
+      const current = acc.get(row.project_id) ?? [];
+      current.push({
+        ...row,
+        pi_value: row.pi_value ?? null,
+        gwt_depth: row.gwt_depth ?? null,
+        unit_weight: row.unit_weight ?? null,
+      });
+      acc.set(row.project_id, current);
+      return acc;
+    }, new Map());
+
+    const mappedProjects = baseProjects.map((project) => ({
+      ...project,
+      boreholes: [...(boreholesByProject.get(project.id) ?? [])].sort((a, b) => {
         const aTop = a.sample_top_depth ?? Number.POSITIVE_INFINITY;
         const bTop = b.sample_top_depth ?? Number.POSITIVE_INFINITY;
         return aTop - bTop;
@@ -115,6 +180,7 @@ export function ProjectsBoreholeDropdown() {
     }));
 
     const stored = readActiveProjectBorehole();
+    const hasStoredSelection = Boolean(stored?.projectId);
     const defaultProjectId =
       (stored?.projectId && mappedProjects.some((project) => project.id === stored.projectId) && stored.projectId) ||
       mappedProjects[0]?.id ||
@@ -134,21 +200,24 @@ export function ProjectsBoreholeDropdown() {
       (stored?.boreholeId &&
         defaultProject?.boreholes?.some((borehole) => borehole.id === stored.boreholeId) &&
         stored.boreholeId) ||
-      defaultGrouped[0]?.representative.id ||
+      (hasStoredSelection ? defaultGrouped[0]?.representative.id : "") ||
       "";
-    const defaultAllBoreholeIds = defaultGrouped.map((entry) => entry.representative.id);
     const defaultBoreholeIds =
       validStoredSelectedIds.length > 0
         ? validStoredSelectedIds
-        : defaultAllBoreholeIds.length > 0
-          ? defaultAllBoreholeIds
-          : fallbackBoreholeId
+        : fallbackBoreholeId
             ? [fallbackBoreholeId]
             : [];
 
     setProjects(mappedProjects);
     setSelectedProjectId(defaultProjectId);
     setSelectedBoreholeIds(defaultBoreholeIds);
+    if (boreholesError) {
+      setStatusMessage(boreholesError);
+      setStatusType("error");
+    } else {
+      setStatusMessage(null);
+    }
     setIsLoading(false);
   };
 
@@ -160,6 +229,7 @@ export function ProjectsBoreholeDropdown() {
     function onActiveSelectionChange() {
       const stored = readActiveProjectBorehole();
       if (!stored) {
+        setSelectedBoreholeIds([]);
         return;
       }
       setSelectedProjectId((current) => (current || stored.projectId ? stored.projectId : current));
@@ -262,12 +332,20 @@ export function ProjectsBoreholeDropdown() {
       sampleTopDepth: primary?.sample_top_depth ?? null,
       sampleBottomDepth: primary?.sample_bottom_depth ?? null,
       nValue: primary?.n_value ?? null,
+      piValue: (primary as BoreholeRecord & { pi_value?: number | null })?.pi_value ?? null,
+      gwtDepth: (primary as BoreholeRecord & { gwt_depth?: number | null })?.gwt_depth ?? null,
+      unitWeight: (primary as BoreholeRecord & { unit_weight?: number | null })?.unit_weight ?? null,
+      soilBehavior: primary?.soil_behavior ?? null,
       selectedBoreholes: selectedSamples.map((sample) => ({
         boreholeId: sample.id,
         boreholeLabel: sample.boreholeLabel,
         sampleTopDepth: sample.sample_top_depth ?? null,
         sampleBottomDepth: sample.sample_bottom_depth ?? null,
         nValue: sample.n_value ?? null,
+        piValue: (sample as BoreholeRecord & { pi_value?: number | null })?.pi_value ?? null,
+        gwtDepth: (sample as BoreholeRecord & { gwt_depth?: number | null })?.gwt_depth ?? null,
+        unitWeight: (sample as BoreholeRecord & { unit_weight?: number | null })?.unit_weight ?? null,
+        soilBehavior: sample.soil_behavior ?? null,
       })),
     };
 
@@ -306,7 +384,7 @@ export function ProjectsBoreholeDropdown() {
   };
 
   return (
-    <div ref={dropdownRef} className="relative z-[10000] ml-auto w-auto shrink-0">
+    <div ref={dropdownRef} className="relative ml-auto w-auto shrink-0">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
@@ -327,7 +405,7 @@ export function ProjectsBoreholeDropdown() {
       {open ? (
         <div
           id="projects-borehole-panel"
-          className="absolute right-0 z-[10001] mt-2 w-[380px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg"
+          className="absolute right-0 z-20 mt-2 w-[380px] rounded-lg border border-slate-200 bg-white p-4 shadow-lg"
         >
           {!isAuthenticated ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
@@ -364,10 +442,8 @@ export function ProjectsBoreholeDropdown() {
                       value={selectedProjectId}
                       onChange={(event) => {
                         const nextProjectId = event.target.value;
-                        const nextProject = projects.find((project) => project.id === nextProjectId) ?? null;
                         setSelectedProjectId(nextProjectId);
-                        const nextGroupedBoreholes = groupProjectBoreholes(nextProject);
-                        setSelectedBoreholeIds(nextGroupedBoreholes.map((entry) => entry.representative.id));
+                        setSelectedBoreholeIds([]);
                       }}
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
                     >

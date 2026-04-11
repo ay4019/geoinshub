@@ -419,6 +419,7 @@ const bearingTools: ToolDefinition[] = [
       num("width", "Foundation width, B", 2, "m", { min: 0.1, step: 0.01 }),
       num("length", "Foundation length, L", 3, "m", { min: 0.1, step: 0.01 }),
       num("embedment", "Embedment depth, Df", 1.2, "m", { min: 0, step: 0.01 }),
+      num("groundwaterDepth", "Groundwater table depth, GWT", 2, "m", { min: 0, step: 0.01 }),
       num("factorOfSafety", "Factor of safety", 3, undefined, { min: 1.5, step: 0.1 }),
     ],
     information: info({
@@ -427,7 +428,8 @@ const bearingTools: ToolDefinition[] = [
       assumptions: [
         "General shear failure and drained parameter use are assumed.",
         "Rectangular footing shape effects are simplified for decision-support use.",
-        "Groundwater, load inclination, and eccentric loading are not handled in this tool.",
+        "Groundwater influence is handled in a simplified way using gamma' = gamma - gamma_w below the GWT (no capillary rise or seepage).",
+        "Load inclination and eccentric loading are not handled in this tool.",
       ],
       limitations: [
         "Do not treat the result as a code-compliant foundation design.",
@@ -441,7 +443,7 @@ const bearingTools: ToolDefinition[] = [
         "N<sub>&gamma;,Meyerhof/Hansen</sub> = (N<sub>q</sub> - 1)tan(1.4&phi;')",
         "N<sub>&gamma;,Vesic</sub> = 2(N<sub>q</sub> + 1)tan&phi;'",
         "q<sub>ult</sub> = c'N<sub>c</sub>s<sub>c</sub>d<sub>c</sub> + qN<sub>q</sub>s<sub>q</sub>d<sub>q</sub> + 0.5&gamma;BN<sub>&gamma;</sub>s<sub>&gamma;</sub>d<sub>&gamma;</sub>",
-        "q = &gamma; D<sub>f</sub>",
+        "q = &sigma;'<sub>v0</sub>(z = D<sub>f</sub>)",
         "q<sub>all</sub> = q<sub>ult</sub> / FS",
       ],
       references: bearingRefs,
@@ -470,6 +472,7 @@ const bearingTools: ToolDefinition[] = [
       num("width", "Foundation width, B", 2, "m", { min: 0.1, step: 0.01 }),
       num("length", "Foundation length, L", 3, "m", { min: 0.1, step: 0.01 }),
       num("embedment", "Embedment depth, Df", 1.2, "m", { min: 0, step: 0.01 }),
+      num("groundwaterDepth", "Groundwater table depth, GWT", 2, "m", { min: 0, step: 0.01 }),
     ],
     information: info({
       methodology:
@@ -513,7 +516,7 @@ const bearingTools: ToolDefinition[] = [
   },
   {
     slug: "bearing-capacity-eccentricity-correction",
-    status: "active",
+    status: "archived",
     title: "Eccentricity Correction",
     category: "Bearing Capacity",
     shortDescription:
@@ -554,8 +557,51 @@ const bearingTools: ToolDefinition[] = [
 
 const settlementTools: ToolDefinition[] = [
   {
-    slug: "schmertmann-settlement",
+    slug: "integrated-settlement-analysis",
     status: "active",
+    title: "Integrated Settlement Analysis",
+    category: "Settlement",
+    shortDescription:
+      "Run a structure-based layered settlement workflow and compare immediate, consolidation, and total settlement in one place.",
+    tags: ["settlement", "osterberg", "immediate", "consolidation"],
+    keywords: ["embankment", "structure", "mv", "Cc", "Cr", "soil profile"],
+    featured: true,
+    inputs: [
+      num("surfaceLoad", "Surface load, q0", 120, "kPa", { min: 0.1, step: 0.1 }),
+      num("excavationDepth", "Excavation depth, D_exc", 0, "m", { min: 0, step: 0.1 }),
+      num("width", "Structure width, B", 3, "m", { min: 0.1, step: 0.1 }),
+      num("length", "Structure length, L", 4, "m", { min: 0.1, step: 0.1 }),
+    ],
+    information: info({
+      methodology:
+        "For each layer, stresses are evaluated at mid-depth z. Net bearing pressure q_net reduces the surface load q_0 by the vertical stress removed by excavation (summed using layer unit weights along D_exc). The additional vertical stress Δσ_z uses an influence factor I_z obtained by integrating Boussinesq point-load vertical stresses over a uniformly loaded B×L area. Immediate settlement uses a layered elastic modulus form; clay consolidation uses either m_v or one-dimensional Cc–log σ′ compression. Layer settlements are summed for totals. Embankment mode is not available yet.",
+      assumptions: [
+        "Uniform soil properties within each entered layer; settlement computed at layer mid-depth.",
+        "Flexible rectangular load; elastic vertical stress field from Boussinesq superposition over B×L.",
+        "Immediate settlement from linear elastic strain; consolidation only for layers marked clay.",
+      ],
+      limitations: [
+        "Screening-level idealisation: no stiffness interaction between layers, staged construction, or time-dependent pore-pressure coupling.",
+        "Consolidation time uses a single representative C_v with lumped clay thickness (see tool notes).",
+      ],
+      equations: [
+        "q<sub>net</sub> = max(q<sub>0</sub> - &Sigma;(&gamma;<sub>i</sub>&Delta;z<sub>exc,i</sub>), 0)",
+        "&sigma;'<sub>v0</sub> = &gamma;z - &gamma;<sub>w</sub> max(z - z<sub>GWT</sub>, 0)",
+        "&Delta;&sigma;<sub>z</sub> = I<sub>z</sub> q<sub>net</sub>",
+        "s<sub>i</sub> = &Delta;&sigma;<sub>z</sub> H (1-&nu;<sup>2</sup>) / E<sub>s</sub>",
+        "s<sub>c</sub> = m<sub>v</sub> &Delta;&sigma;<sub>z</sub> H",
+        "s<sub>c</sub> = [H C<sub>c</sub> / (1 + e<sub>0</sub>)] log<sub>10</sub> [(&sigma;'<sub>v0</sub> + &Delta;&sigma;<sub>z</sub>) / &sigma;'<sub>v0</sub>]",
+      ],
+      references: [
+        "Terzaghi, K. (1943). Theoretical Soil Mechanics. John Wiley & Sons.",
+        "Lambe, T.W. and Whitman, R.V. (1969). Soil Mechanics. John Wiley & Sons.",
+        "NAVFAC DM 7.1 and DM 7.2. Soil Mechanics, Foundations, and Earth Structures.",
+      ],
+    }),
+  },
+  {
+    slug: "schmertmann-settlement",
+    status: "archived",
     title: "Schmertmann Settlement (Simplified)",
     category: "Settlement",
     shortDescription: "Estimate immediate settlement using a simplified Schmertmann-style modulus expression.",
@@ -590,7 +636,7 @@ const settlementTools: ToolDefinition[] = [
   },
   {
     slug: "secondary-compression-settlement",
-    status: "active",
+    status: "archived",
     title: "Secondary Compression (Creep)",
     category: "Settlement",
     shortDescription: "Estimate post-primary creep settlement using the secondary compression index.",
@@ -621,7 +667,7 @@ const settlementTools: ToolDefinition[] = [
   },
   {
     slug: "layered-settlement",
-    status: "active",
+    status: "archived",
     title: "Layered Settlement",
     category: "Settlement",
     shortDescription: "Sum one-dimensional settlement across up to three compressible layers.",
@@ -659,7 +705,7 @@ const settlementTools: ToolDefinition[] = [
   },
   {
     slug: "stress-distribution-21",
-    status: "active",
+    status: "archived",
     title: "Stress Distribution Methods",
     category: "Settlement",
     shortDescription:
@@ -1427,7 +1473,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     title: "Standard Penetration Test (SPT) Corrections for N₆₀ and (N₁)₆₀",
     category: "Mechanical Tools",
     shortDescription:
-      "Corrected SPT resistance is obtained through standard energy and equipment corrections, while vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight.",
+      "Energy and equipment corrections yield N<sub>60</sub>; vertical effective stress follows sample depth, groundwater depth, and bulk unit weight, then Idriss and Boulanger (2008) gives C<sub>N</sub> and (N<sub>1</sub>)<sub>60</sub>.",
     tags: ["SPT", "N60"],
     keywords: ["energy correction", "CN", "overburden"],
     featured: true,
@@ -1467,55 +1513,67 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     ],
     information: info({
       methodology:
-        "Applies energy and equipment corrections to produce N60. The rod-length factor Cr is assigned automatically from sample depth ranges (Youd et al., 2001), vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight, then Idriss and Boulanger (2008) overburden correction is used to obtain (N1)60.",
+        "The tool converts the recorded blow count N to the energy-standardised resistance N<sub>60</sub> using correction factors C<sub>E</sub> (hammer energy), C<sub>b</sub> (borehole diameter), C<sub>r</sub> (rod length), and C<sub>s</sub> (sampler). C<sub>r</sub> follows depth bands from Youd et al. (2001). Vertical effective stress &sigma;'<sub>v0</sub> at the sample depth is obtained from bulk unit weight and groundwater depth (water unit weight &gamma;<sub>w</sub> = 9.81 kN/m<sup>3</sup>). The overburden factor C<sub>N</sub> is then taken from Idriss and Boulanger (2008), and (N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub> N<sub>60</sub> with a screening cap (N<sub>1</sub>)<sub>60</sub> &le; 2 N<sub>60</sub>.",
       assumptions: [
-        "The chosen equipment factors are appropriate for the test setup.",
-        "An atmospheric pressure of 100 kPa is used.",
+        "Selected hammer efficiency, borehole diameter class, and sampler factor match the field test configuration.",
+        "Water unit weight is 9.81 kN/m\u2060\u00B3; \u03C3\u2032\u2060\u1D65\u2080 is expressed in kPa for the C\u2060\u2099 expression.",
       ],
       limitations: [
-        "Fines correction and clean-sand conversion are separate steps.",
-        "Local practice may use slightly different correction caps.",
+        "Fines content and clean-sand adjustments for liquefaction are not part of this correction chain.",
+        "Correction caps and depth bands may differ from local codes; confirm against project requirements.",
       ],
       equations: [
-        "N<sub>60</sub> = N C<sub>E</sub>C<sub>b</sub>C<sub>r</sub>C<sub>s</sub>",
+        "N<sub>60</sub> = N &middot; C<sub>E</sub> C<sub>b</sub> C<sub>r</sub> C<sub>s</sub>",
         "C<sub>E</sub> = ER / 60",
         "C<sub>b</sub> = 1.00 (d &lt; 115 mm), 1.05 (115 &le; d &le; 200 mm), 1.15 (d &gt; 200 mm)",
-        "C<sub>r</sub> = 0.75 (z &lt; 3 m), 0.80 (3 &le; z &lt; 4 m), 0.85 (4 &le; z &lt; 6 m), 0.95 (6 &le; z &lt; 10 m), 1.00 (10 &le; z &le; 30 m), 0.95 for z &gt; 30 m in this screening implementation",
+        "C<sub>r</sub> = 0.75 (z &lt; 3 m), 0.80 (3 &le; z &lt; 4 m), 0.85 (4 &le; z &lt; 6 m), 0.95 (6 &le; z &lt; 10 m), 1.00 (10 &le; z &le; 30 m), 0.95 (z &gt; 30 m, screening default in this tool)",
         "&sigma;'<sub>v0</sub> = &gamma;z - &gamma;<sub>w</sub> max(z - z<sub>GWT</sub>, 0)",
-        "C<sub>N</sub> = 9.78(1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70",
-        "(N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub>N<sub>60</sub> &le; 2N<sub>60</sub>",
+        "C<sub>N</sub> = 9.78 (1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70",
+        "(N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub> N<sub>60</sub> &le; 2 N<sub>60</sub>",
       ],
       tables: [
         {
-          title: "Common SPT Correction Sequence",
+          title: "Common SPT correction sequence",
           columns: ["Step", "Expression or factor", "Primary reference"],
           rows: [
-            ["Energy correction", "C_E = ER / 60", "ASTM D4633; ASTM D6066"],
-            ["Borehole diameter correction", "C_b selected from borehole size", "Skempton (1986)"],
-            ["Rod length correction", "C_r assigned automatically from sample depth range", "Youd et al. (2001)"],
-            ["Sampler correction", "C_s selected from sampler configuration", "ASTM D1586/D1586M; Youd et al. (2001)"],
-            ["Overburden correction", "C_N = 9.78(1/sigma'v0)^0.5, capped at 1.7", "Idriss & Boulanger (2008)"],
+            ["Energy correction", "C<sub>E</sub> = ER / 60", "ASTM D4633; ASTM D6066"],
+            ["Borehole diameter", "C<sub>b</sub> from borehole diameter class", "Skempton (1986)"],
+            ["Rod length", "C<sub>r</sub> from sample depth z (automatic in this tool)", "Youd et al. (2001)"],
+            ["Sampler", "C<sub>s</sub> from sampler configuration", "ASTM D1586/D1586M; Youd et al. (2001)"],
+            ["Overburden", "C<sub>N</sub> = 9.78 (1/&sigma;'<sub>v0</sub>)<sup>0.5</sup>, capped at 1.70", "Idriss & Boulanger (2008)"],
           ],
-          note: "The tool uses global selections for borehole diameter and hammer efficiency, while C_r is computed automatically from sample depth.",
+          note: "Hammer efficiency, borehole diameter, and sampler are user-selected; C<sub>r</sub> is fixed by sample depth in the Soil Profile Plot.",
         },
         {
-          title: "Typical Screening Values For Equipment Factors",
+          title: "Typical screening values for equipment factors",
           columns: ["Factor", "Typical selection", "Reference basis"],
           rows: [
-            ["C_r", "< 3 m: 0.75; 3-4 m: 0.80; 4-6 m: 0.85; 6-10 m: 0.95; 10-30 m: 1.00; > 30 m: variable (< 1.00). This tool uses 0.95 for screening.", "Provided correction table (Youd et al., 2001)"],
-            ["C_s", "Standard sampler with liner: 1.00; sampler without liner: 1.10-1.30", "Provided correction table"],
-            ["C_b", "<115 mm: 1.00; 115-200 mm: 1.05; >200 mm: 1.15", "Provided correction table"],
-            ["C_E", "Safety hammer: 0.60-1.17; donut hammer: 0.45-1.00; automatic trip hammer: 0.90-1.60", "Provided correction table"],
+            [
+              "C<sub>r</sub>",
+              "z &lt; 3 m: 0.75; 3&ndash;4 m: 0.80; 4&ndash;6 m: 0.85; 6&ndash;10 m: 0.95; 10&ndash;30 m: 1.00; z &gt; 30 m: tables allow &lt; 1.00; this tool uses 0.95 as a screening default.",
+              "Youd et al. (2001) correction table",
+            ],
+            ["C<sub>s</sub>", "Standard sampler with liner: 1.00; without liner: 1.10&ndash;1.30", "Common practice / ASTM D1586"],
+            ["C<sub>b</sub>", "&lt; 115 mm: 1.00; 115&ndash;200 mm: 1.05; &gt; 200 mm: 1.15", "Skempton (1986)"],
+            [
+              "C<sub>E</sub>",
+              "Typical ER ranges by hammer type (e.g. safety 60&ndash;117%; donut 45&ndash;100%; automatic 90&ndash;160%)",
+              "Hammer calibration / project tables",
+            ],
           ],
-          note: "These are common screening values used in practice. Project-specific procedures, hardware, and local standards should govern the final selection.",
+          note: "Values are indicative; final factors should follow project specifications and measured energy ratios where available.",
         },
         {
-          title: "Overburden Correction Used In This Tool",
-          columns: ["Method", "Equation used in this tool", "Notes"],
+          title: "Overburden correction in this tool",
+          columns: ["Method", "Equation", "Notes"],
           rows: [
-            ["Idriss & Boulanger (2008)", "C_N = 9.78(1 / sigma'v0)^0.5, 0.40 <= C_N <= 1.70", "sigma'v0 in kPa (kN/m2)."],
+            [
+              "Idriss & Boulanger (2008)",
+              "C<sub>N</sub> = 9.78 (1/&sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70",
+              "&sigma;'<sub>v0</sub> in kPa (kN/m<sup>2</sup>).",
+            ],
           ],
-          note: "After C_N is calculated, the tool enforces (N1)60 <= 2N60 as a practical screening cap.",
+          note: "After C<sub>N</sub> is applied, (N<sub>1</sub>)<sub>60</sub> is limited to 2 N<sub>60</sub> as a practical screening cap.",
         },
       ],
       references: [
@@ -1650,7 +1708,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     title: "Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI)",
     category: "Mechanical Tools",
     shortDescription:
-      "Uses Stroud (1974) PI-based f1 interpretation and computes undrained shear strength from cu = f1 x N60 for cohesive-soil screening.",
+      "Uses Stroud (1974) PI-based f<sub>1</sub> interpretation and estimates c<sub>u</sub> = f<sub>1</sub> N<sub>60</sub> (kPa) for cohesive-soil screening.",
     tags: ["undrained strength", "plasticity index", "Stroud"],
     keywords: ["cu", "f1", "PI", "N60", "Stroud 1974", "cohesive soil"],
     featured: false,
@@ -1660,33 +1718,32 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     ],
     information: info({
       methodology:
-        "Interprets the Stroud (1974) f1-versus-PI chart to select a representative factor for cohesive soils, then computes undrained shear strength using the corrected SPT resistance via cu = f1 x N60.",
+        "The factor f<sub>1</sub> is read from the Stroud (1974) f<sub>1</sub>–PI trend using the anchor table below: for PI &le; 15 and PI &gt; 40 the tool holds f<sub>1</sub> fixed at the end values (6.5 and 4.4); between 15 and 40 it linearly interpolates between consecutive anchors. Undrained shear strength follows Stroud’s form c<sub>u</sub> = f<sub>1</sub> N<sub>60</sub>, with c<sub>u</sub> in kPa when N<sub>60</sub> is the corrected blow count as used in the correlation.",
       assumptions: [
-        "The soil is cohesive and the Stroud chart is considered applicable to the deposit being screened.",
-        "The plotted Stroud trend is interpreted using representative PI bands rather than a continuous fitted curve.",
-        "N60 has already been corrected from raw SPT field values.",
+        "The soil behaves as cohesive material for which the Stroud chart is applicable.",
+        "N<sub>60</sub> is the energy-corrected SPT blow count entered for screening (not raw field N).",
       ],
       limitations: [
-        "The chart interpretation is approximate and should not replace laboratory strength testing.",
-        "Project-specific calibration and engineering judgement remain necessary before design use.",
+        "Chart-based f<sub>1</sub> is approximate and does not replace laboratory or high-quality field strength measurements.",
+        "Calibration to local geology and engineering judgement are required before design use.",
       ],
       equations: [
-        "c<sub>u</sub> = f<sub>1</sub>N<sub>60</sub>",
-        "f<sub>1</sub> is obtained by linear interpolation between the Stroud (1974) PI anchor points.",
+        "c<sub>u</sub> = f<sub>1</sub> &middot; N<sub>60</sub>",
+        "f<sub>1</sub> from PI: constant for PI &le; 15 and PI &gt; 40; linear interpolation between anchors for 15 &lt; PI &le; 40.",
       ],
       tables: [
         {
-          title: "Stroud (1974) PI Anchor Points Used In This Tool",
-          columns: ["Plasticity Index, PI", "Interpreted f1 value", "How the tool uses it"],
+          title: "Stroud (1974) PI anchor points for f<sub>1</sub> (this tool)",
+          columns: ["PI (%)", "f<sub>1</sub>", "Segment"],
           rows: [
-            ["15", "6.5", "Lower-plasticity anchor"],
-            ["20", "5.5", "Interpolated with adjacent points"],
-            ["25", "5.0", "Interpolated with adjacent points"],
-            ["30", "4.8", "Interpolated with adjacent points"],
-            ["35", "4.5", "Interpolated with adjacent points"],
-            ["40", "4.4", "Upper-plasticity anchor"],
+            ["15", "6.5", "Lower anchor; also used for all PI &le; 15"],
+            ["20", "5.5", "Interpolated between 15 and 20"],
+            ["25", "5.0", "Interpolated between 20 and 25"],
+            ["30", "4.8", "Interpolated between 25 and 30"],
+            ["35", "4.5", "Interpolated between 30 and 35"],
+            ["40", "4.4", "Upper anchor; also used for all PI &gt; 40"],
           ],
-          note: "The tool linearly interpolates between these interpreted chart anchor points so f1 changes smoothly with PI, then multiplies by N60 to estimate cu.",
+          note: "For PI between two consecutive rows, f<sub>1</sub> is linear in PI. For PI &gt; 40, f<sub>1</sub> stays at 4.4. Then c<sub>u</sub> (kPa) = f<sub>1</sub> &middot; N<sub>60</sub>.",
         },
       ],
       figures: [
@@ -1694,7 +1751,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
           src: "/images/stroud-1974-f1-pi-original.png",
           alt: "Stroud 1974 f1 versus plasticity index reference chart",
           caption:
-            "Interpreted Stroud (1974) reference trend for f1 versus PI used in this tool to estimate c_u from corrected SPT resistance.",
+            "Interpreted Stroud (1974) trend for f<sub>1</sub> versus PI; this tool uses discrete anchors and linear interpolation as in the table above.",
         },
       ],
       references: [
@@ -1705,7 +1762,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   },
   {
     slug: "cu-from-pressuremeter",
-    status: "active",
+    status: "archived",
     title: "Undrained Shear Strength (cu) from Pressuremeter Net Limit Pressure (PLN)",
     category: "Mechanical Tools",
     shortDescription:
@@ -1740,26 +1797,22 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     title: "Effective Cohesion (c') from Undrained Shear Strength (cu)",
     category: "Mechanical Tools",
     shortDescription:
-      "Uses the c' = 0.1cu correlation and chart-aligned 30 kPa screening cap reported by Sorensen and Okkels (2013) for cohesive soils.",
+      "Uses the c' = 0.1cu correlation cited by Sorensen and Okkels (2013) for cohesive soils.",
     tags: ["effective cohesion", "undrained strength", "cohesive soil"],
     keywords: ["c'", "cu", "Sorensen", "Okkels", "2013"],
     featured: false,
     inputs: [num("cu", "Undrained shear strength, cu", 120, "kPa", { min: 1, step: 0.1 })],
     information: info({
       methodology:
-        "Applies the simplified cohesive-soil correlation c' = 0.1cu and includes the chart-aligned screening cap c' <= 30 kPa as indicated in Sorensen and Okkels (2013).",
+        "Applies the simplified cohesive-soil correlation c′ = 0.1c<sub>u</sub> as discussed in Sorensen and Okkels (2013). The Soil Profile Plot tab can load c<sub>u</sub> from saved project parameters or estimate c<sub>u</sub> as f<sub>1</sub> × N<sub>60</sub> when PI and N<sub>60</sub> are available for the sample, consistent with the Undrained Shear Strength (c<sub>u</sub>) from SPT (N<sub>60</sub>) and Plasticity Index (PI) tool.",
       assumptions: [
         "The deposit behaviour is sufficiently cohesive for this simplified cu-to-c' interpretation.",
-        "The chart-based cap is used as a screening constraint, not as a universal design limit.",
       ],
       limitations: [
         "This conversion is empirical and should be calibrated with project-specific laboratory and field evidence.",
         "Do not use this alone for final design parameter selection.",
       ],
-      equations: [
-        "c'<sub>oc</sub> = 0.1c<sub>u</sub>",
-        "c'<sub>oc,screened</sub> = min(0.1c<sub>u</sub>, 30 kPa)",
-      ],
+      equations: ["c′ = 0.1c<sub>u</sub>"],
       references: [
         "Sorensen, K.K. and Okkels, N. (2013). Correlation between c'_oc and c_u for overconsolidated clays.",
         "Ladd, C.C. and Foott, R. (1974). New design procedure for stability of soft clays. Journal of the Geotechnical Engineering Division, ASCE.",
@@ -1769,43 +1822,43 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "friction-angle-from-spt",
     status: "active",
-    title: "Effective Friction Angle (φ') from Standard Penetration Test Resistance (N60)",
+    title: "Effective Friction Angle (φ′) from Standard Penetration Test Resistance (N₆₀)",
     category: "Mechanical Tools",
     shortDescription:
-      "Effective friction angle is estimated from corrected SPT resistance using the empirical correlation cited by Peck, Hanson, and Thornburn (1974).",
+      "Effective friction angle is estimated from corrected SPT resistance N₆₀ using the empirical correlation cited by Peck, Hanson, and Thornburn (1974).",
     tags: ["SPT", "friction angle"],
     keywords: ["phi", "N60", "sand correlation"],
     featured: false,
-    inputs: [num("n60", "Corrected SPT resistance, N60", 20, undefined, { min: 1, max: 60, step: 0.1 })],
+    inputs: [num("n60", "Corrected SPT resistance, N₆₀", 20, undefined, { min: 1, max: 60, step: 0.1 })],
     information: info({
       methodology:
-        "Uses a compact empirical curve to convert corrected SPT resistance into a friction-angle estimate for granular soils.",
+        "Uses the empirical curve φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀² (Peck, Hanson, and Thornburn, 1974) to convert corrected SPT resistance into a friction-angle estimate for granular soils. On the Soil Profile Plot tab, N₆₀ can be auto-filled from corrected blow counts saved to the project (from the Standard Penetration Test (SPT) Corrections workflow) when a borehole sample is selected.",
       assumptions: [
         "Granular soil behaviour is dominant.",
-        "The SPT correction process has already been carried out properly.",
+        "The correlation is applied to corrected SPT resistance expressed as N₆₀ (dimensionless blow count after corrections).",
       ],
       limitations: [
         "Correlations vary by mineralogy and density range.",
         "Treat the output as an initial estimate only.",
       ],
-      equations: ["&phi;' &asymp; 27.1 + 0.3N<sub>60</sub> - 0.00054N<sub>60</sub><sup>2</sup>"],
+      equations: ["φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀²"],
       references: empiricalRefs,
     }),
   },
   {
     slug: "friction-angle-from-pi",
     status: "active",
-    title: "Effective Friction Angle (φ') from Plasticity Index (PI)",
+    title: "Effective Friction Angle (φ′) from Plasticity Index (PI)",
     category: "Mechanical Tools",
     shortDescription:
-      "Uses the PI-based cohesive-soil correlation φ' = 45 - 14log10(PI), consistent with the charted trend cited by Sorensen and Okkels (2013).",
+      "Uses the PI-based cohesive-soil correlation φ′ = 45 − 14 log₁₀(PI), consistent with the charted trend cited by Sorensen and Okkels (2013).",
     tags: ["friction angle", "plasticity index", "cohesive soil"],
     keywords: ["phi'", "PI", "Mitchell", "Kulhawy", "Mayne", "Sorensen"],
     featured: false,
     inputs: [num("plasticityIndex", "Plasticity Index, PI", 25, "%", { min: 0.1, max: 200, step: 0.1 })],
     information: info({
       methodology:
-        "Estimates effective friction angle from plasticity index using the practical cohesive-soil correlation φ' = 45 - 14log10(PI), aligned with the trend shown in Mitchell (1976), Kulhawy and Mayne (1990), and Sorensen and Okkels (2013).",
+        "Estimates effective friction angle from plasticity index using the cohesive-soil correlation φ′ = 45 − 14 log₁₀(PI), aligned with trends discussed in Mitchell (1976), Kulhawy and Mayne (1990), and Sorensen and Okkels (2013). On the Soil Profile Plot tab, PI can be auto-filled from project parameters when a borehole sample is selected; sample depth follows the project listing when the project tool lock is enabled.",
       assumptions: [
         "The PI value is representative and obtained from reliable Atterberg limits testing.",
         "The deposit behaviour is compatible with the cohesive-soil empirical basis of the correlation.",
@@ -1814,7 +1867,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
         "This is an empirical screening relation and should not replace project-specific strength characterisation.",
         "Mineralogy, structure, stress history, and anisotropy effects are not explicitly modelled.",
       ],
-      equations: ["&phi;' = 45 - 14log<sub>10</sub>(PI)"],
+      equations: ["φ′ = 45 − 14 log₁₀(PI)"],
       references: [
         "Mitchell, J.K. (1976). Fundamentals of Soil Behavior. John Wiley & Sons.",
         "Kulhawy, F.H. and Mayne, P.W. (1990). Manual on Estimating Soil Properties for Foundation Design (EPRI EL-6800).",
@@ -1824,7 +1877,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   },
   {
     slug: "modulus-from-cu",
-    status: "active",
+    status: "archived",
     title: "Elastic Young's Modulus (Eu) from Undrained Shear Strength (cu)",
     category: "Rigidity / Deformation Tools",
     shortDescription:
@@ -1884,7 +1937,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     featured: false,
     inputs: [
       num("n60", "Corrected SPT resistance, N60", 15, undefined, { min: 1, step: 0.1 }),
-      num("euN60Ratio", "Selected ratio, Eu/N60", 1100, "kPa", { min: 1000, max: 1200, step: 10 }),
+      num("euN60Ratio", "Selected ratio (Eu/N60)", 1100, "kPa", { min: 1000, max: 1200, step: 10 }),
     ],
     information: info({
       methodology:

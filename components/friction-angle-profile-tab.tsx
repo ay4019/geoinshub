@@ -1,17 +1,39 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import {
+  ProfileTableHeaderCell,
+  ProfileTableScroll,
+  cnProfileTableInput,
+  profileTableClass,
+  profileTableFooterButtonClass,
+  profileTableOutputCellClass,
+  profileTableRemoveButtonClass,
+  profileTableThClass,
+} from "@/components/profile-table-mobile";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
-import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import { isActiveProjectToolLocked, type SelectedBoreholeSummary } from "@/lib/project-boreholes";
+import {
+  matchImportSummaryForProfileRow,
+  profileRowSoilRestricted,
+  soilRestrictionUserHint,
+} from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
 
 interface FrictionAngleProfileTabProps {
   unitSystem: UnitSystem;
   importRows?: SelectedBoreholeSummary[];
+  soilPolicyToolSlug?: string;
+  projectParameters?: Array<{
+    boreholeLabel: string;
+    sampleDepth: number | null;
+    parameterCode: string;
+    value: number;
+    sourceToolSlug?: string | null;
+  }>;
 }
 
 interface FrictionAngleRow {
@@ -19,6 +41,7 @@ interface FrictionAngleRow {
   boreholeId: string;
   sampleDepth: string;
   n60: string;
+  n60Source: "manual" | "auto-spt-corrections";
 }
 
 interface PlotPoint {
@@ -31,9 +54,27 @@ interface PlotPoint {
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
 
 const initialRows: FrictionAngleRow[] = [
-  { id: 1, boreholeId: "", sampleDepth: "1.5", n60: "12" },
-  { id: 2, boreholeId: "", sampleDepth: "3.0", n60: "18" },
+  { id: 1, boreholeId: "", sampleDepth: "1.5", n60: "12", n60Source: "manual" },
+  { id: 2, boreholeId: "", sampleDepth: "3.0", n60: "18", n60Source: "manual" },
 ];
+
+const SPT_CORRECTIONS_TOOL_LABEL = "Standard Penetration Test (SPT) Corrections for N₆₀ and (N₁)₆₀";
+
+function sanitiseBoreholeLabel(value: string | null | undefined): string {
+  const cleaned = (value ?? "")
+    .replace(/[▼▾▿▲△]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "BH not set";
+}
+
+function normaliseBoreholeLabelKey(value: string | null | undefined): string {
+  return sanitiseBoreholeLabel(value).toLowerCase();
+}
+
+function depthKey(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(4) : "na";
+}
 
 function parse(value: string): number {
   const parsed = Number(value);
@@ -44,21 +85,8 @@ function estimatePhiFromN60(n60: number): number {
   return 27.1 + 0.3 * n60 - 0.00054 * n60 ** 2;
 }
 
-function HeaderCell({ title, unit }: { title: ReactNode; unit?: ReactNode }) {
-  return (
-    <span className="block leading-tight">
-      <span className="block">{title}</span>
-      {unit ? <span className="mt-0.5 block text-slate-500">({unit})</span> : null}
-    </span>
-  );
-}
-
 function OutputCell({ value }: { value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] font-semibold text-slate-900">
-      {value}
-    </div>
-  );
+  return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
 function getNiceTickStep(rawStep: number): number {
@@ -84,13 +112,11 @@ function renderScatterChart({
   title,
   xLabel,
   points,
-  valueKey,
   depthUnit,
 }: {
   title: string;
   xLabel: string;
   points: PlotPoint[];
-  valueKey: "n60" | "phi";
   depthUnit: string;
 }) {
   const width = 560;
@@ -99,7 +125,7 @@ function renderScatterChart({
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   const maxDepth = Math.max(...points.map((point) => point.depth), 1);
-  const maxValue = Math.max(...points.map((point) => point[valueKey]), 1);
+  const maxValue = Math.max(...points.map((point) => point.phi), 1);
   const xStep = getNiceTickStep(maxValue / 6);
   const xIntervals = Math.max(Math.floor(maxValue / xStep) + 1, 2);
   const xAxisMax = xStep * xIntervals;
@@ -158,9 +184,9 @@ function renderScatterChart({
         {points.map((point, index) => {
           const colour = colourByBorehole.get(point.boreholeId) ?? BOREHOLE_COLOURS[0];
           return (
-            <g key={`${point.boreholeId}-${point.depth}-${point[valueKey]}-${index}`}>
-              <circle cx={xScale(point[valueKey])} cy={yScale(point.depth)} r={5.5} fill="#ffffff" stroke={colour} strokeWidth={2.4} />
-              <circle cx={xScale(point[valueKey])} cy={yScale(point.depth)} r={2.2} fill={colour} />
+            <g key={`${point.boreholeId}-${point.depth}-${point.phi}-${index}`}>
+              <circle cx={xScale(point.phi)} cy={yScale(point.depth)} r={5.5} fill="#ffffff" stroke={colour} strokeWidth={2.4} />
+              <circle cx={xScale(point.phi)} cy={yScale(point.depth)} r={2.2} fill={colour} />
             </g>
           );
         })}
@@ -198,11 +224,44 @@ function renderScatterChart({
   );
 }
 
-export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngleProfileTabProps) {
+export function FrictionAngleProfileTab({
+  unitSystem,
+  importRows,
+  soilPolicyToolSlug,
+  projectParameters,
+}: FrictionAngleProfileTabProps) {
   const [rows, setRows] = useState<FrictionAngleRow[]>(initialRows);
+  const [isProjectLocked, setIsProjectLocked] = useState(() =>
+    typeof window !== "undefined" ? isActiveProjectToolLocked() : false,
+  );
   const previousUnitSystem = useRef(unitSystem);
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
+  const hasImportedSelection = (importRows?.length ?? 0) > 0;
+  const shouldLockImportedFields = isProjectLocked && hasImportedSelection;
+  const lockHint = "Locked from Projects and Boreholes. Edit values in Account > Projects.";
+
+  const n60ByBoreholeDepth = useMemo(() => {
+    const map = new Map<string, number>();
+    (projectParameters ?? []).forEach((parameter) => {
+      if (parameter.parameterCode.toLowerCase() !== "n60" || !Number.isFinite(parameter.value)) {
+        return;
+      }
+      const key = `${normaliseBoreholeLabelKey(parameter.boreholeLabel)}|${depthKey(parameter.sampleDepth)}`;
+      if (!map.has(key)) {
+        map.set(key, parameter.value);
+      }
+    });
+    return map;
+  }, [projectParameters]);
+
+  useEffect(() => {
+    const syncLockState = () => setIsProjectLocked(isActiveProjectToolLocked());
+    window.addEventListener("gih:active-project-changed", syncLockState);
+    return () => {
+      window.removeEventListener("gih:active-project-changed", syncLockState);
+    };
+  }, []);
 
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
@@ -223,19 +282,36 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
     if (!importRows || importRows.length === 0) {
       return;
     }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- rows mirror imported project samples when selection changes
     setRows((current) => {
       const template = current[0] ?? initialRows[0];
-      return importRows.map((item, index) => ({
-        ...template,
-        id: index + 1,
-        boreholeId: item.boreholeLabel || template.boreholeId,
-        sampleDepth:
-          item.sampleTopDepth === null
-            ? template.sampleDepth
-            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
-      }));
+      return importRows.map((item, index) => {
+        const boreholeId = item.boreholeLabel || template.boreholeId;
+        const sampleDepthMetric = item.sampleTopDepth;
+        const key = `${normaliseBoreholeLabelKey(boreholeId)}|${depthKey(sampleDepthMetric)}`;
+        const n60Metric = n60ByBoreholeDepth.get(key);
+
+        return {
+          ...template,
+          id: index + 1,
+          boreholeId,
+          sampleDepth:
+            sampleDepthMetric === null
+              ? template.sampleDepth
+              : convertInputValueBetweenSystems(String(sampleDepthMetric), "m", "metric", unitSystem),
+          n60:
+            typeof n60Metric === "number" && Number.isFinite(n60Metric)
+              ? String(n60Metric)
+              : template.n60,
+          n60Source:
+            typeof n60Metric === "number" && Number.isFinite(n60Metric)
+              ? "auto-spt-corrections"
+              : "manual",
+        };
+      });
     });
-  }, [importRows, unitSystem]);
+  }, [importRows, n60ByBoreholeDepth, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<FrictionAngleRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -252,6 +328,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
           boreholeId: "",
           sampleDepth: String(parse(lastDepth) + 1.5),
           n60: "15",
+          n60Source: "manual",
         },
       ];
     });
@@ -261,36 +338,49 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
     setRows((current) => (current.length > 1 ? current.filter((row) => row.id !== id) : current));
   };
 
-  const plotPoints: PlotPoint[] = rows
-    .map((row) => {
-      const depthDisplay = parse(row.sampleDepth);
-      const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
-      if (!Number.isFinite(depthMetric) || depthMetric < 0) {
-        return null;
-      }
-      const n60 = Math.max(0, parse(row.n60));
-      const phi = estimatePhiFromN60(n60);
-      return {
-        boreholeId: row.boreholeId?.trim() || "BH not set",
-        depth: depthDisplay,
-        n60,
-        phi,
-      };
-    })
-    .filter((point): point is PlotPoint => point !== null);
+  const plotPoints: PlotPoint[] = useMemo(
+    () =>
+      rows
+        .map((row) => {
+          if (profileRowSoilRestricted(soilPolicyToolSlug, importRows, row.boreholeId, row.sampleDepth, unitSystem, parse)) {
+            return null;
+          }
+          const depthDisplay = parse(row.sampleDepth);
+          const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
+          if (!Number.isFinite(depthMetric) || depthMetric < 0) {
+            return null;
+          }
+          const n60 = Math.max(0, parse(row.n60));
+          const phi = estimatePhiFromN60(n60);
+          return {
+            boreholeId: row.boreholeId?.trim() || "BH not set",
+            depth: depthDisplay,
+            n60,
+            phi,
+          };
+        })
+        .filter((point): point is PlotPoint => point !== null),
+    [rows, soilPolicyToolSlug, importRows, unitSystem],
+  );
 
   return (
     <section className="space-y-5">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Soil Layer Profile</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Enter corrected SPT resistance by depth and the tool computes effective friction angle using
-          &phi;&prime; &asymp; 27.1 + 0.3N<sub>60</sub> - 0.00054N<sub>60</sub>
-          <sup>2</sup>.
+          Enter corrected SPT resistance by depth. Effective friction angle uses φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀²
+          (Peck, Hanson, and Thornburn, 1974).
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          When samples are imported from <span className="font-semibold">Projects and Boreholes</span> with the project
+          tool lock enabled, sample depth is read-only here (edit under Account &gt; Projects). If available, N₆₀ is
+          auto-filled from{" "}
+          <span className="font-semibold">{SPT_CORRECTIONS_TOOL_LABEL}</span> results saved to the project. Manual
+          override is always allowed.
         </p>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-white">
-          <table className="w-full table-fixed border-collapse text-[12px] lg:text-[13px]">
+        <ProfileTableScroll>
+          <table className={profileTableClass("c5")}>
             <colgroup>
               <col className="w-[18%]" />
               <col className="w-[18%]" />
@@ -300,32 +390,54 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Borehole ID" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Borehole ID" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="Sample Depth" unit={depthUnit} />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title="N60" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>N₆₀</span>} />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <HeaderCell title={<span>&phi;&prime;</span>} unit="deg" />
+                <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title={<span>φ′</span>} unit="deg" />
                 </th>
-                <th className="px-2 py-3 text-left font-semibold">
-                  <span className="block leading-tight">Action</span>
+                <th className={profileTableThClass}>
+                  <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
+                const soilRestricted = profileRowSoilRestricted(
+                  soilPolicyToolSlug,
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const matchedSoil = matchImportSummaryForProfileRow(
+                  importRows,
+                  row.boreholeId,
+                  row.sampleDepth,
+                  unitSystem,
+                  parse,
+                );
+                const restrictionHint = soilRestrictionUserHint(soilPolicyToolSlug, matchedSoil?.soilBehavior ?? null);
+                const rowLocked = shouldLockImportedFields || soilRestricted;
                 const n60 = Math.max(0, parse(row.n60));
                 const phi = estimatePhiFromN60(n60);
 
                 return (
-                  <tr key={row.id} className="border-t border-slate-200 bg-white align-top">
+                  <tr
+                    key={row.id}
+                    className={`border-t border-slate-200 align-top ${soilRestricted ? "bg-slate-50/90 opacity-[0.85]" : "bg-white"}`}
+                    title={soilRestricted ? "Soil type is not used with this tool (set under Projects)." : undefined}
+                  >
                     <td className="px-2 py-3">
                       <BoreholeIdSelector
+                        variant="compact"
                         value={row.boreholeId}
                         availableIds={rows.map((item) => item.boreholeId)}
                         onChange={(value) => updateRow(row.id, { boreholeId: value })}
@@ -338,26 +450,43 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
                         min="0"
                         value={row.sampleDepth}
                         onChange={(event) => updateRow(row.id, { sampleDepth: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                        disabled={rowLocked}
+                        title={rowLocked ? (soilRestricted ? "Soil type is not used with this tool." : lockHint) : undefined}
+                        className={cnProfileTableInput(rowLocked)}
                       />
                     </td>
                     <td className="px-2 py-3">
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={row.n60}
-                        onChange={(event) => updateRow(row.id, { n60: event.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px] text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
-                      />
+                      {soilRestricted ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
+                          {restrictionHint ?? "Not used with this tool (soil type in Projects)."}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={row.n60}
+                            onChange={(event) =>
+                              updateRow(row.id, { n60: event.target.value, n60Source: "manual" })
+                            }
+                            className={cnProfileTableInput(false)}
+                          />
+                          {row.n60Source === "auto-spt-corrections" ? (
+                            <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                              Auto-filled from SPT Corrections
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={phi.toFixed(2)} />
+                      <OutputCell value={soilRestricted ? "—" : phi.toFixed(2)} />
                     </td>
                     <td className="px-2 py-3">
                       <button
                         type="button"
-                        className="btn-base w-full px-2 py-1.5 text-sm"
+                        className={profileTableRemoveButtonClass}
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
                       >
@@ -371,7 +500,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
             <tfoot className="border-t border-slate-200 bg-white">
               <tr>
                 <td className="px-2 py-3 text-left align-top">
-                  <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={addRow}>
+                  <button type="button" className={profileTableFooterButtonClass} onClick={addRow}>
                     Add Layer
                   </button>
                 </td>
@@ -379,7 +508,7 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
                 <td className="px-2 py-3 text-right align-top">
                   <button
                     type="button"
-                    className="btn-base px-3 py-1.5 text-sm"
+                    className={profileTableFooterButtonClass}
                     onClick={(event) => {
                       void exportProfileExcelFromSection(event.currentTarget);
                     }}
@@ -390,22 +519,14 @@ export function FrictionAngleProfileTab({ unitSystem, importRows }: FrictionAngl
               </tr>
             </tfoot>
           </table>
-        </div>
+        </ProfileTableScroll>
 
         {plotPoints.length ? (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <div className="mt-4 max-w-3xl">
             {renderScatterChart({
-              title: "Depth vs N\u2086\u2080",
-              xLabel: "N\u2086\u2080",
+              title: "Depth vs φ′",
+              xLabel: "φ′ (deg)",
               points: plotPoints,
-              valueKey: "n60",
-              depthUnit,
-            })}
-            {renderScatterChart({
-              title: "Depth vs \u03c6'",
-              xLabel: "\u03c6' (deg)",
-              points: plotPoints,
-              valueKey: "phi",
               depthUnit,
             })}
           </div>

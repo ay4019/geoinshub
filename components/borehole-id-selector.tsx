@@ -6,13 +6,14 @@ interface BoreholeIdSelectorProps {
   value: string;
   availableIds: string[];
   onChange: (value: string) => void;
+  variant?: "default" | "compact";
 }
 
 function normaliseBoreholeId(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
-export function BoreholeIdSelector({ value, availableIds, onChange }: BoreholeIdSelectorProps) {
+export function BoreholeIdSelector({ value, availableIds, onChange, variant = "default" }: BoreholeIdSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [draftId, setDraftId] = useState("");
@@ -42,6 +43,7 @@ export function BoreholeIdSelector({ value, availableIds, onChange }: BoreholeId
   }, [isOpen]);
 
   const buttonLabel = value || (uniqueIds.length === 0 ? "Add BH" : "Select BH");
+  const isCompact = variant === "compact";
 
   const closePanel = () => {
     setIsOpen(false);
@@ -70,10 +72,22 @@ export function BoreholeIdSelector({ value, availableIds, onChange }: BoreholeId
             setIsOpen(true);
           }
         }}
-        className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-left text-sm text-slate-900 outline-none transition-colors duration-200 hover:border-slate-400 focus:border-slate-500"
+        className={`flex w-full min-w-0 items-center justify-between rounded-lg border border-slate-300 bg-white text-left text-slate-900 outline-none transition-colors duration-200 hover:border-slate-400 focus:border-slate-500 ${
+          isCompact ? "px-1.5 py-1 text-xs sm:px-2 sm:py-1.5 sm:text-[13px]" : "px-2.5 py-2 text-sm"
+        }`}
       >
-        <span className={value ? "font-medium text-slate-900" : "text-slate-500"}>{buttonLabel}</span>
-        <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] text-slate-500">
+        <span
+          className={`min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
+            value ? "font-medium text-slate-900" : "text-slate-500"
+          }`}
+        >
+          {buttonLabel}
+        </span>
+        <span
+          className={`ml-2 inline-flex items-center justify-center rounded-full bg-slate-100 text-[10px] text-slate-500 ${
+            isCompact ? "h-4 w-4" : "h-5 w-5"
+          }`}
+        >
           {isOpen ? "▲" : "▼"}
         </span>
       </button>
