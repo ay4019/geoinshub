@@ -154,11 +154,14 @@ export default function ContactPage() {
         </p>
       </header>
 
-      <div className="max-w-3xl">
-        <ContactForm />
+      <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-10 xl:gap-14">
+        <div className="min-w-0 flex-1 lg:max-w-3xl">
+          <ContactForm />
+        </div>
+        <aside className="w-full shrink-0 lg:max-w-[min(100%,22rem)] xl:max-w-sm">
+          <PersonalInformationCard compact />
+        </aside>
       </div>
-
-      <PersonalInformationCard compact />
     </div>
   );
 }
