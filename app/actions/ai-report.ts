@@ -68,7 +68,7 @@ function buildSystemPrompt(): string {
     "",
     "Use plain ASCII for symbols where relevant: c_u, N60, N1_60 or (N1)60, and f1 (avoid Unicode subscripts and markdown formatting).",
     "",
-    "When two profile plots are provided (e.g. SPT N60-depth and normalized (N1)60-depth), compare both: comment on energy-corrected blow count versus stress-normalized trends and any divergence between them.",
+    "When two profile plots are provided (e.g. SPT N60-depth and normalised (N1)60-depth), compare both: comment on energy-corrected blow count versus stress-normalised trends and any divergence between them.",
   ].join("\n");
 }
 
@@ -280,7 +280,7 @@ function buildPlotSummary(toolData: ProfileReportAiRequest, tableSummary: TableS
 
   if (toolData.toolSlug === "spt-corrections" && hasFirst && hasSecond) {
     parts.push(
-      "Two plot images are attached in order: (1) N60 versus depth; (2) normalized blow count (N1)60 versus depth.",
+      "Two plot images are attached in order: (1) N60 versus depth; (2) normalised blow count (N1)60 versus depth.",
     );
   } else if (hasFirst && hasSecond) {
     parts.push("Two plot images are attached in order; interpret both together with the table.");
@@ -358,7 +358,7 @@ function buildUserPrompt(toolData: ProfileReportAiRequest): string {
     "Review the tabulated values and the plot description together.",
     ...(toolData.toolSlug === "spt-corrections" && toolData.plotImageDataUrl2
       ? [
-          "Both SPT profile plots are attached: relate N60 trends to (N1)60 after overburden normalization where the data supports it.",
+          "Both SPT profile plots are attached: relate N60 trends to (N1)60 after overburden normalisation where the data supports it.",
         ]
       : []),
     "Use the base report text only as supporting context and avoid repetition.",

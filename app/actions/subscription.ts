@@ -122,7 +122,7 @@ export async function consumeReportGenerationAction(): Promise<QuotaResult> {
   return { ok: true, message: "ok", remaining: BRONZE_MAX_REPORTS_PER_DAY - current - 1 };
 }
 
-/** Gold: unlimited AI analyses (tool “Analyze with AI”). Other tiers blocked before calling this. */
+/** Gold: unlimited AI analyses (tool “Analyse with AI”). Other tiers blocked before calling this. */
 export async function consumeAiAnalysisAction(): Promise<QuotaResult> {
   const auth = await requireUserId();
   if ("error" in auth) {

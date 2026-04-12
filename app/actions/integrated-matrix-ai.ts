@@ -48,7 +48,7 @@ function buildUserPrompt(
   columnHeaders: string[],
   rows: IntegratedMatrixAiRowPayload[],
 ): string {
-  const headerCells = ["#", "Borehole ID", "Soil behavior", "Sample depth", ...columnHeaders];
+  const headerCells = ["#", "Borehole ID", "Soil behaviour", "Sample depth", ...columnHeaders];
   const headerLine = headerCells.join(" | ");
   const separator = headerCells.map(() => "---").join(" | ");
 

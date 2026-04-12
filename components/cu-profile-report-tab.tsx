@@ -341,7 +341,7 @@ function ReportAiInterpretationGold({ text, toolSlug }: { text: string; toolSlug
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-bold uppercase tracking-[0.08em] text-amber-950">AI Interpretation</h3>
           <span className="rounded-full border border-amber-500/80 bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-900">
-            Analyze with AI
+            Analyse with AI
           </span>
         </div>
         <div className="mt-3 space-y-3 text-sm leading-7 text-slate-800">
@@ -541,7 +541,7 @@ export function CuProfileReportTab({
   const [isAiPanelDismissed, setIsAiPanelDismissed] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [reportPanelOpen, setReportPanelOpen] = useState(false);
-  /** After Analyze with AI completes successfully once, the top Analyze with AI button stays off until page reload. */
+  /** After Analyse with AI completes successfully once, the top Analyse with AI button stays off until page reload. */
   const [analyzeWithAiLockedThisSession, setAnalyzeWithAiLockedThisSession] = useState(false);
   const reportRegionRef = useRef<HTMLDivElement | null>(null);
   const reportPanelContentId = useId();
@@ -812,7 +812,7 @@ export function CuProfileReportTab({
               Create report builds the draft report for this tool and opens it in the panel below; press it again to hide
               only that preview. <strong className="font-semibold text-slate-900">Download PDF</strong> is available for
               eligible accounts once the Soil Profile Plot is ready. For a quick AI interpretation of the tabulated
-              values and the profile plot, use <strong className="font-semibold text-slate-900">Analyze with AI</strong>.
+              values and the profile plot, use <strong className="font-semibold text-slate-900">Analyse with AI</strong>.
             </p>
           )}
 
@@ -855,11 +855,11 @@ export function CuProfileReportTab({
               }
               title={
                 analyzeWithAiLockedThisSession
-                  ? "Analyze with AI was used this session. Refresh the page to run it again."
+                  ? "Analyse with AI was used this session. Refresh the page to run it again."
                   : aiButtonTitle
               }
             >
-              {isPending ? "Analyzing..." : "Analyze with AI"}
+              {isPending ? "Analysing..." : "Analyse with AI"}
             </button>
           </div>
 
@@ -1096,7 +1096,7 @@ export function CuProfileReportTab({
                   -
                 </span>
                 <span>
-                  <strong className="font-bold">Analyze with AI:</strong>{" "}
+                  <strong className="font-bold">Analyse with AI:</strong>{" "}
                   {AI_EVALUATION_REPORT_ENABLED ? (
                     <>
                       Generates an on-page AI interpretation panel from the report data and the current profile plot.

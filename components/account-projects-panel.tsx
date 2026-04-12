@@ -816,7 +816,7 @@ export function AccountProjectsPanel() {
     const headers = [
       "#",
       "Borehole ID",
-      "Soil behavior",
+      "Soil behaviour",
       "Sample depth",
       ...PARAMETER_COLUMN_ORDER.map(spreadsheetHeaderForParameterCode),
     ];
@@ -2689,7 +2689,7 @@ export function AccountProjectsPanel() {
                           <tr>
                             <th className="px-3 py-2 text-left font-semibold">#</th>
                             <th className="px-3 py-2 text-left font-semibold">Borehole ID</th>
-                            <th className="px-3 py-2 text-left font-semibold">Soil behavior</th>
+                            <th className="px-3 py-2 text-left font-semibold">Soil behaviour</th>
                             <th className="px-3 py-2 text-left font-semibold">Sample depth</th>
                             {PARAMETER_COLUMN_ORDER.map((code) => (
                               <th key={code} className="px-3 py-2 text-left font-semibold">

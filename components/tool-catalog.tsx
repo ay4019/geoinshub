@@ -13,7 +13,7 @@ interface ToolCatalogProps {
 const TOOL_SUPERGROUPS = [
   {
     id: "site-characterization",
-    title: "Site Characterization Tools",
+    title: "Site Characterisation Tools",
     categories: ["Shear Strength Tools", "Rigidity / Deformation Tools", "Stress Related Tools"],
   },
   {

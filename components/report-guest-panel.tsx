@@ -45,7 +45,7 @@ export function ReportGuestPanel() {
               opens it in the panel below; press it again to hide only that preview.{" "}
               <span className="font-bold text-slate-800">Download PDF</span> is inside the panel once the Soil Profile Plot
               is ready. For a quick AI interpretation of the tabulated values and the profile plot, use{" "}
-              <span className="font-bold text-slate-800">Analyze with AI</span>.
+              <span className="font-bold text-slate-800">Analyse with AI</span>.
             </p>
           </div>
 
@@ -80,7 +80,7 @@ export function ReportGuestPanel() {
               disabled={!AI_EVALUATION_REPORT_ENABLED || !aiTierOk || subscriptionLoading}
               title={aiButtonTitle}
             >
-              Analyze with AI
+              Analyse with AI
             </button>
           </div>
         </div>
@@ -103,7 +103,7 @@ export function ReportGuestPanel() {
                 -
               </span>
               <span>
-                <strong className="font-bold">Analyze with AI:</strong>{" "}
+                <strong className="font-bold">Analyse with AI:</strong>{" "}
                 {AI_EVALUATION_REPORT_ENABLED ? (
                   <>
                     Generates an on-page AI interpretation panel from the report data and the current profile plot.

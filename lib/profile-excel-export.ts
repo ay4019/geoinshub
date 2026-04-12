@@ -98,7 +98,7 @@ async function svgToPngDataUri(svg: SVGSVGElement): Promise<string> {
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       resolve();
     };
-    image.onerror = () => reject(new Error("SVG rasterization failed."));
+    image.onerror = () => reject(new Error("SVG rasterisation failed."));
     image.src = svgDataUri;
   });
 

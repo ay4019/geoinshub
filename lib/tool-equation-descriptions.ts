@@ -153,7 +153,7 @@
     "This expression estimates the improvement factor from area replacement ratio and stress concentration.",
   ],
   "liquefaction-csr": [
-    "This Seed-Idriss relationship gives the normalized cyclic shear demand induced during earthquake loading.",
+    "This Seed-Idriss relationship gives the normalised cyclic shear demand induced during earthquake loading.",
   ],
   "liquefaction-crr": [
     "This empirical expression gives an approximate cyclic resistance ratio for Mw 7.5 from corrected SPT resistance.",

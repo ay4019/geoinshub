@@ -9,7 +9,7 @@ export const CU_REPORT_STROUD_FIGURE_PLACEHOLDER = "[[STROUD_FIGURE_1]]";
 export const CU_REPORT_STROUD_FIGURE_CAPTION =
   "Figure 1: Relationship between SPT (N60), plasticity index (PI), and undrained shear strength (Stroud, 1974)";
 
-/** Centered report heading; matches on-screen caption typography. */
+/** Centred report heading; matches on-screen caption typography. */
 export const CU_REPORT_TABLE_1_TITLE =
   "Table 1 — Undrained shear strength (c_u) from SPT (N60) and plasticity index (PI), by borehole and depth";
 
@@ -82,7 +82,7 @@ const TOOL_REPORT_TEMPLATES: Record<string, ToolReportTemplate> = {
   "cprime-from-cu": {
     defaultNarrative: `1. Determination of Soil Parameters
 
-The geotechnical design parameters to be adopted in the analyses are intended to be derived from both field and laboratory test results. The collected data are interpreted using widely accepted empirical correlations available in the literature, as outlined in the following sections, to establish representative soil parameters for design purposes. Where necessary, alternative correlations recognized in the literature may also be employed to ensure consistency and reliability in parameter selection.
+The geotechnical design parameters to be adopted in the analyses are intended to be derived from both field and laboratory test results. The collected data are interpreted using widely accepted empirical correlations available in the literature, as outlined in the following sections, to establish representative soil parameters for design purposes. Where necessary, alternative correlations recognised in the literature may also be employed to ensure consistency and reliability in parameter selection.
 
 Within the scope of this section, the correlations used for the estimation of strength parameters are presented separately for cohesive and cohesionless soil types.
 
@@ -101,7 +101,7 @@ Within this scope, the boreholes {{boreholes}} associated with the {{projectName
   "friction-angle-from-pi": {
     defaultNarrative: `1. Determination of Soil Parameters
 
-The geotechnical design parameters to be adopted in the analyses are intended to be derived from both field and laboratory test results. The collected data are interpreted using widely accepted empirical correlations available in the literature, as outlined in the following sections, to establish representative soil parameters for design purposes. Where necessary, alternative correlations recognized in the literature may also be employed to ensure consistency and reliability in parameter selection.
+The geotechnical design parameters to be adopted in the analyses are intended to be derived from both field and laboratory test results. The collected data are interpreted using widely accepted empirical correlations available in the literature, as outlined in the following sections, to establish representative soil parameters for design purposes. Where necessary, alternative correlations recognised in the literature may also be employed to ensure consistency and reliability in parameter selection.
 
 Within the scope of this section, the correlations used for the estimation of strength parameters are presented separately for cohesive and cohesionless soil types.
 
@@ -128,9 +128,9 @@ The procedure involves driving a standard split-spoon sampler into the soil usin
 
 If the sampler fails to penetrate 150 mm within 50 blows, the test is terminated and refusal is recorded. In such cases, the result is typically expressed in the form 50/n, where n represents the achieved penetration in centimetres.
 
-The measured SPT N-values are corrected for factors such as hammer energy, borehole diameter, rod length, and sampler configuration to obtain normalized N60 values. These corrected values are used together with overburden correction to obtain (N1)60 for subsequent empirical correlations.
+The measured SPT N-values are corrected for factors such as hammer energy, borehole diameter, rod length, and sampler configuration to obtain normalised N60 values. These corrected values are used together with overburden correction to obtain (N1)60 for subsequent empirical correlations.
 
-The measured SPT N-values are corrected to account for testing conditions. The normalized value N60 is obtained by applying correction factors for rod length (C_r), sampler type (C_s), borehole diameter (C_b), and hammer energy (C_E). Furthermore, the overburden-corrected value (N1)60 is determined by incorporating the overburden correction factor (C_N) following Idriss and Boulanger (2008). Here, C_N represents the overburden correction factor, C_r the rod length correction factor, C_s the sampler correction factor, C_b the borehole diameter correction factor, and C_E the energy correction factor.
+The measured SPT N-values are corrected to account for testing conditions. The normalised value N60 is obtained by applying correction factors for rod length (C_r), sampler type (C_s), borehole diameter (C_b), and hammer energy (C_E). Furthermore, the overburden-corrected value (N1)60 is determined by incorporating the overburden correction factor (C_N) following Idriss and Boulanger (2008). Here, C_N represents the overburden correction factor, C_r the rod length correction factor, C_s the sampler correction factor, C_b the borehole diameter correction factor, and C_E the energy correction factor.
 
 {{sptEquipmentParagraph}}
 
@@ -146,12 +146,12 @@ The corrected SPT values are tabulated in Table 2 using the correction sequence 
 
 Within this scope, the boreholes {{boreholes}} associated with the {{projectName}} Project have been evaluated. The obtained results, together with the soil profile established with respect to depth, are presented in Table 2. SPT N60 and (N1)60 plots are given in Figure 1 and Figure 2.`,
     aiPromptHint:
-      "Interpret corrected SPT N60 and (N1)60 profiles versus depth, comment on consistency across boreholes, energy and equipment assumptions, overburden correction (CN), and limitations of standardized corrections versus project-specific verification.",
+      "Interpret corrected SPT N60 and (N1)60 profiles versus depth, comment on consistency across boreholes, energy and equipment assumptions, overburden correction (CN), and limitations of standardised corrections versus project-specific verification.",
   },
   "cu-from-pi-and-spt": {
     defaultNarrative: `1. Determination of Soil Parameters
 
-The geotechnical design parameters to be adopted in the analyses are intended to be derived from both field and laboratory test results. The collected data are interpreted using widely accepted empirical correlations available in the literature, as outlined in the following sections, to establish representative soil parameters for design purposes. Where necessary, alternative correlations recognized in the literature may also be employed to ensure consistency and reliability in parameter selection.
+The geotechnical design parameters to be adopted in the analyses are intended to be derived from both field and laboratory test results. The collected data are interpreted using widely accepted empirical correlations available in the literature, as outlined in the following sections, to establish representative soil parameters for design purposes. Where necessary, alternative correlations recognised in the literature may also be employed to ensure consistency and reliability in parameter selection.
 
 Within the scope of this section, the correlations used for the estimation of strength parameters are presented separately for cohesive and cohesionless soil types.
 

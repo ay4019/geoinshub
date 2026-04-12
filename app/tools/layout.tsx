@@ -18,7 +18,7 @@ export default function ToolsLayout({ children }: { children: React.ReactNode })
               <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Geotechnical Tools</h1>
               <p className="mt-2 text-xs leading-5 text-slate-600 sm:mt-3 sm:text-base sm:leading-6">
                 A structured collection of calculation tools covering key areas of geotechnical engineering, from site
-                characterization to analytical methods.
+                characterisation to analytical methods.
               </p>
             </div>
             <ProjectsBoreholeDropdown />

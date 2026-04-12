@@ -907,187 +907,7 @@ export function UserGuidePage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-900">
-            {lang === "tr"
-              ? "6. Use of Tools"
-              : t("6. Use of Tools", "6. Use of Tools", "6. Use of Tools")}
-          </h2>
-          <p className="text-[15px] leading-7 text-slate-700">
-            {lang === "tr" ? (
-              <>
-                Sitede aktif olarak kullanıma açık olan araçlar iki ana kategoriye ayrılmıştır:{" "}
-                <strong>Site Characterization Tools</strong> ve <strong>Geotechnical Analysis Tools</strong>. Aşağıdaki
-                görselde bu iki grup, sayfanın altındaki kartlar üzerinde renkli çerçevelerle gösterilmiştir.
-              </>
-            ) : (
-              <>
-                {t(
-                  "Tools available on the site are grouped into two main categories: Site Characterization Tools and Geotechnical Analysis Tools. In the screenshot below, each group is highlighted on its card at the bottom of the page.",
-                  "Die auf der Website verfügbaren Tools sind in zwei Hauptkategorien unterteilt: Site Characterization Tools und Geotechnical Analysis Tools. Im folgenden Screenshot ist jede Gruppe auf der jeweiligen Karte am unteren Rand der Seite markiert.",
-                  "Las herramientas disponibles se agrupan en dos categorías principales: Site Characterization Tools y Geotechnical Analysis Tools. En la captura siguiente, cada grupo aparece resaltado en su tarjeta en la parte inferior de la página.",
-                )}
-              </>
-            )}
-          </p>
-
-          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex justify-center bg-gradient-to-b from-slate-50 to-white px-3 py-4 sm:px-5 sm:py-6">
-              <div className="relative w-full max-w-5xl">
-                <img
-                  src="/images/guide/tools-landing-two-categories.jpg"
-                  alt={
-                    lang === "tr"
-                      ? "Geotechnical Tools: Site Characterization ve Geotechnical Analysis kartları"
-                      : t(
-                          "Geotechnical Tools landing: two category cards",
-                          "Geotechnical Tools: zwei Kategorie‑Karten",
-                          "Geotechnical Tools: dos tarjetas de categoría",
-                        )
-                  }
-                  className={guideImgToolsLandingCategories}
-                />
-                {/* ~1024×193 crop: left / right category cards */}
-                <div
-                  className="pointer-events-none absolute rounded-lg border-[3px] border-teal-500 shadow-[0_0_0_2px_rgba(255,255,255,0.95),0_0_12px_rgba(20,184,166,0.45)] sm:border-4"
-                  style={{ top: "53%", left: "2%", width: "46.5%", height: "44%" }}
-                  aria-hidden
-                />
-                <div
-                  className="pointer-events-none absolute rounded-lg border-[3px] border-indigo-500 shadow-[0_0_0_2px_rgba(255,255,255,0.95),0_0_12px_rgba(99,102,241,0.45)] sm:border-4"
-                  style={{ top: "53%", right: "2%", width: "46.5%", height: "44%" }}
-                  aria-hidden
-                />
-              </div>
-            </div>
-            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-              {lang === "tr" ? (
-                <>
-                  <strong>Teal çerçeve:</strong> Site Characterization Tools. <strong>İndigo çerçeve:</strong> Geotechnical
-                  Analysis Tools.
-                </>
-              ) : (
-                <>
-                  {t(
-                    "Teal frame: Site Characterization Tools. Indigo frame: Geotechnical Analysis Tools.",
-                    "Teal: Site Characterization Tools. Indigo: Geotechnical Analysis Tools.",
-                    "Teal: Site Characterization Tools. Índigo: Geotechnical Analysis Tools.",
-                  )}
-                </>
-              )}
-            </figcaption>
-          </figure>
-
-          <p className="text-[15px] leading-7 text-slate-700">
-            {lang === "tr" ? (
-              <>
-                Her araçta üst şeritte dört sekme bulunur. Aşağıdaki görselde örnek bir sekme çubuğu; ardından her
-                başlığın ne işe yaradığı kısaca listelenmiştir.
-              </>
-            ) : (
-              <>
-                {t(
-                  "Each tool has four tabs in the header strip. The screenshot below shows a typical tab bar, followed by a short description of each tab.",
-                  "Jedes Tool hat vier Registerkarten in der oberen Leiste. Der folgende Screenshot zeigt eine typische Tab‑Leiste; danach folgt eine kurze Beschreibung jeder Karte.",
-                  "Cada herramienta tiene cuatro pestañas en la barra superior. La captura siguiente muestra una barra típica; después se resume brevemente cada pestaña.",
-                )}
-              </>
-            )}
-          </p>
-
-          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className={guideShotFrame}>
-              <img
-                src="/images/guide/tool-interface-four-tabs.png"
-                alt={
-                  lang === "tr"
-                    ? "Tool üst sekmeleri: Calculation, Soil Profile Plot, Report, Information"
-                    : t(
-                        "Tool tabs: Calculation, Soil Profile Plot, Report, Information",
-                        "Tool‑Tabs: Calculation, Soil Profile Plot, Report, Information",
-                        "Pestañas: Calculation, Soil Profile Plot, Report, Information",
-                      )
-                }
-                className={guideImgToolTabs}
-              />
-            </div>
-            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-              {lang === "tr" ? (
-                <>
-                  Örnek araç üst çubuğu: <strong>Soil Profile Plot</strong> bu görüntüde aktif sekmedir.
-                </>
-              ) : (
-                <>
-                  {t(
-                    "Example tool header strip; Soil Profile Plot is the active tab in this image.",
-                    "Beispiel‑Tab‑Leiste; Soil Profile Plot ist hier aktiv.",
-                    "Barra de pestañas de ejemplo; Soil Profile Plot está activa en esta imagen.",
-                  )}
-                </>
-              )}
-            </figcaption>
-          </figure>
-
-          <ul className="list-disc space-y-2 pl-5 text-[15px] leading-7 text-slate-700">
-            {lang === "tr" ? (
-              <>
-                <li>
-                  <strong>Calculation</strong> — Sayısal girdi alanları ve anlık hesap: ilgili parametreleri girersiniz;
-                  araç tanımlı formüllere göre sonucu (ara değerlerle birlikte) üretir. Tek seferlik “hesap makinesi”
-                  kullanımı buradadır.
-                </li>
-                <li>
-                  <strong>Soil Profile Plot</strong> — Örnek satırları (elle veya projeden) derinlik / profil ekseninde
-                  işler; zemin modeline göre parametreleri hesaplar ve sonuçları grafik olarak gösterir. Profil
-                  görünümünün ana ekranıdır.
-                </li>
-                <li>
-                  <strong>Report</strong> — Hesaplanmış örnekler ve araç çıktılarından rapor oluşturma / dışa aktarma
-                  (ör. yazdırılabilir özet). Hangi satırların rapora dahil edileceğini buradan yönetirsiniz.
-                </li>
-                <li>
-                  <strong>Information</strong> — Bu araçta kullanılan semboller, varsayımlar, kullanılan denklemler ve
-                  akademik / standart kaynakça; referansları incelemek için salt okunur bilgi sekmesidir.
-                </li>
-              </>
-            ) : (
-              <>
-                <li>
-                  <strong>Calculation</strong> —{" "}
-                  {t(
-                    "Numeric inputs and on-the-fly computation: enter the relevant parameters and the tool evaluates the defined equations and shows the result (and intermediate values where applicable). This is the quick “calculator” workflow.",
-                    "Numerische Eingaben und Live‑Berechnung: Parameter eingeben, das Tool wertet die definierten Gleichungen aus und zeigt das Ergebnis (ggf. Zwischenwerte). Das ist der schnelle „Taschenrechner“-Workflow.",
-                    "Entradas numéricas y cálculo al vuelo: introduzca los parámetros y la herramienta aplica las ecuaciones definidas y muestra el resultado (y valores intermedios si aplica). Es el flujo tipo “calculadora”.",
-                  )}
-                </li>
-                <li>
-                  <strong>Soil Profile Plot</strong> —{" "}
-                  {t(
-                    "Works with sample rows (manual or from the project) along depth / profile axes, computes parameters for the soil model, and plots the outcome. This is the main profile and chart view.",
-                    "Arbeitet mit Probenzeilen (manuell oder aus dem Projekt) über die Tiefe/Profilachse, berechnet Parameter für das Bodenmodell und stellt das Ergebnis grafisch dar. Das ist die Hauptansicht für Profile und Diagramme.",
-                    "Trabaja con filas de muestra (manual o del proyecto) a lo largo del eje de profundidad/perfil, calcula parámetros del modelo de suelo y muestra el resultado en gráficos. Es la vista principal de perfil.",
-                  )}
-                </li>
-                <li>
-                  <strong>Report</strong> —{" "}
-                  {t(
-                    "Build or export a report from calculated samples and tool outputs (e.g. printable summary). You choose which rows and results to include.",
-                    "Berichte aus berechneten Proben und Tool‑Ausgaben erstellen/exportieren (z. B. druckfähige Zusammenfassung). Sie wählen, welche Zeilen und Ergebnisse einfließen.",
-                    "Generar o exportar un informe a partir de muestras calculadas y salidas de la herramienta (p. ej. resumen imprimible). Usted elige qué filas y resultados incluir.",
-                  )}
-                </li>
-                <li>
-                  <strong>Information</strong> —{" "}
-                  {t(
-                    "Read-only reference: notation, assumptions, equations used in the tool, and academic / standard citations.",
-                    "Nur‑Lese‑Referenz: Notation, Annahmen, verwendete Gleichungen sowie akademische/Norm‑Literatur.",
-                    "Referencia de solo lectura: notación, supuestos, ecuaciones usadas en la herramienta y citas académicas/normativas.",
-                  )}
-                </li>
-              </>
-            )}
-          </ul>
-
-          <h3 className="mt-8 text-lg font-semibold text-slate-900">
+          <h2 className="text-lg font-semibold text-slate-900">
             {lang === "tr"
               ? "Proje verisiyle veya proje olmadan araç kullanımı"
               : t(
@@ -1095,7 +915,7 @@ export function UserGuidePage() {
                   "Tools mit und ohne Projektdaten",
                   "Uso de herramientas con y sin datos del proyecto",
                 )}
-          </h3>
+          </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
@@ -1216,6 +1036,188 @@ export function UserGuidePage() {
               )}
             </figcaption>
           </figure>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-slate-900">
+            {lang === "tr"
+              ? "6. Use of Tools"
+              : t("6. Use of Tools", "6. Use of Tools", "6. Use of Tools")}
+          </h2>
+          <p className="text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
+                Sitede aktif olarak kullanıma açık olan araçlar iki ana kategoriye ayrılmıştır:{" "}
+                <strong>Site Characterisation Tools</strong> ve <strong>Geotechnical Analysis Tools</strong>. Aşağıdaki
+                görselde bu iki grup, sayfanın altındaki kartlar üzerinde renkli çerçevelerle gösterilmiştir.
+              </>
+            ) : (
+              <>
+                {t(
+                  "Tools available on the site are grouped into two main categories: Site Characterisation Tools and Geotechnical Analysis Tools. In the screenshot below, each group is highlighted on its card at the bottom of the page.",
+                  "Die auf der Website verfügbaren Tools sind in zwei Hauptkategorien unterteilt: Site Characterisation Tools und Geotechnical Analysis Tools. Im folgenden Screenshot ist jede Gruppe auf der jeweiligen Karte am unteren Rand der Seite markiert.",
+                  "Las herramientas disponibles se agrupan en dos categorías principales: Site Characterisation Tools y Geotechnical Analysis Tools. En la captura siguiente, cada grupo aparece resaltado en su tarjeta en la parte inferior de la página.",
+                )}
+              </>
+            )}
+          </p>
+
+          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex justify-center bg-gradient-to-b from-slate-50 to-white px-3 py-4 sm:px-5 sm:py-6">
+              <div className="relative w-full max-w-5xl">
+                <img
+                  src="/images/guide/tools-landing-two-categories.jpg"
+                  alt={
+                    lang === "tr"
+                      ? "Geotechnical Tools: Site Characterisation ve Geotechnical Analysis kartları"
+                      : t(
+                          "Geotechnical Tools landing: two category cards",
+                          "Geotechnical Tools: zwei Kategorie‑Karten",
+                          "Geotechnical Tools: dos tarjetas de categoría",
+                        )
+                  }
+                  className={guideImgToolsLandingCategories}
+                />
+                {/* ~1024×193 crop: left / right category cards */}
+                <div
+                  className="pointer-events-none absolute rounded-lg border-[3px] border-teal-500 shadow-[0_0_0_2px_rgba(255,255,255,0.95),0_0_12px_rgba(20,184,166,0.45)] sm:border-4"
+                  style={{ top: "53%", left: "2%", width: "46.5%", height: "44%" }}
+                  aria-hidden
+                />
+                <div
+                  className="pointer-events-none absolute rounded-lg border-[3px] border-indigo-500 shadow-[0_0_0_2px_rgba(255,255,255,0.95),0_0_12px_rgba(99,102,241,0.45)] sm:border-4"
+                  style={{ top: "53%", right: "2%", width: "46.5%", height: "44%" }}
+                  aria-hidden
+                />
+              </div>
+            </div>
+            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              {lang === "tr" ? (
+                <>
+                  <strong>Teal çerçeve:</strong> Site Characterisation Tools. <strong>İndigo çerçeve:</strong> Geotechnical
+                  Analysis Tools.
+                </>
+              ) : (
+                <>
+                  {t(
+                    "Teal frame: Site Characterisation Tools. Indigo frame: Geotechnical Analysis Tools.",
+                    "Teal: Site Characterisation Tools. Indigo: Geotechnical Analysis Tools.",
+                    "Teal: Site Characterisation Tools. Índigo: Geotechnical Analysis Tools.",
+                  )}
+                </>
+              )}
+            </figcaption>
+          </figure>
+
+          <p className="text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
+                Her araçta üst şeritte dört sekme bulunur. Aşağıdaki görselde örnek bir sekme çubuğu; ardından her
+                başlığın ne işe yaradığı kısaca listelenmiştir.
+              </>
+            ) : (
+              <>
+                {t(
+                  "Each tool has four tabs in the header strip. The screenshot below shows a typical tab bar, followed by a short description of each tab.",
+                  "Jedes Tool hat vier Registerkarten in der oberen Leiste. Der folgende Screenshot zeigt eine typische Tab‑Leiste; danach folgt eine kurze Beschreibung jeder Karte.",
+                  "Cada herramienta tiene cuatro pestañas en la barra superior. La captura siguiente muestra una barra típica; después se resume brevemente cada pestaña.",
+                )}
+              </>
+            )}
+          </p>
+
+          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className={guideShotFrame}>
+              <img
+                src="/images/guide/tool-interface-four-tabs.png"
+                alt={
+                  lang === "tr"
+                    ? "Tool üst sekmeleri: Calculation, Soil Profile Plot, Report, Information"
+                    : t(
+                        "Tool tabs: Calculation, Soil Profile Plot, Report, Information",
+                        "Tool‑Tabs: Calculation, Soil Profile Plot, Report, Information",
+                        "Pestañas: Calculation, Soil Profile Plot, Report, Information",
+                      )
+                }
+                className={guideImgToolTabs}
+              />
+            </div>
+            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              {lang === "tr" ? (
+                <>
+                  Örnek araç üst çubuğu: <strong>Soil Profile Plot</strong> bu görüntüde aktif sekmedir.
+                </>
+              ) : (
+                <>
+                  {t(
+                    "Example tool header strip; Soil Profile Plot is the active tab in this image.",
+                    "Beispiel‑Tab‑Leiste; Soil Profile Plot ist hier aktiv.",
+                    "Barra de pestañas de ejemplo; Soil Profile Plot está activa en esta imagen.",
+                  )}
+                </>
+              )}
+            </figcaption>
+          </figure>
+
+          <ul className="list-disc space-y-2 pl-5 text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
+                <li>
+                  <strong>Calculation</strong> — Sayısal girdi alanları ve anlık hesap: ilgili parametreleri girersiniz;
+                  araç tanımlı formüllere göre sonucu (ara değerlerle birlikte) üretir. Tek seferlik “hesap makinesi”
+                  kullanımı buradadır.
+                </li>
+                <li>
+                  <strong>Soil Profile Plot</strong> — Örnek satırları (elle veya projeden) derinlik / profil ekseninde
+                  işler; zemin modeline göre parametreleri hesaplar ve sonuçları grafik olarak gösterir. Profil
+                  görünümünün ana ekranıdır.
+                </li>
+                <li>
+                  <strong>Report</strong> — Hesaplanmış örnekler ve araç çıktılarından rapor oluşturma / dışa aktarma
+                  (ör. yazdırılabilir özet). Hangi satırların rapora dahil edileceğini buradan yönetirsiniz.
+                </li>
+                <li>
+                  <strong>Information</strong> — Bu araçta kullanılan semboller, varsayımlar, kullanılan denklemler ve
+                  akademik / standart kaynakça; referansları incelemek için salt okunur bilgi sekmesidir.
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <strong>Calculation</strong> —{" "}
+                  {t(
+                    "Numeric inputs and on-the-fly computation: enter the relevant parameters and the tool evaluates the defined equations and shows the result (and intermediate values where applicable). This is the quick “calculator” workflow.",
+                    "Numerische Eingaben und Live‑Berechnung: Parameter eingeben, das Tool wertet die definierten Gleichungen aus und zeigt das Ergebnis (ggf. Zwischenwerte). Das ist der schnelle „Taschenrechner“-Workflow.",
+                    "Entradas numéricas y cálculo al vuelo: introduzca los parámetros y la herramienta aplica las ecuaciones definidas y muestra el resultado (y valores intermedios si aplica). Es el flujo tipo “calculadora”.",
+                  )}
+                </li>
+                <li>
+                  <strong>Soil Profile Plot</strong> —{" "}
+                  {t(
+                    "Works with sample rows (manual or from the project) along depth / profile axes, computes parameters for the soil model, and plots the outcome. This is the main profile and chart view.",
+                    "Arbeitet mit Probenzeilen (manuell oder aus dem Projekt) über die Tiefe/Profilachse, berechnet Parameter für das Bodenmodell und stellt das Ergebnis grafisch dar. Das ist die Hauptansicht für Profile und Diagramme.",
+                    "Trabaja con filas de muestra (manual o del proyecto) a lo largo del eje de profundidad/perfil, calcula parámetros del modelo de suelo y muestra el resultado en gráficos. Es la vista principal de perfil.",
+                  )}
+                </li>
+                <li>
+                  <strong>Report</strong> —{" "}
+                  {t(
+                    "Build or export a report from calculated samples and tool outputs (e.g. printable summary). You choose which rows and results to include.",
+                    "Berichte aus berechneten Proben und Tool‑Ausgaben erstellen/exportieren (z. B. druckfähige Zusammenfassung). Sie wählen, welche Zeilen und Ergebnisse einfließen.",
+                    "Generar o exportar un informe a partir de muestras calculadas y salidas de la herramienta (p. ej. resumen imprimible). Usted elige qué filas y resultados incluir.",
+                  )}
+                </li>
+                <li>
+                  <strong>Information</strong> —{" "}
+                  {t(
+                    "Read-only reference: notation, assumptions, equations used in the tool, and academic / standard citations.",
+                    "Nur‑Lese‑Referenz: Notation, Annahmen, verwendete Gleichungen sowie akademische/Norm‑Literatur.",
+                    "Referencia de solo lectura: notación, supuestos, ecuaciones usadas en la herramienta y citas académicas/normativas.",
+                  )}
+                </li>
+              </>
+            )}
+          </ul>
         </section>
 
         <section className="space-y-4">
@@ -1448,7 +1450,7 @@ export function UserGuidePage() {
               <>
                 <li>
                   <strong>Report</strong> sekmesi: <strong>Download PDF Report</strong> tablo ve grafiği içeren raporu
-                  indirir. <strong>Analyze with AI</strong> yapılandırılmışsa ek değerlendirme üretir.
+                  indirir. <strong>Analyse with AI</strong> yapılandırılmışsa ek değerlendirme üretir.
                 </li>
                 <li>
                   Profile sekmelerinde <strong>Export Excel</strong> (veya araça özel dışa aktarma) ile tablo/grafik Excel
@@ -1466,9 +1468,9 @@ export function UserGuidePage() {
                     "descarga un informe que contiene tablas y gráficos.",
                   )}{" "}
                   {t(
-                    "If Analyze with AI is enabled, it adds extra evaluation content.",
-                    "Wenn Analyze with AI aktiviert ist, wird zusätzlicher Bewertungstext hinzugefügt.",
-                    "Si Analyze with AI está habilitado, añade contenido adicional de evaluación.",
+                    "If Analyse with AI is enabled, it adds extra evaluation content.",
+                    "Wenn Analyse with AI aktiviert ist, wird zusätzlicher Bewertungstext hinzugefügt.",
+                    "Si Analyse with AI está habilitado, añade contenido adicional de evaluación.",
                   )}
                 </li>
                 <li>
