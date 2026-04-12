@@ -18,11 +18,8 @@ type ParameterCode =
   | "vs"
   | "eoed"
   | "mv"
-  | "k0_nc"
-  | "k0_oc"
   | "ka"
-  | "kp"
-  | "sigma_h0_eff";
+  | "kp";
 
 export interface ProjectParameterRecord {
   id: string;
@@ -102,7 +99,8 @@ const TOOL_EXPORT_POLICY: Partial<Record<string, ParameterCode[]>> = {
   "gmax-from-vs": ["gmax", "vs"],
   "eoed-from-mv": ["eoed", "mv"],
   "ocr-calculator": ["ocr", "sigma_v0_eff"],
-  "k0-earth-pressure": ["k0_nc", "k0_oc", "ka", "kp", "sigma_h0_eff"],
+  /** Archived tool: do not sync any parameters into project_parameters. */
+  "k0-earth-pressure": [],
 };
 
 const PARAMETER_METADATA: Record<
@@ -129,11 +127,8 @@ const PARAMETER_METADATA: Record<
   vs: { label: "Vs", defaultUnit: "m/s" },
   eoed: { label: "Eoed", defaultUnit: "MPa" },
   mv: { label: "mv", defaultUnit: "m2/MN" },
-  k0_nc: { label: "K0,NC", defaultUnit: null },
-  k0_oc: { label: "K0,OC", defaultUnit: null },
   ka: { label: "Ka", defaultUnit: null },
   kp: { label: "Kp", defaultUnit: null },
-  sigma_h0_eff: { label: "sigma'h,0", defaultUnit: "kPa" },
 };
 
 const SUPPORTED_HEADERS: Array<{ code: ParameterCode; test: (header: string, token: string) => boolean }> = [
@@ -184,11 +179,8 @@ const SUPPORTED_HEADERS: Array<{ code: ParameterCode; test: (header: string, tok
   { code: "vs", test: (header, token) => token === "vs" || token.startsWith("vs") || header.includes("v_s") || header.startsWith("vs") },
   { code: "eoed", test: (header, token) => token === "eoed" || token.startsWith("eoed") || header.startsWith("eoed") },
   { code: "mv", test: (header, token) => token === "mv" || token.startsWith("mv") || header.startsWith("mv") },
-  { code: "k0_nc", test: (_header, token) => token === "k0nc" },
-  { code: "k0_oc", test: (_header, token) => token === "k0oc" || token === "k0" },
   { code: "ka", test: (_header, token) => token === "ka" },
   { code: "kp", test: (_header, token) => token === "kp" },
-  { code: "sigma_h0_eff", test: (header, token) => (header.includes("sigma") && header.includes("h,0")) || token === "sigmah0" },
 ];
 
 const REPLACEMENTS: Array<[RegExp, string]> = [
@@ -436,8 +428,11 @@ function dedupeExtractedParameters(rows: ExtractedParameter[]): ExtractedParamet
 
 function applyToolExportPolicy(toolSlug: string, rows: ExtractedParameter[]): ExtractedParameter[] {
   const allowedCodes = TOOL_EXPORT_POLICY[toolSlug];
-  if (!allowedCodes || allowedCodes.length === 0) {
+  if (allowedCodes === undefined) {
     return rows;
+  }
+  if (allowedCodes.length === 0) {
+    return [];
   }
 
   const allowed = new Set<ParameterCode>(allowedCodes);

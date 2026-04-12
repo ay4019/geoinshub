@@ -100,11 +100,8 @@ const PARAMETER_COLUMN_ORDER = [
   "vs",
   "eoed",
   "mv",
-  "k0_nc",
-  "k0_oc",
   "ka",
   "kp",
-  "sigma_h0_eff",
 ];
 
 const PARAMETER_META: Record<
@@ -247,24 +244,6 @@ const PARAMETER_META: Record<
     tooltip: "Coefficient of volume compressibility (mv).",
     tools: [{ slug: "eoed-from-mv", label: "Eoed from mv" }],
   },
-  k0_nc: {
-    label: (
-      <>
-        K<sub>0,NC</sub>
-      </>
-    ),
-    tooltip: "At-rest earth pressure coefficient for normally consolidated soils (K0,NC).",
-    tools: [{ slug: "k0-earth-pressure", label: "K0 earth pressure" }],
-  },
-  k0_oc: {
-    label: (
-      <>
-        K<sub>0,OC</sub>
-      </>
-    ),
-    tooltip: "At-rest earth pressure coefficient for overconsolidated soils (K0,OC).",
-    tools: [{ slug: "k0-earth-pressure", label: "K0 earth pressure" }],
-  },
   ka: {
     label: (
       <>
@@ -288,15 +267,6 @@ const PARAMETER_META: Record<
       { slug: "rankine-earth-pressure", label: "Rankine earth pressure" },
       { slug: "coulomb-earth-pressure", label: "Coulomb earth pressure" },
     ],
-  },
-  sigma_h0_eff: {
-    label: (
-      <>
-        &sigma;&apos;<sub>h,0</sub> (kPa)
-      </>
-    ),
-    tooltip: "Horizontal effective stress at rest (sigma'h,0).",
-    tools: [{ slug: "k0-earth-pressure", label: "K0 earth pressure" }],
   },
 };
 

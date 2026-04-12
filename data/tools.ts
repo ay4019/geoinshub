@@ -817,7 +817,7 @@ const earthPressureTools: ToolDefinition[] = [
   },
   {
     slug: "k0-earth-pressure",
-    status: "active",
+    status: "archived",
     title: "Earth Pressure Coefficients (K₀, Kₐ, Kₚ)",
     category: "Stress Related Tools",
     shortDescription:

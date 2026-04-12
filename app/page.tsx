@@ -43,7 +43,12 @@ export default async function HomePage() {
             >
               Getting started guide
             </Link>
-            <span className="text-slate-600"> — tools, account, projects, and saved analyses.</span>
+            <span className="text-slate-600">
+              {" "}
+              — tools, account, projects, saved analyses, and{" "}
+            </span>
+            <span className="font-semibold text-amber-600">AI-powered reporting</span>
+            <span className="text-slate-600">.</span>
           </p>
         </div>
       </section>
