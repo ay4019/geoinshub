@@ -12,12 +12,6 @@ export default function TermsPage() {
       <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Terms of Use</h1>
 
       <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700 shadow-sm">
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
-          Important: This website is published from the Republic of Türkiye (Turkey). It is for education, preliminary
-          screening, and technical understanding only. It is not a substitute for project-specific professional
-          engineering services.
-        </p>
-
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">1. Acceptance of These Terms</h2>
           <p>
