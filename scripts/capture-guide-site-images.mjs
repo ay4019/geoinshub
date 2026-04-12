@@ -40,8 +40,8 @@ async function shotElement(locator, path) {
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
-    viewport: { width: 1400, height: 1200 },
-    deviceScaleFactor: 2,
+    viewport: { width: 1600, height: 1200 },
+    deviceScaleFactor: 3,
     reducedMotion: "reduce",
   });
   const page = await context.newPage();
@@ -122,6 +122,17 @@ async function main() {
   const projectsActive = page.locator("section.account-ui-sans").first();
   await shotElement(projectsActive, join(outDir, "projects-active.png"));
 
+  // --- User guide: Save panel + c′ profile autofill (static /guide-capture pages, crisp text)
+  await page.goto(`${BASE}/guide-capture/tool-save-panel`, { waitUntil: "networkidle", timeout: 60_000 });
+  await page.locator('[data-guide-capture="tool-save-panel"]').waitFor({ state: "visible", timeout: 30_000 });
+  await waitForFonts(page);
+  await shotElement(page.locator('[data-guide-capture="tool-save-panel"]'), join(outDir, "save-analysis-to-project-panel.png"));
+
+  await page.goto(`${BASE}/guide-capture/cprime-profile-autofill`, { waitUntil: "networkidle", timeout: 60_000 });
+  await page.locator('[data-guide-capture="cprime-profile-autofill"]').waitFor({ state: "visible", timeout: 30_000 });
+  await waitForFonts(page);
+  await shotElement(page.locator('[data-guide-capture="cprime-profile-autofill"]'), join(outDir, "soil-profile-cu-autofill-example.png"));
+
   await browser.close();
 
   console.log("Wrote:", join(outDir, "site-main-navigation.png"));
@@ -133,6 +144,8 @@ async function main() {
   console.log("Wrote:", join(outDir, "account-information-panel.png"));
   console.log("Wrote:", join(outDir, "projects-empty.png"));
   console.log("Wrote:", join(outDir, "projects-active.png"));
+  console.log("Wrote:", join(outDir, "save-analysis-to-project-panel.png"));
+  console.log("Wrote:", join(outDir, "soil-profile-cu-autofill-example.png"));
 }
 
 main().catch((err) => {

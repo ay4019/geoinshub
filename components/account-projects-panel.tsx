@@ -737,7 +737,7 @@ export function AccountProjectsPanel() {
     }
     if (integratedMatrixAiReport) {
       const ok = window.confirm(
-        "Bu proje için rapor zaten oluşturuldu. Tekrar oluşturmak istiyor musunuz?",
+        "A report already exists for this project. Generate it again?",
       );
       if (!ok) {
         return;
@@ -745,7 +745,7 @@ export function AccountProjectsPanel() {
     }
     if (matrixGenerationsExhausted) {
       setMessage(
-        `Bu haftalık üretim hakkınız doldu (Gold: haftada ${MATRIX_AI_REPORTS_PER_WEEK} rapor; Europe/Istanbul — Pazartesi sıfırlanır).`,
+        `Weekly generation limit reached (${MATRIX_AI_REPORTS_PER_WEEK} matrix AI reports per week on Gold). The limit resets on Monday (Europe/Istanbul).`,
       );
       setMessageType("error");
       return;
@@ -2664,13 +2664,13 @@ export function AccountProjectsPanel() {
                 </div>
                 {tierAllowsAiAnalysis(effectiveTier) && matrixAiWeeklyQuota.loaded && !matrixAiWeeklyQuota.isAdmin ? (
                   <p className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] leading-snug text-slate-600">
-                    Matrix AI raporu (Gold): bu hafta kalan{" "}
+                    Matrix AI report (Gold):{" "}
                     <span className="font-semibold text-slate-800">{matrixAiWeeklyQuota.remaining}</span> /{" "}
-                    {MATRIX_AI_REPORTS_PER_WEEK} (Pazartesi sıfırlanır, Europe/Istanbul).
+                    {MATRIX_AI_REPORTS_PER_WEEK} remaining this week (resets Monday, Europe/Istanbul).
                   </p>
                 ) : tierAllowsAiAnalysis(effectiveTier) && matrixAiWeeklyQuota.loaded && matrixAiWeeklyQuota.isAdmin ? (
                   <p className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] leading-snug text-slate-600">
-                    Matrix AI raporu: yönetici hesabı — haftalık üretim sınırı yok.
+                    Matrix AI report: administrator account — no weekly generation limit.
                   </p>
                 ) : null}
 
@@ -2750,15 +2750,16 @@ export function AccountProjectsPanel() {
                         </div>
                         {matrixReportDataStale ? (
                           <p className="mt-2 rounded-lg border border-amber-500/70 bg-amber-100/80 px-3 py-2 text-xs font-medium text-amber-950">
-                            Entegre matris bu rapor kaydedildikten sonra değişti. Güncel veri için &quot;Generate report&quot; ile
-                            yeniden oluşturun.
+                            The integrated matrix changed after this report was saved. For up-to-date data, use
+                            &quot;Generate report&quot; again.
                           </p>
                         ) : null}
                         {matrixAiReportTruncated ? (
                           <p className="mt-2 rounded-lg border border-amber-400/70 bg-amber-100/80 px-3 py-2 text-xs font-medium text-amber-950">
-                            Çıktı model uzunluk sınırında kesilmiş olabilir. Tam metin için aşağıyı kaydırın; gerekirse
-                            &quot;Generate report&quot; ile yeniden deneyin (ortamda{" "}
-                            <code className="rounded bg-white/80 px-1">GEMINI_MATRIX_MAX_OUTPUT_TOKENS</code> artırılabilir).
+                            Output may have been truncated at the model length limit. Scroll down for the full text; if
+                            needed, try &quot;Generate report&quot; again (you can increase{" "}
+                            <code className="rounded bg-white/80 px-1">GEMINI_MATRIX_MAX_OUTPUT_TOKENS</code> in the
+                            environment).
                           </p>
                         ) : null}
                         <div className="mt-3 max-h-[min(88vh,1200px)] min-h-[12rem] overflow-y-auto scroll-smooth rounded-lg border border-slate-200/80 bg-white/60 p-3 text-left text-sm leading-relaxed shadow-inner">

@@ -32,6 +32,15 @@ const guideImgProjects =
   "mx-auto w-full max-w-5xl object-contain object-top [max-height:min(36rem,80vh)] sm:[max-height:min(40rem,84vh)]";
 const guideImgBoreholes =
   "mx-auto w-full max-w-5xl object-contain object-top [max-height:min(40rem,85vh)] sm:[max-height:min(44rem,88vh)]";
+/** Tools listing / header strip showing Projects and Boreholes control (wide, short crop). */
+const guideImgToolsHeader =
+  "block h-auto w-full max-w-5xl rounded-lg border border-slate-200 object-contain object-top [max-height:min(14rem,40vh)] sm:[max-height:min(16rem,44vh)]";
+/** /tools landing: two category cards (wide crop, ~1024×193). */
+const guideImgToolsLandingCategories =
+  "block h-auto w-full max-w-5xl rounded-lg border border-slate-200 object-contain object-top [max-height:min(15rem,42vh)] sm:[max-height:min(17rem,46vh)]";
+/** Typical tool tab strip: Calculation · Soil Profile Plot · Report · Information. */
+const guideImgToolTabs =
+  "mx-auto block h-auto w-full max-w-3xl rounded-lg border border-slate-200 object-contain object-left [max-height:min(8rem,22vh)] sm:[max-height:min(9rem,24vh)]";
 
 export function UserGuidePage() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -801,6 +810,53 @@ export function UserGuidePage() {
           </p>
 
           <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex justify-center bg-gradient-to-b from-slate-50 to-white px-3 py-4 sm:px-5 sm:py-6">
+              <div className="relative w-full max-w-5xl">
+                <img
+                  src="/images/guide/tools-header-projects-boreholes.jpg"
+                  alt={
+                    lang === "tr"
+                      ? "Geotechnical Tools sayfası üst kısmı; sağ üstte Projects and Boreholes"
+                      : t(
+                          "Geotechnical Tools page header with Projects and Boreholes control",
+                          "Geotechnical Tools page header with Projects and Boreholes control",
+                          "Geotechnical Tools page header with Projects and Boreholes control",
+                        )
+                  }
+                  className={guideImgToolsHeader}
+                />
+                {/* Highlight: Projects and Boreholes button (upper-right), tuned for 1024×197 crop */}
+                <div
+                  className="pointer-events-none absolute rounded-md border-[3px] border-teal-500 shadow-[0_0_0_2px_rgba(255,255,255,0.95),0_0_12px_rgba(20,184,166,0.55)] sm:border-4"
+                  style={{
+                    top: "5%",
+                    right: "1.5%",
+                    width: "min(23%, 15.5rem)",
+                    height: "22%",
+                  }}
+                  aria-hidden
+                />
+              </div>
+            </div>
+            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              {lang === "tr" ? (
+                <>
+                  Üst sağdaki <strong>Projects and Boreholes</strong> kutusu (teal çerçeve) araç sayfalarında proje ve
+                  sondaj seçim panelini açar.
+                </>
+              ) : (
+                <>
+                  {t(
+                    "The Projects and Boreholes control in the upper right (teal frame) opens the project and borehole picker on tool pages.",
+                    "The Projects and Boreholes control in the upper right (teal frame) opens the project and borehole picker on tool pages.",
+                    "The Projects and Boreholes control in the upper right (teal frame) opens the project and borehole picker on tool pages.",
+                  )}
+                </>
+              )}
+            </figcaption>
+          </figure>
+
+          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="grid gap-3 bg-slate-50/80 p-3 md:grid-cols-2">
               <img
                 src="/images/guide/boreholes-tools-panel-use-in-tools.png"
@@ -853,169 +909,229 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "6. Tools sayfasında proje / sondaj seçimi"
-              : t(
-                  "6. Selecting project / boreholes in Tools",
-                  "6. Projekt / Boreholes in Tools auswählen",
-                  "6. Seleccionar proyecto / perforaciones en Tools",
-                )}
+              ? "6. Use of Tools"
+              : t("6. Use of Tools", "6. Use of Tools", "6. Use of Tools")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
-                <strong>Yol:</strong> <code className="rounded bg-slate-100 px-1">/tools</code> →{" "}
-                <strong>Projects and Boreholes</strong>. Araç sayfalarının üst kısmında bu menü bulunur. Giriş yaptıysanız
-                projeleriniz listelenir; proje ve bir veya daha fazla sondaj seçerek verileri profile sekmeli araçlara
-                aktarabilirsiniz.
+                Sitede aktif olarak kullanıma açık olan araçlar iki ana kategoriye ayrılmıştır:{" "}
+                <strong>Site Characterization Tools</strong> ve <strong>Geotechnical Analysis Tools</strong>. Aşağıdaki
+                görselde bu iki grup, sayfanın altındaki kartlar üzerinde renkli çerçevelerle gösterilmiştir.
               </>
             ) : (
               <>
-                <strong>{t("Path:", "Pfad:", "Ruta:")}</strong>{" "}
-                <code className="rounded bg-slate-100 px-1">/tools</code> → <strong>Projects and Boreholes</strong>.{" "}
                 {t(
-                  "This menu appears in the header of tool pages.",
-                  "Dieses Menü erscheint im Header der Tool‑Seiten.",
-                  "Este menú aparece en el encabezado de las páginas de herramientas.",
-                )}{" "}
-                {t(
-                  "If you are signed in, your projects will be listed; select a project and one or more boreholes to feed data into profile-based tools.",
-                  "Wenn Sie angemeldet sind, werden Ihre Projekte angezeigt; wählen Sie ein Projekt und ein oder mehrere Boreholes, um Daten in profilbasierte Tools zu übernehmen.",
-                  "Si ha iniciado sesión, se mostrarán sus proyectos; seleccione un proyecto y una o varias perforaciones para cargar datos en herramientas basadas en perfiles.",
+                  "Tools available on the site are grouped into two main categories: Site Characterization Tools and Geotechnical Analysis Tools. In the screenshot below, each group is highlighted on its card at the bottom of the page.",
+                  "Die auf der Website verfügbaren Tools sind in zwei Hauptkategorien unterteilt: Site Characterization Tools und Geotechnical Analysis Tools. Im folgenden Screenshot ist jede Gruppe auf der jeweiligen Karte am unteren Rand der Seite markiert.",
+                  "Las herramientas disponibles se agrupan en dos categorías principales: Site Characterization Tools y Geotechnical Analysis Tools. En la captura siguiente, cada grupo aparece resaltado en su tarjeta en la parte inferior de la página.",
                 )}
               </>
             )}
           </p>
 
           <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="grid gap-3 bg-white p-3 md:grid-cols-2">
-              <img
-                src="/images/guide/tools-projects-boreholes-use-in-tools.png"
-                alt={
-                  lang === "tr"
-                    ? "Projects and Boreholes menüsü (Use in Tools)"
-                    : t(
-                        "Projects and Boreholes menu (Use in Tools)",
-                        "Menü Projects and Boreholes (Use in Tools)",
-                        "Menú Projects and Boreholes (Use in Tools)",
-                      )
-                }
-                className="block max-h-[420px] w-full rounded-lg border border-slate-200 object-contain"
-              />
-              <img
-                src="/images/guide/tools-clear-selection.png"
-                alt={
-                  lang === "tr"
-                    ? "Projects and Boreholes menüsü (Clear)"
-                    : t("Projects and Boreholes menu (Clear)", "Menü Projects and Boreholes (Clear)", "Menú Projects and Boreholes (Clear)")
-                }
-                className="block max-h-[420px] w-full rounded-lg border border-slate-200 object-contain"
-              />
+            <div className="flex justify-center bg-gradient-to-b from-slate-50 to-white px-3 py-4 sm:px-5 sm:py-6">
+              <div className="relative w-full max-w-5xl">
+                <img
+                  src="/images/guide/tools-landing-two-categories.jpg"
+                  alt={
+                    lang === "tr"
+                      ? "Geotechnical Tools: Site Characterization ve Geotechnical Analysis kartları"
+                      : t(
+                          "Geotechnical Tools landing: two category cards",
+                          "Geotechnical Tools: zwei Kategorie‑Karten",
+                          "Geotechnical Tools: dos tarjetas de categoría",
+                        )
+                  }
+                  className={guideImgToolsLandingCategories}
+                />
+                {/* ~1024×193 crop: left / right category cards */}
+                <div
+                  className="pointer-events-none absolute rounded-lg border-[3px] border-teal-500 shadow-[0_0_0_2px_rgba(255,255,255,0.95),0_0_12px_rgba(20,184,166,0.45)] sm:border-4"
+                  style={{ top: "53%", left: "2%", width: "46.5%", height: "44%" }}
+                  aria-hidden
+                />
+                <div
+                  className="pointer-events-none absolute rounded-lg border-[3px] border-indigo-500 shadow-[0_0_0_2px_rgba(255,255,255,0.95),0_0_12px_rgba(99,102,241,0.45)] sm:border-4"
+                  style={{ top: "53%", right: "2%", width: "46.5%", height: "44%" }}
+                  aria-hidden
+                />
+              </div>
             </div>
-            <figcaption className="space-y-2 border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-              <p>
-                {lang === "tr" ? (
-                  <>
-                    <strong>Use in Tools</strong> tıklandığında seçtiğiniz borehole’lar aktif olur ve tool sayfalarında
-                    profile satırlarına otomatik aktarılır.
-                  </>
-                ) : (
-                  <>
-                    {t(
-                      "Clicking Use in Tools activates the selected boreholes and auto-populates profile rows on tool pages.",
-                      "Ein Klick auf Use in Tools aktiviert die ausgewählten Boreholes und füllt Profilzeilen in den Tools automatisch aus.",
-                      "Al hacer clic en Use in Tools se activan las perforaciones seleccionadas y se rellenan automáticamente las filas del perfil en las herramientas.",
-                    )}
-                  </>
-                )}
-              </p>
-              <p>
-                {lang === "tr" ? (
-                  <>
-                    Eğer manuel giriş yapmak istiyorsanız <strong>Clear</strong> ile aktif borehole seçimini temizleyin.
-                    Ardından tool içinde satır bazında borehole ekleyip seçebilirsiniz.
-                  </>
-                ) : (
-                  <>
-                    {t(
-                      "If you want to enter data manually, click Clear to remove the active borehole selection. Then you can add/select boreholes per row inside the tool.",
-                      "Wenn Sie Daten manuell eingeben möchten, klicken Sie auf Clear, um die aktive Borehole‑Auswahl zu entfernen. Anschließend können Sie Boreholes pro Zeile im Tool hinzufügen/auswählen.",
-                      "Si quiere introducir datos manualmente, haga clic en Clear para quitar la selección activa de perforaciones. Después podrá añadir/seleccionar perforaciones por fila dentro de la herramienta.",
-                    )}
-                  </>
-                )}
-              </p>
+            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              {lang === "tr" ? (
+                <>
+                  <strong>Teal çerçeve:</strong> Site Characterization Tools. <strong>İndigo çerçeve:</strong> Geotechnical
+                  Analysis Tools.
+                </>
+              ) : (
+                <>
+                  {t(
+                    "Teal frame: Site Characterization Tools. Indigo frame: Geotechnical Analysis Tools.",
+                    "Teal: Site Characterization Tools. Indigo: Geotechnical Analysis Tools.",
+                    "Teal: Site Characterization Tools. Índigo: Geotechnical Analysis Tools.",
+                  )}
+                </>
+              )}
             </figcaption>
           </figure>
-        </section>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-900">
-            {lang === "tr"
-              ? "7. Borehole kullanmadan araç kullanımı"
-              : t("7. Using tools without boreholes", "7. Tools ohne Boreholes nutzen", "7. Usar herramientas sin perforaciones")}
-          </h2>
+          <p className="text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
+                Her araçta üst şeritte dört sekme bulunur. Aşağıdaki görselde örnek bir sekme çubuğu; ardından her
+                başlığın ne işe yaradığı kısaca listelenmiştir.
+              </>
+            ) : (
+              <>
+                {t(
+                  "Each tool has four tabs in the header strip. The screenshot below shows a typical tab bar, followed by a short description of each tab.",
+                  "Jedes Tool hat vier Registerkarten in der oberen Leiste. Der folgende Screenshot zeigt eine typische Tab‑Leiste; danach folgt eine kurze Beschreibung jeder Karte.",
+                  "Cada herramienta tiene cuatro pestañas en la barra superior. La captura siguiente muestra una barra típica; después se resume brevemente cada pestaña.",
+                )}
+              </>
+            )}
+          </p>
+
+          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className={guideShotFrame}>
+              <img
+                src="/images/guide/tool-interface-four-tabs.png"
+                alt={
+                  lang === "tr"
+                    ? "Tool üst sekmeleri: Calculation, Soil Profile Plot, Report, Information"
+                    : t(
+                        "Tool tabs: Calculation, Soil Profile Plot, Report, Information",
+                        "Tool‑Tabs: Calculation, Soil Profile Plot, Report, Information",
+                        "Pestañas: Calculation, Soil Profile Plot, Report, Information",
+                      )
+                }
+                className={guideImgToolTabs}
+              />
+            </div>
+            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              {lang === "tr" ? (
+                <>
+                  Örnek araç üst çubuğu: <strong>Soil Profile Plot</strong> bu görüntüde aktif sekmedir.
+                </>
+              ) : (
+                <>
+                  {t(
+                    "Example tool header strip; Soil Profile Plot is the active tab in this image.",
+                    "Beispiel‑Tab‑Leiste; Soil Profile Plot ist hier aktiv.",
+                    "Barra de pestañas de ejemplo; Soil Profile Plot está activa en esta imagen.",
+                  )}
+                </>
+              )}
+            </figcaption>
+          </figure>
+
           <ul className="list-disc space-y-2 pl-5 text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
                 <li>
-                  <strong>Yol:</strong> Tools → Any tool (manual)
+                  <strong>Calculation</strong> — Sayısal girdi alanları ve anlık hesap: ilgili parametreleri girersiniz;
+                  araç tanımlı formüllere göre sonucu (ara değerlerle birlikte) üretir. Tek seferlik “hesap makinesi”
+                  kullanımı buradadır.
                 </li>
                 <li>
-                  <strong>Giriş yapmadan veya proje seçmeden</strong> araçtaki sayısal alanları doğrudan elle doldurun;
-                  sonuçlar yine hesaplanır.
+                  <strong>Soil Profile Plot</strong> — Örnek satırları (elle veya projeden) derinlik / profil ekseninde
+                  işler; zemin modeline göre parametreleri hesaplar ve sonuçları grafik olarak gösterir. Profil
+                  görünümünün ana ekranıdır.
                 </li>
                 <li>
-                  Profile araçlarında satırlar elle girilir; üst menüden proje seçilmediyse veriler proje ile eşlenmez ve
-                  otomatik içe aktarım yapılmaz.
+                  <strong>Report</strong> — Hesaplanmış örnekler ve araç çıktılarından rapor oluşturma / dışa aktarma
+                  (ör. yazdırılabilir özet). Hangi satırların rapora dahil edileceğini buradan yönetirsiniz.
+                </li>
+                <li>
+                  <strong>Information</strong> — Bu araçta kullanılan semboller, varsayımlar, kullanılan denklemler ve
+                  akademik / standart kaynakça; referansları incelemek için salt okunur bilgi sekmesidir.
                 </li>
               </>
             ) : (
               <>
                 <li>
-                  <strong>{t("Path:", "Pfad:", "Ruta:")}</strong> Tools → {t("Any tool (manual)", "Beliebiges Tool (manuell)", "Cualquier herramienta (manual)")}
-                </li>
-                <li>
-                  <strong>
-                    {t(
-                      "Without signing in or selecting a project",
-                      "Ohne Anmeldung oder Projektauswahl",
-                      "Sin iniciar sesión ni seleccionar un proyecto",
-                    )}
-                  </strong>
-                  ,{" "}
+                  <strong>Calculation</strong> —{" "}
                   {t(
-                    "fill numeric inputs manually; results will still be calculated.",
-                    "füllen Sie die numerischen Eingaben manuell aus; Ergebnisse werden dennoch berechnet.",
-                    "rellene manualmente los campos numéricos; aun así se calcularán los resultados.",
+                    "Numeric inputs and on-the-fly computation: enter the relevant parameters and the tool evaluates the defined equations and shows the result (and intermediate values where applicable). This is the quick “calculator” workflow.",
+                    "Numerische Eingaben und Live‑Berechnung: Parameter eingeben, das Tool wertet die definierten Gleichungen aus und zeigt das Ergebnis (ggf. Zwischenwerte). Das ist der schnelle „Taschenrechner“-Workflow.",
+                    "Entradas numéricas y cálculo al vuelo: introduzca los parámetros y la herramienta aplica las ecuaciones definidas y muestra el resultado (y valores intermedios si aplica). Es el flujo tipo “calculadora”.",
                   )}
                 </li>
                 <li>
+                  <strong>Soil Profile Plot</strong> —{" "}
                   {t(
-                    "In profile tools, rows can be entered manually. If no project is selected in the header, data is not linked to a project and no auto-import occurs.",
-                    "In Profil‑Tools können Zeilen manuell eingegeben werden. Wenn im Header kein Projekt ausgewählt ist, werden die Daten nicht mit einem Projekt verknüpft und es erfolgt kein Auto‑Import.",
-                    "En las herramientas de perfil, las filas se pueden introducir manualmente. Si no se selecciona un proyecto en el encabezado, los datos no se vinculan a un proyecto y no hay importación automática.",
+                    "Works with sample rows (manual or from the project) along depth / profile axes, computes parameters for the soil model, and plots the outcome. This is the main profile and chart view.",
+                    "Arbeitet mit Probenzeilen (manuell oder aus dem Projekt) über die Tiefe/Profilachse, berechnet Parameter für das Bodenmodell und stellt das Ergebnis grafisch dar. Das ist die Hauptansicht für Profile und Diagramme.",
+                    "Trabaja con filas de muestra (manual o del proyecto) a lo largo del eje de profundidad/perfil, calcula parámetros del modelo de suelo y muestra el resultado en gráficos. Es la vista principal de perfil.",
+                  )}
+                </li>
+                <li>
+                  <strong>Report</strong> —{" "}
+                  {t(
+                    "Build or export a report from calculated samples and tool outputs (e.g. printable summary). You choose which rows and results to include.",
+                    "Berichte aus berechneten Proben und Tool‑Ausgaben erstellen/exportieren (z. B. druckfähige Zusammenfassung). Sie wählen, welche Zeilen und Ergebnisse einfließen.",
+                    "Generar o exportar un informe a partir de muestras calculadas y salidas de la herramienta (p. ej. resumen imprimible). Usted elige qué filas y resultados incluir.",
+                  )}
+                </li>
+                <li>
+                  <strong>Information</strong> —{" "}
+                  {t(
+                    "Read-only reference: notation, assumptions, equations used in the tool, and academic / standard citations.",
+                    "Nur‑Lese‑Referenz: Notation, Annahmen, verwendete Gleichungen sowie akademische/Norm‑Literatur.",
+                    "Referencia de solo lectura: notación, supuestos, ecuaciones usadas en la herramienta y citas académicas/normativas.",
                   )}
                 </li>
               </>
             )}
           </ul>
-        </section>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h3 className="mt-8 text-lg font-semibold text-slate-900">
             {lang === "tr"
-              ? "8. Proje verisiyle araç kullanımı"
-              : t("8. Using tools with project data", "8. Tools mit Projektdaten nutzen", "8. Usar herramientas con datos del proyecto")}
-          </h2>
+              ? "Proje verisiyle veya proje olmadan araç kullanımı"
+              : t(
+                  "Using tools with/without project data",
+                  "Tools mit und ohne Projektdaten",
+                  "Uso de herramientas con y sin datos del proyecto",
+                )}
+          </h3>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
-                Üst menüden proje ve sondaj seçin. Profile araçlarında satırlara <strong>borehole ID</strong> ve{" "}
-                <strong>sample depth</strong> proje listesiyle eşleşir. Projects altında tanımlı zemin davranışı, bazı
-                araçlarda satırın kullanılıp kullanılmayacağını etkileyebilir (kısıtlı satırlar gri görünebilir).
+                <strong>Proje verisi olmadan:</strong> Giriş yapmadan veya üst menüden proje seçmeden araçtaki sayısal
+                alanları doğrudan doldurabilirsiniz; sonuçlar yine hesaplanır. Profile araçlarında satırları elle
+                girersiniz; header’da proje yoksa veriler projeye bağlanmaz ve otomatik içe aktarım yapılmaz.{" "}
+                <strong>Yol:</strong> <code className="rounded bg-slate-100 px-1">/tools</code> → istediğiniz araç
+                (manuel).
               </>
             ) : (
               <>
+                <strong>
+                  {t("Without project data:", "Ohne Projektdaten:", "Sin datos del proyecto:")}
+                </strong>{" "}
+                {t(
+                  "You can fill numeric fields directly without signing in or selecting a project in the header; results are still computed. In profile tools you enter rows manually—if no project is selected, values are not linked to a project and nothing is auto-imported.",
+                  "Sie können numerische Felder direkt ausfüllen, ohne sich anzumelden oder im Header ein Projekt zu wählen; Ergebnisse werden dennoch berechnet. In Profil‑Tools geben Sie Zeilen manuell ein—ohne Projekt werden Werte nicht mit einem Projekt verknüpft und es erfolgt kein Auto‑Import.",
+                  "Puede rellenar los campos numéricos sin iniciar sesión ni elegir un proyecto en el encabezado; los resultados se calculan igual. En herramientas de perfil introduce filas manualmente: sin proyecto, los valores no se vinculan y no hay importación automática.",
+                )}{" "}
+                <strong>{t("Path:", "Pfad:", "Ruta:")}</strong>{" "}
+                <code className="rounded bg-slate-100 px-1">/tools</code> →{" "}
+                {t("any tool (manual).", "beliebiges Tool (manuell).", "cualquier herramienta (manual).")}
+              </>
+            )}
+          </p>
+          <p className="text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
+                <strong>Proje verisiyle:</strong> Üst menüden proje ve sondaj seçin. Profile araçlarında satırlara{" "}
+                <strong>borehole ID</strong> ve <strong>sample depth</strong> proje listesiyle eşleşir. Projects altında
+                tanımlı zemin davranışı, bazı araçlarda satırın kullanılıp kullanılmayacağını etkileyebilir (kısıtlı
+                satırlar gri görünebilir).
+              </>
+            ) : (
+              <>
+                <strong>{t("With project data:", "Mit Projektdaten:", "Con datos del proyecto:")}</strong>{" "}
                 {t(
                   "Select a project and boreholes from the header.",
                   "Wählen Sie im Header ein Projekt und Boreholes aus.",
@@ -1037,30 +1153,31 @@ export function UserGuidePage() {
 
           <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <img
-              src="/images/guide/tools-received-boreholes-example.png"
+              src="/images/guide/tools-project-profile-spt-example.png"
               alt={
                 lang === "tr"
-                  ? "Tool içinde borehole verilerinin geldiği örnek"
+                  ? "Soil Profile Plot: SPT düzeltmeleri ve projeden gelen GWT / birim hacim ağırlığı"
                   : t(
-                      "Example of borehole data inside a tool",
-                      "Beispiel: Borehole‑Daten in einem Tool",
-                      "Ejemplo de datos de perforación dentro de una herramienta",
+                      "Soil Profile Plot: SPT corrections with project-linked GWT and unit weight",
+                      "Soil Profile Plot: SPT‑Korrekturen mit projektbezogenem GWT und Wichte",
+                      "Soil Profile Plot: correcciones SPT con GWT y peso unitario del proyecto",
                     )
               }
-              className="block h-auto w-full"
+              className="block h-auto w-full object-contain object-top"
             />
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr" ? (
                 <>
-                  Örnek: <strong>Use in Tools</strong> sonrası profile tablosunda borehole satırları görünür. Eğer header’dan
-                  borehole seçilmediyse, bazı tool’larda borehole seçimi <strong>satır içinde</strong> de yapılabilir.
+                  Örnek (SPT düzeltmeleri): Yer suyu ve birim hacim ağırlığı{" "}
+                  <strong>Account → Projects</strong> üzerinden, satır bazında sondaj ve derinlikle eşleşerek gelir;{" "}
+                  N<sub>60</sub>, C<sub>N</sub>, (N<sub>1</sub>)<sub>60</sub> vb. sonuçlar profile tablosunda hesaplanır.
                 </>
               ) : (
                 <>
                   {t(
-                    "Example: after Use in Tools, borehole rows appear in the profile table. If no boreholes are selected in the header, some tools still allow borehole selection per row.",
-                    "Beispiel: Nach Use in Tools erscheinen Borehole‑Zeilen in der Profiltabelle. Wenn im Header keine Boreholes ausgewählt sind, erlauben einige Tools dennoch eine Borehole‑Auswahl pro Zeile.",
-                    "Ejemplo: después de Use in Tools, aparecen filas de perforación en la tabla de perfil. Si no se seleccionan perforaciones en el encabezado, algunas herramientas permiten seleccionar perforación por fila.",
+                    "Example (SPT corrections): GWT and bulk unit weight are pulled from Account → Projects per borehole and depth; corrected N-values (e.g., N60, CN, (N1)60) are computed in the profile table.",
+                    "Beispiel (SPT‑Korrekturen): GWT und Wichte kommen aus Account → Projects pro Bohrung/Tiefe; korrigierte N‑Werte (z. B. N60, CN, (N1)60) werden in der Profiltabelle berechnet.",
+                    "Ejemplo (correcciones SPT): el nivel freático y el peso unitario provienen de Account → Projects por perforación y profundidad; los N corregidos (p. ej. N60, CN, (N1)60) se calculan en la tabla de perfil.",
                   )}
                 </>
               )}
@@ -1069,30 +1186,31 @@ export function UserGuidePage() {
 
           <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <img
-              src="/images/guide/tools-manual-add-bh.png"
+              src="/images/guide/tools-profile-spt-manual-example.png"
               alt={
                 lang === "tr"
-                  ? "Tool içinde manuel borehole ekleme"
+                  ? "Soil Profile Plot: manuel GWT, BHA ve Add BH ile SPT düzeltmeleri"
                   : t(
-                      "Manual borehole add inside a tool",
-                      "Manuelles Hinzufügen eines Boreholes im Tool",
-                      "Añadir manualmente una perforación dentro de una herramienta",
+                      "Soil Profile Plot: SPT corrections with manual GWT, BHA, and Add BH",
+                      "Soil Profile Plot: SPT‑Korrekturen mit manuellem GWT, BHA und Add BH",
+                      "Soil Profile Plot: correcciones SPT con GWT, BHA manuales y Add BH",
                     )
               }
-              className="block h-auto w-full"
+              className="block h-auto w-full object-contain object-top"
             />
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr" ? (
                 <>
-                  Borehole seçimi temizlendikten sonra, profile satırında <strong>Add BH</strong> ile borehole kimliği
-                  oluşturup manuel olarak ilerleyebilirsiniz.
+                  Örnek: Üst menüden proje seçilmediğinde veya alanları elle girdiğinizde GWT ve birim hacim ağırlığı doğrudan
+                  araçta tanımlanır; satırda <strong>Add BH</strong> ile sondaj eklenir, N ve derinlikler manuel girilir,{" "}
+                  N<sub>60</sub> ve (N<sub>1</sub>)<sub>60</sub> tabloda hesaplanır.
                 </>
               ) : (
                 <>
                   {t(
-                    "After clearing the selection, you can proceed manually by creating/selecting a borehole via Add BH within the profile row.",
-                    "Nach dem Löschen der Auswahl können Sie manuell fortfahren, indem Sie im Profil‑Row über Add BH ein Borehole erstellen/auswählen.",
-                    "Después de limpiar la selección, puede continuar manualmente creando/seleccionando una perforación mediante Add BH dentro de la fila del perfil.",
+                    "Example: without a project in the header—or when you type values yourself—GWT and bulk unit weight are set in the tool; use Add BH on the row, enter N and depths manually, and corrected N60 / (N1)60 are computed in the table.",
+                    "Beispiel: ohne Projekt im Header oder bei manueller Eingabe werden GWT und Wichte im Tool gesetzt; in der Zeile Add BH nutzen, N und Tiefen manuell eintragen – N60 / (N1)60 werden in der Tabelle berechnet.",
+                    "Ejemplo: sin proyecto en el encabezado o con valores propios, el GWT y el peso unitario se definen en la herramienta; use Add BH en la fila, introduzca N y profundidades manualmente y se calculan N60 / (N1)60 en la tabla.",
                   )}
                 </>
               )}
@@ -1103,247 +1221,22 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "9. Sekmeler: Parameters, Soil Profile Plot, Information, Report"
-              : t(
-                  "9. Tabs: Parameters, Soil Profile Plot, Information, Report",
-                  "9. Tabs: Parameters, Soil Profile Plot, Information, Report",
-                  "9. Pestañas: Parameters, Soil Profile Plot, Information, Report",
-                )}
-          </h2>
-          <div className="space-y-3 text-[15px] leading-7 text-slate-700">
-            <p>
-              {lang === "tr" ? (
-                <>
-                  Tool sayfalarında sekmeler, aynı hesap akışını farklı amaçlarla sunar: hızlı hesap, derinlik‑profil
-                  görselleştirme, raporlama ve yöntem/formül dokümantasyonu.
-                </>
-              ) : (
-                <>
-                  {t(
-                    "Tabs present the same workflow for different goals: quick calculation, depth-profile visualisation, reporting, and methodology/formula documentation.",
-                    "Tabs stellen denselben Workflow für unterschiedliche Ziele bereit: schnelle Berechnung, Tiefenprofil‑Visualisierung, Berichtserstellung sowie Methodik/Formel‑Dokumentation.",
-                    "Las pestañas presentan el mismo flujo para distintos objetivos: cálculo rápido, visualización por perfil de profundidad, generación de informes y documentación de metodología/fórmulas.",
-                  )}
-                </>
-              )}
-            </p>
-            <ul className="list-disc space-y-2 pl-5">
-              <li>
-                <strong>Calculation / Parameters:</strong>{" "}
-                {lang === "tr" ? (
-                  <>
-                    Hesap makinesi mantığıyla çalışır; kullanıcı belirli girdiler (ör. PI, N<sub>60</sub>) girer ve tool
-                    bu spesifik değerlere göre sonucu üretir.
-                  </>
-                ) : (
-                  <>
-                    {t(
-                      "Works like a calculator: you enter specific inputs (e.g., PI, N60) and the tool computes results for those values.",
-                      "Funktioniert wie ein Rechner: Sie geben konkrete Eingaben (z. B. PI, N60) ein, und das Tool berechnet Ergebnisse für genau diese Werte.",
-                      "Funciona como una calculadora: introduce entradas específicas (p. ej., PI, N60) y la herramienta calcula resultados para esos valores.",
-                    )}
-                  </>
-                )}
-              </li>
-              <li>
-                <strong>Soil Profile Plot:</strong>{" "}
-                {lang === "tr" ? (
-                  <>
-                    Tablo ve grafikler ile parametrelerin derinliğe göre değişimini gösterir. Proje/borehole seçimi aktifse
-                    seçili borehole’lardan gelen satırlar otomatik doldurulabilir.
-                  </>
-                ) : (
-                  <>
-                    {t(
-                      "Shows how parameters vary with depth using tables and plots. If project/borehole selection is active, rows can be auto-populated from the selected boreholes.",
-                      "Zeigt mit Tabellen und Plots, wie Parameter mit der Tiefe variieren. Wenn Projekt/Borehole‑Auswahl aktiv ist, können Zeilen aus den ausgewählten Boreholes automatisch befüllt werden.",
-                      "Muestra cómo varían los parámetros con la profundidad mediante tablas y gráficos. Si la selección de proyecto/perforación está activa, las filas pueden rellenarse automáticamente desde las perforaciones seleccionadas.",
-                    )}
-                  </>
-                )}
-              </li>
-              <li>
-                <strong>Report:</strong>{" "}
-                {lang === "tr" ? (
-                  <>
-                    Hesap çıktısını ve profile plot’u içeren PDF raporu üretir. Kullanıcı bu sekmeden, tool hesaplarını
-                    içeren raporu indirebilir.
-                  </>
-                ) : (
-                  <>
-                    {t(
-                      "Generates a PDF report that includes calculation output and the profile plot. Users can download a report containing the tool calculations from this section.",
-                      "Erstellt einen PDF‑Bericht mit Rechenergebnissen und Profil‑Plot. Nutzer können hier einen Bericht mit den Tool‑Berechnungen herunterladen.",
-                      "Genera un informe PDF que incluye los resultados del cálculo y el gráfico de perfil. Desde aquí los usuarios pueden descargar un informe con los cálculos de la herramienta.",
-                    )}
-                  </>
-                )}
-              </li>
-              <li>
-                <strong>Analyze with AI:</strong>{" "}
-                {lang === "tr" ? (
-                  <>
-                    Aktifse, hesap çıktısı ve plot hakkında yorum içeren ek bir değerlendirme paragrafı ekler. Bu bölüm,
-                    “tasarım kararı” yerine erken aşama teknik yorum ve kontrol amaçlıdır.
-                  </>
-                ) : (
-                  <>
-                    {t(
-                      "When enabled, adds an extra evaluation paragraph that comments on the calculation output and plot. It is intended for early-stage technical interpretation, not a final design decision.",
-                      "Wenn aktiviert, wird ein zusätzlicher Bewertungstext ergänzt, der Rechenergebnisse und Plot interpretiert. Gedacht für frühe technische Einschätzung – nicht als finale Auslegungsentscheidung.",
-                      "Si está habilitado, añade un párrafo de evaluación adicional con comentarios sobre los resultados del cálculo y el gráfico. Está pensado para interpretación técnica en etapas tempranas, no como decisión final de diseño.",
-                    )}
-                  </>
-                )}
-              </li>
-              <li>
-                <strong>Information:</strong>{" "}
-                {lang === "tr" ? (
-                  <>
-                    Tool içinde kullanılan tüm formülleri, varsayımları, sınırlamaları ve referansları içerir. Bir sonucu
-                    yorumlarken hangi eşitliklerin ve kabullerin kullanıldığını buradan kontrol edebilirsiniz.
-                  </>
-                ) : (
-                  <>
-                    {t(
-                      "Contains the full set of formulas, assumptions, limitations, and references used by the tool. Use it to verify which equations and modelling choices produced the result.",
-                      "Enthält alle verwendeten Formeln, Annahmen, Einschränkungen und Referenzen. Damit können Sie prüfen, welche Gleichungen und Modellannahmen zu den Ergebnissen geführt haben.",
-                      "Incluye todas las fórmulas, supuestos, limitaciones y referencias usadas por la herramienta. Úselo para verificar qué ecuaciones y decisiones de modelado generaron el resultado.",
-                    )}
-                  </>
-                )}
-              </li>
-            </ul>
-          </div>
-
-          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <img
-              src="/images/guide/tool-tabs.png"
-              alt={
-                lang === "tr"
-                  ? "Tool sekmeleri (tabs) ekran görüntüsü"
-                  : t("Tool tabs screenshot", "Screenshot: Tool‑Tabs", "Captura: pestañas de la herramienta")
-              }
-              className="block h-auto w-full"
-            />
-            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-              {lang === "tr"
-                ? "Tool içinde sekmeler arasında geçiş yaparak hesaplama, profil grafikleri, rapor ve metodoloji bilgilerine ulaşabilirsiniz."
-                : t(
-                    "Use the tabs to switch between calculation, profile plots, report export, and methodology details.",
-                    "Nutzen Sie die Tabs, um zwischen Berechnung, Profil‑Plots, Berichtsexport und Methodik‑Details zu wechseln.",
-                    "Use las pestañas para cambiar entre cálculo, gráficos de perfil, exportación de informes y detalles de metodología.",
-                  )}
-            </figcaption>
-          </figure>
-
-          <div className="space-y-4">
-            <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <img
-                src="/images/guide/tab-calculation-inputs.png"
-                alt={
-                  lang === "tr"
-                    ? "Calculation/Parameters sekmesi: Input alanları"
-                    : t(
-                        "Calculation/Parameters tab: input fields",
-                        "Tab Calculation/Parameters: Eingabefelder",
-                        "Pestaña Calculation/Parameters: campos de entrada",
-                      )
-                }
-                className="block h-auto w-full"
-              />
-              <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-                {lang === "tr"
-                  ? "Calculation/Parameters: Tool girdilerini girip hesaplamayı çalıştırdığınız bölüm."
-                  : t(
-                      "Calculation/Parameters: enter tool inputs and run the calculation.",
-                      "Calculation/Parameters: Eingaben erfassen und Berechnung ausführen.",
-                      "Calculation/Parameters: introduzca entradas y ejecute el cálculo.",
-                    )}
-              </figcaption>
-            </figure>
-
-            <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <img
-                src="/images/guide/tab-report-download.png"
-                alt={
-                  lang === "tr"
-                    ? "Report sekmesi: PDF indirme butonları"
-                    : t(
-                        "Report tab: PDF download buttons",
-                        "Tab Report: PDF‑Download‑Buttons",
-                        "Pestaña Report: botones de descarga PDF",
-                      )
-                }
-                className="block h-auto w-full"
-              />
-              <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-                {lang === "tr"
-                  ? "Report: Hesap çıktıları ve plotları içeren PDF raporu indirdiğiniz bölüm."
-                  : t(
-                      "Report: download a PDF report that includes results and plots.",
-                      "Report: PDF‑Bericht mit Ergebnissen und Plots herunterladen.",
-                      "Report: descargue un informe PDF que incluye resultados y gráficos.",
-                    )}
-              </figcaption>
-            </figure>
-
-            <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <img
-                src="/images/guide/tab-information-equations.png"
-                alt={
-                  lang === "tr"
-                    ? "Information sekmesi: Eşitlikler ve tanımlar"
-                    : t(
-                        "Information tab: equations and definitions",
-                        "Tab Information: Gleichungen und Definitionen",
-                        "Pestaña Information: ecuaciones y definiciones",
-                      )
-                }
-                className="block h-auto w-full"
-              />
-              <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-                {lang === "tr"
-                  ? "Information: Tool’da kullanılan formüller, varsayımlar, sınırlamalar ve referanslar."
-                  : t(
-                      "Information: formulas, assumptions, limitations, and references used by the tool.",
-                      "Information: verwendete Formeln, Annahmen, Einschränkungen und Referenzen.",
-                      "Information: fórmulas, supuestos, limitaciones y referencias usadas por la herramienta.",
-                    )}
-              </figcaption>
-            </figure>
-          </div>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-900">
-            {lang === "tr"
-              ? "10. Plotlar (grafikler) nerede?"
-              : t("10. Where are the plots?", "10. Wo sind die Plots?", "10. ¿Dónde están los gráficos?")}
+              ? "7. Plotlar ve analiz kaydı"
+              : t("7. Plots and Analysis Save", "7. Plots und Analyse speichern", "7. Gráficos y guardar análisis")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
-                Derinlik–parametre grafikleri çoğunlukla <strong>Soil Profile Plot</strong> sekmesindedir. Bazı araçlar ek
-                görselleri Parameters veya Information bölümünde de sunabilir.
-                <br />
-                <br />
-                Her bir tool altında, zemin derinliğine bağlı <strong>parameter–depth</strong> plotları bulunur (seçilen
-                borehole’lara göre).
+                Her araç ilgili hesaplamaları yaptıktan sonra derinlik bazlı plotlar çizer. Bu grafikler çoğunlukla{" "}
+                <strong>Soil Profile Plot</strong> sekmesinde yer alır; özellikle AI destekli yorumlarda öncelikle
+                incelenen çıktılardandır.
               </>
             ) : (
               <>
                 {t(
-                  "Depth–parameter plots are typically under the Soil Profile Plot tab. Some tools may also show additional visuals in Parameters or Information.",
-                  "Depth‑Parameter‑Plots befinden sich typischerweise im Tab Soil Profile Plot. Einige Tools zeigen zusätzliche Visualisierungen auch unter Parameters oder Information.",
-                  "Los gráficos profundidad–parámetro suelen estar en la pestaña Soil Profile Plot. Algunas herramientas también pueden mostrar elementos visuales adicionales en Parameters o Information.",
-                )}
-                <br />
-                <br />
-                {t(
-                  "Each tool includes parameter–depth plots based on soil depth (driven by the selected boreholes).",
-                  "Jedes Tool enthält Parameter–Tiefe‑Plots auf Basis der Bodentiefe (gesteuert durch die ausgewählten Boreholes).",
-                  "Cada herramienta incluye gráficos parámetro–profundidad según la profundidad del suelo (en función de las perforaciones seleccionadas).",
+                  "After each tool runs its calculations, it draws depth-based plots—typically on the Soil Profile Plot tab. These charts are among the first outputs reviewed in AI-assisted interpretation.",
+                  "Nach den Berechnungen zeichnet jedes Tool tiefenbasierte Plots – typischerweise im Tab Soil Profile Plot. Diese Diagramme gehören bei KI‑gestützter Auswertung zu den zuerst geprüften Ergebnissen.",
+                  "Tras los cálculos, cada herramienta dibuja gráficos en función de la profundidad (habitualmente en la pestaña Soil Profile Plot). Son de las primeras salidas que se revisan en interpretaciones asistidas por IA.",
                 )}
               </>
             )}
@@ -1351,54 +1244,43 @@ export function UserGuidePage() {
 
           <figure className="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <img
-              src="/images/guide/depth-plot-example.png"
+              src="/images/guide/plot-depth-vs-cu-example.png"
               alt={
                 lang === "tr"
-                  ? "Derinliğe bağlı parametre grafiği örneği"
+                  ? "Örnek derinlik–parametre grafiği (Depth vs cu)"
                   : t(
-                      "Example parameter–depth plot",
-                      "Beispiel: Parameter–Tiefe‑Plot",
-                      "Ejemplo de gráfico parámetro–profundidad",
+                      "Example depth–parameter plot (Depth vs cu)",
+                      "Beispiel: Parameter–Tiefe‑Plot (Depth vs cu)",
+                      "Ejemplo: gráfico profundidad–parámetro (Depth vs cu)",
                     )
               }
               className="block max-h-[520px] w-full object-contain"
             />
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr"
-                ? "Örnek: Depth vs (N1)60 gibi derinliğe bağlı parameter–depth plotları Soil Profile Plot sekmesinde listelenir."
+                ? "Örnek: derinliğe karşı parametre (ör. cu) scatter grafiği; seçilen sondaja göre işaretler Soil Profile Plot’ta listelenir."
                 : t(
-                    "Example: parameter–depth plots (e.g., Depth vs (N1)60) are listed under the Soil Profile Plot tab.",
-                    "Beispiel: Parameter–Tiefe‑Plots (z. B. Depth vs (N1)60) werden unter dem Tab Soil Profile Plot angezeigt.",
-                    "Ejemplo: los gráficos parámetro–profundidad (p. ej., Depth vs (N1)60) se listan en la pestaña Soil Profile Plot.",
+                    "Example: parameter vs depth (e.g., cu); markers reflect the selected borehole(s) on Soil Profile Plot.",
+                    "Beispiel: Parameter gegen Tiefe (z. B. cu); Markierungen entsprechen dem/den gewählten Borehole(s) im Soil Profile Plot.",
+                    "Ejemplo: parámetro frente a profundidad (p. ej., cu); los puntos corresponden al/los sondeo(s) elegido(s) en Soil Profile Plot.",
                   )}
             </figcaption>
           </figure>
-        </section>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-900">
-            {lang === "tr"
-              ? "11. Analizi projeye kaydetme"
-              : t("11. Saving an analysis to a project", "11. Analyse in einem Projekt speichern", "11. Guardar un análisis en un proyecto")}
-          </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
                 Profile araçlarında <strong>Save Profile Analysis</strong> / <strong>Save Analysis to Project</strong>{" "}
-                paneli vardır. Aktif proje ve oturum gerekir; kayıt girdi tabloları ve mümkünse grafik görüntülerini proje
-                kaydına yazar.
+                paneli bulunur. Bu düğme, yapılan analizi proje dosyasına kaydeder; girdi tabloları ile birlikte plot
+                görselleri de saklanır ve daha sonra görüntüleme ile geri yükleme imkânı sunar. Aktif proje ve oturum
+                gerekir.
               </>
             ) : (
               <>
                 {t(
-                  "Profile tools include a Save Profile Analysis / Save Analysis to Project panel.",
-                  "Profil‑Tools enthalten ein Panel Save Profile Analysis / Save Analysis to Project.",
-                  "Las herramientas de perfil incluyen un panel Save Profile Analysis / Save Analysis to Project.",
-                )}{" "}
-                {t(
-                  "You must be signed in and have an active project; it saves input tables and, when available, plot images to the selected project.",
-                  "Sie müssen angemeldet sein und ein aktives Projekt ausgewählt haben; es speichert Eingabetabellen und – falls verfügbar – Plot‑Bilder im ausgewählten Projekt.",
-                  "Debe iniciar sesión y tener un proyecto activo; guarda las tablas de entrada y, cuando están disponibles, imágenes de los gráficos en el proyecto seleccionado.",
+                  "Profile tools also include a Save Profile Analysis / Save Analysis to Project control. It writes the current analysis into the project folder—input tables and plot images—so you can reopen and restore the work later. You must be signed in with an active project.",
+                  "Profil‑Tools enthalten Save Profile Analysis / Save Analysis to Project. Damit wird die Analyse im Projektordner abgelegt – Eingabetabellen und Plot‑Bilder – zur späteren Ansicht und Wiederherstellung. Anmeldung und aktives Projekt sind erforderlich.",
+                  "Las herramientas de perfil incluyen Save Profile Analysis / Save Analysis to Project: guarda el análisis en la carpeta del proyecto (tablas de entrada e imágenes de gráficos) para verlo y restaurarlo después. Requiere sesión iniciada y un proyecto activo.",
                 )}
               </>
             )}
@@ -1406,25 +1288,71 @@ export function UserGuidePage() {
 
           <figure className="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <img
-              src="/images/guide/save-analysis-to-project.png"
+              src="/images/guide/save-analysis-to-project-panel.png"
               alt={
                 lang === "tr"
-                  ? "Save Analysis to Project paneli"
+                  ? "Save Profile Analysis paneli ve başarılı kayıt özeti"
                   : t(
-                      "Save Analysis to Project panel",
-                      "Panel: Save Analysis to Project",
-                      "Panel: Save Analysis to Project",
+                      "Save Profile Analysis panel with success summary",
+                      "Save Profile Analysis mit Erfolgsmeldung",
+                      "Panel Save Profile Analysis con resumen de guardado correcto",
                     )
               }
-              className="block max-h-[420px] w-full object-contain"
+              className="block max-h-[min(32rem,78vh)] w-full object-contain"
             />
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr"
-                ? "Save Analysis to Project ile mevcut profile girdileri ve plot görüntüleri projeye kaydedilir."
+                ? "Kayıt sonrası özet: yakalanan alan sayısı, tablo ve plot görüntüleri ile indekslenen parametreler bildirilir; isteğe Projects ekranına geçilebilir."
                 : t(
-                    "Save Analysis to Project stores current profile inputs and plot images under the selected project.",
-                    "Save Analysis to Project speichert die aktuellen Profileingaben und Plot‑Bilder im ausgewählten Projekt.",
-                    "Save Analysis to Project guarda las entradas actuales del perfil y las imágenes de los gráficos en el proyecto seleccionado.",
+                    "After saving, a summary lists captured fields, tables, plot images, and indexed parameters; you can jump to Projects from the panel.",
+                    "Nach dem Speichern zeigt eine Zusammenfassung erfasste Felder, Tabellen, Plot‑Bilder und indizierte Parameter; optional Wechsel zur Projektansicht.",
+                    "Tras guardar, un resumen indica campos capturados, tablas, imágenes de gráficos y parámetros indexados; puede ir a Projects desde el panel.",
+                  )}
+            </figcaption>
+          </figure>
+
+          <p className="rounded-lg border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-[15px] leading-7 text-slate-800">
+            {lang === "tr" ? (
+              <>
+                <strong>Önemli not!</strong> <strong>Save Analysis to Project</strong> yapıldığı takdirde, bir aracın
+                çıktısı olan değer ilgili başka bir aracın girdisi olabilir ve bu değer otomatik olarak oraya aktarılır
+                (örneğin <em>c′</em> hesabındaki girdi olan <em>c<sub>u</sub></em> değeri,{" "}
+                <strong>Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI)</strong> aracında
+                hesaplanan değerden otomatik olarak çekilir).
+              </>
+            ) : (
+              <>
+                <strong>{t("Important note!", "Wichtiger Hinweis!", "¡Nota importante!")}</strong>{" "}
+                {t(
+                  "After Save Analysis to Project, an output from one tool can feed another tool’s inputs automatically (for example, the cu used as an input for the c′ calculation is pulled from results computed in Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI)).",
+                  "Nach Save Analysis to Project kann die Ausgabe eines Tools automatisch Eingaben eines anderen Tools speisen (z. B. wird cu für die c′‑Berechnung aus den Ergebnissen von Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI) übernommen).",
+                  "Tras Save Analysis to Project, la salida de una herramienta puede alimentar automáticamente las entradas de otra (por ejemplo, el cu usado en el cálculo de c′ se toma de Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI)).",
+                )}
+              </>
+            )}
+          </p>
+
+          <figure className="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <img
+              src="/images/guide/soil-profile-cu-autofill-example.png"
+              alt={
+                lang === "tr"
+                  ? "Soil Profile Plot: cu alanının başka bir tool çıktısından otomatik doldurulması"
+                  : t(
+                      "Soil Profile Plot: cu auto-filled from another tool’s saved output",
+                      "Soil Profile Plot: cu automatisch aus gespeicherten Ergebnissen eines anderen Tools",
+                      "Soil Profile Plot: cu rellenado automáticamente desde la salida guardada de otra herramienta",
+                    )
+              }
+              className="block max-h-[min(36rem,82vh)] w-full object-contain"
+            />
+            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              {lang === "tr"
+                ? "Örnek: c′ hesap aracında cu hücresi, kayıtlı projede Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI) analizinden otomatik doldurulur (yeşil etiket)."
+                : t(
+                    "Example: in the c′ tool, cu is auto-filled from the saved Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI) analysis (green badge).",
+                    "Beispiel: Im c′‑Tool wird cu aus der gespeicherten Analyse Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI) automatisch eingetragen (grünes Label).",
+                    "Ejemplo: en la herramienta c′, cu se rellena desde el análisis guardado Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI) (etiqueta verde).",
                   )}
             </figcaption>
           </figure>
@@ -1433,40 +1361,28 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "12. Kayıtlı sonuçları görüntüleme"
-              : t("12. Viewing saved analyses", "12. Gespeicherte Analysen anzeigen", "12. Ver análisis guardados")}
+              ? "8. Kayıtlı analizleri görüntüleme"
+              : t(
+                  "8. Viewing Saved Analysis",
+                  "8. Gespeicherte Analysen ansehen",
+                  "8. Ver análisis guardados",
+                )}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
-                <code className="rounded bg-slate-100 px-1">/account</code> → projeyi seçin →{" "}
-                <strong>Saved analyses</strong> listesinden kayıtlı çalışmaları açın. Entegre örnek matrisi ve parametre
-                görünümleri aynı proje ekranında bulunur.
+                Kaydedilmiş analizleri görmek için <strong>Projects</strong> (hesap) menüsünden aktif projenizi açın ve{" "}
+                <strong>Saved analyses</strong> sekmesine geçin. Listede her kaydın <strong>tarih ve saatini</strong>{" "}
+                görürsünüz; <strong>View</strong> ile analize ait plotu inceleyebilir,{" "}
+                <strong>Load to Tool</strong> ile aynı analizi ilgili araçta yeniden yükleyebilirsiniz.{" "}
+                <strong>Remove</strong> kaydı listeden siler.
               </>
             ) : (
               <>
                 {t(
-                  "Go to",
-                  "Gehen Sie zu",
-                  "Vaya a",
-                )}{" "}
-                <code className="rounded bg-slate-100 px-1">/account</code> →{" "}
-                {t(
-                  "select a project",
-                  "wählen Sie ein Projekt aus",
-                  "seleccione un proyecto",
-                )}{" "}
-                →{" "}
-                {t(
-                  "open items from",
-                  "öffnen Sie Einträge aus",
-                  "abra elementos de",
-                )}{" "}
-                <strong>Saved analyses</strong>.{" "}
-                {t(
-                  "The integrated sample matrix and parameter views are available on the project screen.",
-                  "Die integrierte Probenmatrix und die Parameteransichten sind auf der Projektseite verfügbar.",
-                  "La matriz integrada de muestras y las vistas de parámetros están disponibles en la pantalla del proyecto.",
+                  "To review saved analyses, open your active project from the Projects (account) area and go to the Saved analyses tab. Each row shows the save date and time. Use View to inspect the plot for that run, Load to Tool to reopen the analysis in the originating tool, and Remove to delete the record.",
+                  "Öffnen Sie Ihr aktives Projekt unter Projects (Account) und wechseln Sie zum Tab Saved analyses. Pro Zeile sehen Sie Datum und Uhrzeit. View zeigt den Plot, Load to Tool öffnet die Analyse wieder im jeweiligen Tool, Remove löscht den Eintrag.",
+                  "Para revisar análisis guardados, abra su proyecto activo en Projects (cuenta) y vaya a la pestaña Saved analyses. Cada fila muestra fecha y hora. Use View para ver el gráfico, Load to Tool para volver a cargar el análisis en la herramienta de origen, y Remove para eliminar el registro.",
                 )}
               </>
             )}
@@ -1477,22 +1393,22 @@ export function UserGuidePage() {
               src="/images/guide/saved-analyses.png"
               alt={
                 lang === "tr"
-                  ? "Saved analyses tablosu ekran görüntüsü"
+                  ? "Proje ekranı: Saved analyses sekmesi ve kayıt listesi"
                   : t(
-                      "Saved analyses table screenshot",
-                      "Screenshot: Tabelle Saved analyses",
-                      "Captura: tabla Saved analyses",
+                      "Project workspace: Saved analyses tab with record list",
+                      "Projektansicht: Tab Saved analyses mit Liste",
+                      "Proyecto: pestaña Saved analyses con la lista",
                     )
               }
-              className="block h-auto w-full"
+              className="block h-auto w-full object-contain object-top"
             />
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr"
-                ? "Saved analyses: View ile plot önizlemesini görebilir, Load to Tool ile kaydı doğrudan ilgili tool’da açabilirsiniz."
+                ? "Saved analyses: üstteki sekmelerden erişilir; tabloda araç adı, kayıt zamanı ve View / Load to Tool / Remove eylemleri yer alır."
                 : t(
-                    "Saved analyses: use View to see the plot preview, or Load to Tool to open the record directly in the related tool.",
-                    "Saved analyses: Nutzen Sie View für die Plot‑Vorschau oder Load to Tool, um den Eintrag direkt im passenden Tool zu öffnen.",
-                    "Saved analyses: use View para ver la vista previa del gráfico, o Load to Tool para abrir el registro directamente en la herramienta correspondiente.",
+                    "Saved analyses is opened from the project tabs; the table lists tool name, timestamp, and View / Load to Tool / Remove.",
+                    "Saved analyses erreichen Sie über die Projekt‑Tabs; die Tabelle zeigt Tool, Zeitstempel sowie View / Load to Tool / Remove.",
+                    "Saved analyses se abre desde las pestañas del proyecto; la tabla muestra la herramienta, la marca de tiempo y View / Load to Tool / Remove.",
                   )}
             </figcaption>
           </figure>
@@ -1501,8 +1417,8 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "13. Rapor (PDF) ve Excel"
-              : t("13. Report (PDF) and Excel exports", "13. Report (PDF) und Excel‑Exporte", "13. Informe (PDF) y exportaciones a Excel")}
+              ? "9. Rapor (PDF) ve Excel"
+              : t("9. Report (PDF) and Excel exports", "9. Report (PDF) und Excel‑Exporte", "9. Informe (PDF) y exportaciones a Excel")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
