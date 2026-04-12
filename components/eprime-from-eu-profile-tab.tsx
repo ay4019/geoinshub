@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -250,8 +250,7 @@ export function EprimeFromEuProfileTab({
     });
     return map;
   }, [projectParameters]);
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -265,9 +264,8 @@ export function EprimeFromEuProfileTab({
     );
 
     previousUnitSystem.current = unitSystem;
-  }, [unitSystem]);
-
-  useEffect(() => {
+  });
+  const syncImportedRows = useEffectEvent(() => {
     if (!importRows || importRows.length === 0) {
       return;
     }
@@ -296,6 +294,14 @@ export function EprimeFromEuProfileTab({
         })(),
       }));
     });
+  });
+
+  useEffect(() => {
+    syncUnitSystem();
+  }, [unitSystem]);
+
+  useEffect(() => {
+    syncImportedRows();
   }, [importRows, unitSystem, euBySampleKey]);
 
   const updateRow = (id: number, patch: Partial<EprimeFromEuRow>) => {

@@ -994,7 +994,7 @@ function addCuPlainParagraphHelvetica(
   fontSize: number,
   lineHeight: number,
 ): number {
-  let cursorY = startY;
+  const cursorY = startY;
   if (!text.trim()) {
     return cursorY;
   }

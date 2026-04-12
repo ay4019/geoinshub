@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -288,7 +288,7 @@ function renderScatterChart({
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-lg font-semibold text-slate-900">Depth vs E'</h3>
+      <h3 className="text-lg font-semibold text-slate-900">Depth vs E&apos;</h3>
       <svg viewBox={`0 0 ${width} ${height}`} className="mt-2 w-full">
         <rect x={0} y={0} width={width} height={height} rx={12} fill="#ffffff" />
         <rect
@@ -336,7 +336,7 @@ function renderScatterChart({
           );
         })}
         <text x={margin.left + innerWidth / 2} y={24} textAnchor="middle" fontSize={12} fill="#1e3a5f" fontWeight={700}>
-          E' ({stressUnit})
+          E&apos; ({stressUnit})
         </text>
         <text
           x={18}
@@ -393,8 +393,7 @@ export function EprimeFromSptCohesionlessProfileTab({
     });
     return map;
   }, [projectParameters]);
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -406,9 +405,8 @@ export function EprimeFromSptCohesionlessProfileTab({
       })),
     );
     previousUnitSystem.current = unitSystem;
-  }, [unitSystem]);
-
-  useEffect(() => {
+  });
+  const syncImportedRows = useEffectEvent(() => {
     if (!importRows || importRows.length === 0) {
       return;
     }
@@ -439,6 +437,14 @@ export function EprimeFromSptCohesionlessProfileTab({
         })(),
       }));
     });
+  });
+
+  useEffect(() => {
+    syncUnitSystem();
+  }, [unitSystem]);
+
+  useEffect(() => {
+    syncImportedRows();
   }, [importRows, unitSystem, n60BySampleKey, selectedOption.nType]);
 
   const updateRow = (id: number, patch: Partial<ProfileRow>) => {
@@ -488,7 +494,7 @@ export function EprimeFromSptCohesionlessProfileTab({
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Select a cohesionless-soil SPT correlation, then enter depth and corrected SPT N values by sample. E' is computed
+          Select a cohesionless-soil SPT correlation, then enter depth and corrected SPT N values by sample. E&apos; is computed
           with the selected equation and plotted against depth.
         </p>
 

@@ -4,10 +4,24 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+function getSafeRedirectUrl(next: string | null, requestUrl: URL): URL {
+  const fallback = new URL("/account", requestUrl.origin);
+
+  if (!next) {
+    return fallback;
+  }
+
+  try {
+    const candidate = new URL(next, requestUrl.origin);
+    return candidate.origin === requestUrl.origin ? candidate : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const next = requestUrl.searchParams.get("next") ?? "/account";
-  const redirectUrl = new URL(next, requestUrl.origin);
+  const redirectUrl = getSafeRedirectUrl(requestUrl.searchParams.get("next"), requestUrl);
 
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(new URL("/login", requestUrl.origin));

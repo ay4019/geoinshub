@@ -167,7 +167,7 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Subscription</h2>
               {tierLoading ? (
-                <p className="text-sm text-slate-500">Loading…</p>
+                <p className="text-sm text-slate-500">Loading...</p>
               ) : (
                 <div className="text-sm text-slate-600">
                   <p>
@@ -186,18 +186,17 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
                       {effectiveTierLabel}
                     </span>
                     {isAdmin ? (
-                      <span className="text-slate-500"> — all premium features unlocked for administrators.</span>
+                      <span className="text-slate-500"> - all premium features unlocked for administrators.</span>
                     ) : effectiveTier === "silver" || effectiveTier === "gold" ? (
-                      <span className="text-slate-500"> — includes everything in Bronze, plus more.</span>
+                      <span className="text-slate-500"> - includes everything in Bronze, plus more.</span>
                     ) : null}
                     {!isAdmin && effectiveTier === "none" ? (
-                      <span className="text-slate-500"> — upgrade to start with Bronze.</span>
+                      <span className="text-slate-500"> - contact the site admin to start with Bronze.</span>
                     ) : null}
                   </p>
                   {!isAdmin && tier === "bronze" ? (
                     <p className="mt-1 text-xs text-slate-500">
-                      Members join on <span className="font-medium text-[#5c2e12]">Bronze</span> — the default paid tier
-                      with cloud projects and reports.
+                      Bronze is currently assigned manually by the site admin and includes cloud projects and reports.
                     </p>
                   ) : null}
                   <button
@@ -213,14 +212,14 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
             </div>
 
             {tierLoading ? (
-              <p className="text-sm text-slate-600">Loading subscription details…</p>
+              <p className="text-sm text-slate-600">Loading subscription details...</p>
             ) : (
               <>
                 <MembershipTierColumns effectiveTier={effectiveTier} tierLoading={tierLoading} />
 
                 <p className="text-center text-xs text-slate-500">
-                  Daily quotas reset on the Europe/Istanbul calendar day. Payment checkout (e.g. Stripe) can be connected
-                  later to assign tiers automatically. Plan selection buttons can be added here when checkout is live.
+                  Daily quotas reset on the Europe/Istanbul calendar day. Membership tiers are currently managed manually
+                  by the site administrator from the admin panel.
                 </p>
                 {isAdmin ? (
                   <p className="text-center text-sm text-slate-600">
@@ -230,7 +229,7 @@ export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
                     >
                       Admin panel
                     </Link>{" "}
-                    — search users by email and set tiers.
+                    - search users by email and set tiers.
                   </p>
                 ) : null}
               </>

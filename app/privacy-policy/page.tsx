@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "Privacy policy for Geotechnical Insights Hub.",
+  description: "Privacy policy and KVKK-related information for Geotechnical Insights Hub (Türkiye).",
 };
 
 export default function PrivacyPolicyPage() {
@@ -14,14 +14,16 @@ export default function PrivacyPolicyPage() {
       <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700 shadow-sm">
         <p>
           This Privacy Policy explains how Geotechnical Insights Hub collects, uses, stores, and shares personal data.
-          It also explains your privacy rights and choices.
+          The Service is operated from the Republic of Türkiye (Turkey). Processing is described in line with Law No.
+          6698 on the Protection of Personal Data (KVKK) and, where relevant, international standards. It also explains
+          your privacy rights and choices.
         </p>
 
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">1. Who We Are</h2>
           <p>
-            Geotechnical Insights Hub is an educational geotechnical engineering platform. For privacy requests, please
-            use the{" "}
+            Geotechnical Insights Hub is an educational geotechnical engineering platform published from the Republic of
+            Türkiye. For privacy and data subject requests, please use the{" "}
             <Link href="/contact" className="font-semibold underline underline-offset-4">
               Contact
             </Link>{" "}
@@ -31,18 +33,31 @@ export default function PrivacyPolicyPage() {
 
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">2. Data We Collect</h2>
+          <p>
+            <span className="font-medium text-slate-900">No general file uploads.</span> The website does not provide a
+            feature to upload documents, borehole logs, or attachments. We only process data you enter into forms and
+            fields, plus technical data needed to run the Service.
+          </p>
+          <p>
+            <span className="font-medium text-slate-900">Use neutral labels.</span> Project names, borehole identifiers,
+            and similar fields are optional labels to help you organise records inside the application. Do not enter
+            confidential client names, exact site addresses, contract codes, or other sensitive identifiers there unless
+            you accept the risk of processing and storage as described here.
+          </p>
           <ul className="space-y-1">
             <li>
               - <span className="font-medium text-slate-900">Account data:</span> email address, authentication user
               ID, and login/session metadata through Supabase Auth.
             </li>
             <li>
-              - <span className="font-medium text-slate-900">Project data:</span> project names, borehole IDs, sample
-              depths, and user-entered N values when you use the account project tools.
+              - <span className="font-medium text-slate-900">Project and engineering inputs:</span> project names,
+              borehole identifiers, sample depths, and numeric or text fields you enter when using account project
+              tools (for example user-entered N values). You are responsible for not submitting special categories of
+              personal data or third-party personal data except where you have a lawful basis.
             </li>
             <li>
-              - <span className="font-medium text-slate-900">Tool records:</span> selected tool outputs if you choose
-              to save results to a project.
+              - <span className="font-medium text-slate-900">Tool records:</span> selected tool outputs if you choose to
+              save results to a project.
             </li>
             <li>
               - <span className="font-medium text-slate-900">Contact data:</span> name, email, subject, and message
@@ -68,7 +83,13 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">4. Legal Bases (UK GDPR / GDPR Style)</h2>
+          <h2 className="text-xl font-semibold text-slate-900">4. Legal Bases (KVKK and International Practice)</h2>
+          <p>
+            Under KVKK, processing may rely on conditions such as: establishment or performance of a contract, legal
+            obligation, legitimate interest (where not overridden by your interests), explicit consent where
+            required, or other bases set out in the law. Where GDPR or other regimes apply to certain users, comparable
+            concepts (contract, legitimate interests, consent, legal obligation) may apply in parallel.
+          </p>
           <ul className="space-y-1">
             <li>- Contract: to provide account and platform features you request.</li>
             <li>- Legitimate interests: to secure, operate, and improve the website.</li>
@@ -102,8 +123,10 @@ export default function PrivacyPolicyPage() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">7. International Transfers</h2>
           <p>
-            Data may be processed in countries outside your own. Where required, appropriate safeguards are used by
-            service providers (for example, contractual transfer mechanisms and security controls).
+            Infrastructure providers may process data in the European Economic Area, the United States, or other
+            regions. Where personal data is transferred outside Türkiye, we rely on appropriate safeguards permitted
+            under KVKK (such as the data importer&apos;s commitment to adequate protection, standard contractual clauses,
+            or other mechanisms required by law) and contractual security requirements.
           </p>
         </div>
 
@@ -117,33 +140,40 @@ export default function PrivacyPolicyPage() {
 
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">9. Your Privacy Rights</h2>
-          <p>Depending on your jurisdiction, you may have rights to:</p>
+          <p>
+            If you are located in Türkiye or your data is processed under KVKK, you may exercise rights under Law No.
+            6698, including (where applicable) the right to learn whether your personal data is processed, to request
+            information, to obtain a copy, to request correction or deletion, to object to outcomes exclusively produced
+            by automated processing, to request data portability, to claim compensation for unlawful processing, and to
+            lodge a complaint with the Turkish Personal Data Protection Authority (Kişisel Verileri Koruma Kurulu).
+          </p>
+          <p>Users in other jurisdictions may have comparable rights under local law.</p>
           <ul className="space-y-1">
             <li>- Access, correct, or delete personal data.</li>
             <li>- Restrict or object to processing in certain cases.</li>
             <li>- Data portability where applicable.</li>
             <li>- Withdraw consent where processing is consent-based.</li>
-            <li>- Lodge a complaint with your local supervisory authority.</li>
+            <li>- Lodge a complaint with the competent supervisory authority.</li>
           </ul>
-          <p>
-            UK users can complain to the Information Commissioner&apos;s Office (ICO). California users may have CCPA/CPRA
-            rights under applicable law.
-          </p>
         </div>
 
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">10. Security</h2>
           <p>
-            Reasonable technical and organisational safeguards are used to protect data. However, no internet
-            transmission or storage system can be guaranteed 100% secure.
+            We apply reasonable technical and organisational measures appropriate to the nature of the Service (for
+            example access controls, encryption in transit where supported by providers, and least-privilege
+            practices). Because the Service is not intended for highly confidential engineering files or bulk uploads,
+            you should not treat it as a classified or secure document repository. No internet transmission or storage
+            system can be guaranteed 100% secure.
           </p>
         </div>
 
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">11. Children&apos;s Privacy</h2>
           <p>
-            This website is not intended for children under 13 and is not directed to minors for independent account
-            use.
+            The Service is intended for professional and educational use by adults and supervised learners. It is not
+            directed at young children for independent account registration. If you are a parent or guardian in
+            Türkiye, please supervise minors&apos; use of online services in line with applicable law.
           </p>
         </div>
 
@@ -157,11 +187,11 @@ export default function PrivacyPolicyPage() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">13. Related Legal Pages</h2>
           <p>
-            Please also review our{" "}
+            Governing law and jurisdiction for use of the Service are set out in the{" "}
             <Link href="/terms" className="font-semibold underline underline-offset-4">
               Terms of Use
-            </Link>{" "}
-            and{" "}
+            </Link>
+            . Please also review our{" "}
             <Link href="/disclaimer" className="font-semibold underline underline-offset-4">
               Disclaimer
             </Link>
@@ -170,7 +200,7 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Last updated: 6 April 2026. This page is general information and is not legal advice.
+          Last updated: 12 April 2026. This page is general information and is not legal advice.
         </p>
       </section>
     </div>

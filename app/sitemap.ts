@@ -1,8 +1,9 @@
 ﻿import type { MetadataRoute } from "next";
 
 import { getArticleSlugs, getToolSlugs } from "@/lib/data-layer";
+import { getSiteUrl } from "@/lib/site-url";
 
-const baseUrl = "https://geotechnical-insights-hub.example";
+const baseUrl = getSiteUrl();
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
@@ -12,11 +13,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/tools",
     "/blog",
     "/contact",
-    "/account",
-    "/signup",
-    "/login",
-    "/forgot-password",
-    "/reset-password",
     "/terms",
     "/privacy-policy",
     "/disclaimer",

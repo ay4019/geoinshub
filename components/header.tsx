@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import { useSubscription } from "@/components/subscription-context";
 import { isGuideCapturePath } from "@/lib/guide-capture";
@@ -52,9 +52,12 @@ export function Header() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const showSignedInChrome = guideCapture || (supabaseReady && isAuthenticated);
   const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenuOnRouteChange = useEffectEvent(() => {
+    setMenuOpen(false);
+  });
 
   useEffect(() => {
-    setMenuOpen(false);
+    closeMenuOnRouteChange();
   }, [pathname]);
 
   useEffect(() => {
@@ -244,5 +247,4 @@ export function Header() {
     </header>
   );
 }
-
 

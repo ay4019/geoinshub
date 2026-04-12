@@ -1,5 +1,5 @@
 {
-  "visits": 93,
+  "visits": 95,
   "toolUses": 125,
   "articleReads": 91,
   "toolBreakdown": {
@@ -9,7 +9,6 @@
     "traditional-bearing-capacity-methods": 9,
     "eurocode-7-bearing-resistance": 1,
     "integrated-settlement-analysis": 3,
-    "k0-earth-pressure": 3,
     "seed-idriss-liquefaction-screening": 19,
     "post-liquefaction-settlement": 4,
     "spt-corrections": 2,
@@ -20,6 +19,7 @@
     "eu-from-spt-butler-1975": 0,
     "effective-modulus-eprime-cohesive": 0,
     "eprime-from-spt-cohesionless": 0,
+    "k0-earth-pressure": 3,
     "modulus-from-cu": 6,
     "schmertmann-settlement": 1,
     "stress-distribution-21": 4,

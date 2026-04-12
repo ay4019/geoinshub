@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -534,8 +534,7 @@ export function OcrProfileTab({
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const unitWeightUnit = getDisplayUnit("kN/m3", unitSystem) ?? "kN/m3";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -561,6 +560,35 @@ export function OcrProfileTab({
     );
 
     previousUnitSystem.current = unitSystem;
+  });
+  const syncImportedRows = useEffectEvent(() => {
+    if (!importRows || importRows.length === 0) {
+      return;
+    }
+    setRows((current) => {
+      const template = current[0] ?? initialRows[0];
+      return importRows.map((item, index) => ({
+        ...template,
+        id: index + 1,
+        boreholeId: item.boreholeLabel || template.boreholeId,
+        sampleDepth:
+          item.sampleTopDepth === null
+            ? template.sampleDepth
+            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
+        gwtDepth:
+          item.gwtDepth === null || item.gwtDepth === undefined || !Number.isFinite(item.gwtDepth)
+            ? template.gwtDepth
+            : convertInputValueBetweenSystems(String(item.gwtDepth), "m", "metric", unitSystem),
+        unitWeight:
+          item.unitWeight === null || item.unitWeight === undefined || !Number.isFinite(item.unitWeight)
+            ? template.unitWeight
+            : convertInputValueBetweenSystems(String(item.unitWeight), "kN/m3", "metric", unitSystem),
+      }));
+    });
+  });
+
+  useEffect(() => {
+    syncUnitSystem();
   }, [unitSystem]);
 
   useEffect(() => {
@@ -588,29 +616,7 @@ export function OcrProfileTab({
   }, [globalGroundwaterDepth, globalUnitWeight, importedFromBoreholes]);
 
   useEffect(() => {
-    if (!importRows || importRows.length === 0) {
-      return;
-    }
-    setRows((current) => {
-      const template = current[0] ?? initialRows[0];
-      return importRows.map((item, index) => ({
-        ...template,
-        id: index + 1,
-        boreholeId: item.boreholeLabel || template.boreholeId,
-        sampleDepth:
-          item.sampleTopDepth === null
-            ? template.sampleDepth
-            : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
-        gwtDepth:
-          item.gwtDepth === null || item.gwtDepth === undefined || !Number.isFinite(item.gwtDepth)
-            ? template.gwtDepth
-            : convertInputValueBetweenSystems(String(item.gwtDepth), "m", "metric", unitSystem),
-        unitWeight:
-          item.unitWeight === null || item.unitWeight === undefined || !Number.isFinite(item.unitWeight)
-            ? template.unitWeight
-            : convertInputValueBetweenSystems(String(item.unitWeight), "kN/m3", "metric", unitSystem),
-      }));
-    });
+    syncImportedRows();
   }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<OcrProfileRow>) => {

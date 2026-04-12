@@ -1,7 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -492,8 +491,7 @@ export function CuFromSptProfileTab({
     });
     return map;
   }, [projectParameters]);
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -506,9 +504,8 @@ export function CuFromSptProfileTab({
     );
 
     previousUnitSystem.current = unitSystem;
-  }, [unitSystem]);
-
-  useEffect(() => {
+  });
+  const syncImportedRows = useEffectEvent(() => {
     if (!importRows || importRows.length === 0) {
       return;
     }
@@ -544,6 +541,14 @@ export function CuFromSptProfileTab({
         };
       });
     });
+  });
+
+  useEffect(() => {
+    syncUnitSystem();
+  }, [unitSystem]);
+
+  useEffect(() => {
+    syncImportedRows();
   }, [importRows, n60ByBoreholeDepth, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<CuFromSptRow>) => {
@@ -668,39 +673,33 @@ export function CuFromSptProfileTab({
     }
   };
 
-  const plotPoints: PlotPoint[] = useMemo(
-    () =>
-      rows
-        .map((row) => {
-          if (profileRowSoilRestricted(soilPolicyToolSlug, importRows, row.boreholeId, row.sampleDepth, unitSystem, parse)) {
-            return null;
-          }
-          const depthDisplay = parse(row.sampleDepth);
-          const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
-          if (!Number.isFinite(depthMetric) || depthMetric < 0) {
-            return null;
-          }
-          const pi = Math.max(0, parse(row.plasticityIndex));
-          const n60 = Math.max(0, parse(row.n60));
-          const f1 = interpolateStroudF1(pi);
-          const cuMetric = f1 * n60;
-          const cuDisplay = Number(convertInputValueBetweenSystems(String(cuMetric), "kPa", "metric", unitSystem));
-          return {
-            boreholeId: row.boreholeId?.trim() || "BH not set",
-            depth: depthDisplay,
-            pi,
-            n60,
-            f1,
-            cu: cuDisplay,
-          };
-        })
-        .filter((point): point is PlotPoint => point !== null),
-    [rows, unitSystem, soilPolicyToolSlug, importRows],
-  );
+  const plotPoints: PlotPoint[] = rows
+    .map((row) => {
+      if (profileRowSoilRestricted(soilPolicyToolSlug, importRows, row.boreholeId, row.sampleDepth, unitSystem, parse)) {
+        return null;
+      }
+      const depthDisplay = parse(row.sampleDepth);
+      const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
+      if (!Number.isFinite(depthMetric) || depthMetric < 0) {
+        return null;
+      }
+      const pi = Math.max(0, parse(row.plasticityIndex));
+      const n60 = Math.max(0, parse(row.n60));
+      const f1 = interpolateStroudF1(pi);
+      const cuMetric = f1 * n60;
+      const cuDisplay = Number(convertInputValueBetweenSystems(String(cuMetric), "kPa", "metric", unitSystem));
+      return {
+        boreholeId: row.boreholeId?.trim() || "BH not set",
+        depth: depthDisplay,
+        pi,
+        n60,
+        f1,
+        cu: cuDisplay,
+      };
+    })
+    .filter((point): point is PlotPoint => point !== null);
 
-  const reportTableRows: Array<Record<string, string>> = useMemo(
-    () =>
-      rows.map((row) => {
+  const reportTableRows: Array<Record<string, string>> = rows.map((row) => {
         const soilRestricted = profileRowSoilRestricted(
           soilPolicyToolSlug,
           importRows,
@@ -737,9 +736,7 @@ export function CuFromSptProfileTab({
           f1: f1.toFixed(2),
           [cuKey]: Number.isFinite(cuDisplay) ? cuDisplay.toFixed(2) : "—",
         };
-      }),
-    [rows, depthUnit, stressUnit, unitSystem, soilPolicyToolSlug, importRows],
-  );
+      });
 
   useEffect(() => {
     if (!onReportDataChange) {

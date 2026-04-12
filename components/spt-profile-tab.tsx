@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -519,17 +519,7 @@ export function SptProfileTab({
   const shouldLockImportedFields = isProjectLocked && hasImportedSelection;
   const useProjectPerSampleGwtGamma = shouldLockImportedFields;
   const lockHint = "Locked from Projects and Boreholes. Edit values in Account > Projects.";
-
-  useEffect(() => {
-    const syncLockState = () => setIsProjectLocked(isActiveProjectToolLocked());
-    syncLockState();
-    window.addEventListener("gih:active-project-changed", syncLockState);
-    return () => {
-      window.removeEventListener("gih:active-project-changed", syncLockState);
-    };
-  }, []);
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -548,9 +538,8 @@ export function SptProfileTab({
     );
 
     previousUnitSystem.current = unitSystem;
-  }, [unitSystem]);
-
-  useEffect(() => {
+  });
+  const syncImportedRows = useEffectEvent(() => {
     if (!importRows || importRows.length === 0) {
       return;
     }
@@ -573,6 +562,23 @@ export function SptProfileTab({
         };
       });
     });
+  });
+
+  useEffect(() => {
+    const syncLockState = () => setIsProjectLocked(isActiveProjectToolLocked());
+    syncLockState();
+    window.addEventListener("gih:active-project-changed", syncLockState);
+    return () => {
+      window.removeEventListener("gih:active-project-changed", syncLockState);
+    };
+  }, []);
+
+  useEffect(() => {
+    syncUnitSystem();
+  }, [unitSystem]);
+
+  useEffect(() => {
+    syncImportedRows();
   }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<SptProfileRow>) => {

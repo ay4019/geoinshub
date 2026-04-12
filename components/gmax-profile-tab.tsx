@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -637,8 +637,7 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
   const velocityUnit = getDisplayUnit("m/s", unitSystem) ?? "m/s";
   const unitWeightUnit = getDisplayUnit("kN/m3", unitSystem) ?? "kN/m3";
   const gmaxUnit = getDisplayUnit("MPa", unitSystem) ?? "MPa";
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -653,9 +652,8 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
     );
 
     previousUnitSystem.current = unitSystem;
-  }, [unitSystem]);
-
-  useEffect(() => {
+  });
+  const syncImportedRows = useEffectEvent(() => {
     if (!importRows || importRows.length === 0) {
       return;
     }
@@ -675,6 +673,14 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
             : convertInputValueBetweenSystems(String(item.unitWeight), "kN/m3", "metric", unitSystem),
       }));
     });
+  });
+
+  useEffect(() => {
+    syncUnitSystem();
+  }, [unitSystem]);
+
+  useEffect(() => {
+    syncImportedRows();
   }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<GmaxProfileRow>) => {
@@ -1047,7 +1053,6 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
 </section>
   );
 }
-
 
 
 

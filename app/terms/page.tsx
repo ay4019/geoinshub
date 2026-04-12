@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms of Use",
-  description: "Detailed terms of use for Geotechnical Insights Hub.",
+  description: "Terms of use for Geotechnical Insights Hub, published from Türkiye (Turkey).",
 };
 
 export default function TermsPage() {
@@ -13,8 +13,9 @@ export default function TermsPage() {
 
       <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700 shadow-sm">
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
-          Important: This website is for education, preliminary screening, and technical understanding only. It is not
-          a substitute for project-specific professional engineering services.
+          Important: This website is published from the Republic of Türkiye (Turkey). It is for education, preliminary
+          screening, and technical understanding only. It is not a substitute for project-specific professional
+          engineering services.
         </p>
 
         <div className="space-y-2">
@@ -72,14 +73,35 @@ export default function TermsPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">6. Account and Data Accuracy</h2>
+          <h2 className="text-xl font-semibold text-slate-900">6. Account, Inputs, and Confidentiality</h2>
           <p>
             If you create an account, you are responsible for maintaining confidentiality of your credentials and for
             all actions taken under your account.
           </p>
           <p>
-            You are responsible for the quality and correctness of project, borehole, and sample data entered into the
-            platform.
+            <span className="font-medium text-slate-900">No general file uploads.</span> The Service does not provide
+            a facility to upload files, borehole logs, laboratory PDFs, drawings, or other attachments. Data you store on
+            the platform is limited to information you enter into forms and fields (for example numeric inputs, text
+            labels, and tool outputs you choose to save). If this ever changes, it will be described in these Terms and
+            in the Privacy Policy.
+          </p>
+          <p>
+            <span className="font-medium text-slate-900">Do not enter confidential or restricted information.</span> You
+            must not enter trade secrets, legally privileged material, classified information, personal data of third
+            parties beyond what is necessary for your own account, client-identifying project titles, exact site
+            addresses, or any content you are contractually or legally obliged to keep confidential. You warrant that
+            you have the right to submit any data you enter and that doing so does not breach any duty owed to an
+            employer, client, or third party.
+          </p>
+          <p>
+            <span className="font-medium text-slate-900">Project and borehole names are convenience labels only.</span>{" "}
+            Fields such as project name or borehole identifier are provided solely to help you organise your workspace
+            and avoid mixing records inside the application. They are not intended to carry real project codes, contract
+            identifiers, or sensitive site naming. Use neutral, non-identifying labels where possible.
+          </p>
+          <p>
+            You remain solely responsible for the quality, correctness, legality, and confidentiality classification
+            of all data you enter, and for any decision to use the Service for a given purpose.
           </p>
         </div>
 
@@ -89,6 +111,7 @@ export default function TermsPage() {
           <ul className="space-y-1">
             <li>- Misuse, attack, or attempt unauthorized access to the website or its infrastructure.</li>
             <li>- Use the site for unlawful purposes, harmful automation, or abusive traffic patterns.</li>
+            <li>- Attempt to upload or inject files or payloads where the Service does not expressly allow it.</li>
             <li>- Reproduce or redistribute content in a way that infringes intellectual property rights.</li>
           </ul>
         </div>
@@ -117,16 +140,18 @@ export default function TermsPage() {
             completeness, merchantability, fitness for purpose, or non-infringement.
           </p>
           <p>
-            To the maximum extent permitted by law, the owner is not liable for direct, indirect, incidental,
-            consequential, professional, contractual, or economic losses arising from use of the site.
+            To the maximum extent permitted by applicable law in the Republic of Türkiye (Turkey), the operator is not
+            liable for direct, indirect, incidental, consequential, professional, contractual, or economic losses arising
+            from use of the site.
           </p>
         </div>
 
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">11. Indemnity</h2>
           <p>
-            You agree to indemnify and hold harmless the website owner from claims, liabilities, damages, and costs
-            arising from your misuse of the site or your project use of site outputs.
+            You agree to indemnify and hold harmless the operator from claims, liabilities, damages, and costs arising
+            from your misuse of the site, from data you were not entitled to enter, or from your project use of site
+            outputs.
           </p>
         </div>
 
@@ -146,10 +171,15 @@ export default function TermsPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">13. Governing Law</h2>
+          <h2 className="text-xl font-semibold text-slate-900">13. Governing Law and Jurisdiction</h2>
           <p>
-            Unless mandatory local consumer law requires otherwise, these Terms are governed by the laws of England and
-            Wales.
+            These Terms are governed by the laws of the Republic of Türkiye (Turkey), without regard to conflict-of-law
+            rules that would apply another jurisdiction&apos;s law, except where mandatory rules of Turkish law (including
+            consumer protection rules that cannot be contractually waived) require otherwise.
+          </p>
+          <p>
+            Subject to those mandatory rules, exclusive jurisdiction for disputes arising from or relating to these
+            Terms or the Service lies with the courts and enforcement offices of the Republic of Türkiye.
           </p>
         </div>
 
@@ -165,7 +195,7 @@ export default function TermsPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Last updated: 6 April 2026. This page is general information and is not legal advice.
+          Last updated: 12 April 2026. This page is general information and is not legal advice.
         </p>
       </section>
     </div>

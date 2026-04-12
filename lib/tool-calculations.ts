@@ -867,7 +867,7 @@ const calculators: Record<string, Calculator> = {
         method === "two-to-one"
           ? "The 2:1 method assumes a 2 vertical to 1 horizontal load spread and gives an average stress over the expanded area."
           : method === "thirty-degree"
-            ? "The 30-degree method spreads the loaded area using side slopes defined by tan(30Â°) and returns an average stress over that area."
+            ? "The 30-degree method spreads the loaded area using side slopes defined by tan(30°) and returns an average stress over that area."
             : "The Boussinesq option numerically integrates the elastic point-load solution over the loaded rectangle and reports the centreline stress at the selected depth.",
       ],
       warnings: baseWarnings(),
@@ -1653,4 +1653,3 @@ export function calculateBySlug(slug: string, values: FormValues): CalculationRe
 
   return calculator(values);
 }
-

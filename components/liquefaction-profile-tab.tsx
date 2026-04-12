@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
@@ -50,7 +49,6 @@ export function LiquefactionProfileTab({
   importRows,
   initialMethod = "idriss-boulanger-2008",
 }: LiquefactionProfileTabProps) {
-  const router = useRouter();
   const [method, setMethod] = useState<LiquefactionMethod>(initialMethod);
   const [magnitude, setMagnitude] = useState("7.5");
   const [peakGroundAcceleration, setPeakGroundAcceleration] = useState("0.30");
@@ -210,76 +208,6 @@ export function LiquefactionProfileTab({
 
   const removeRow = (id: number) => {
     setRows((current) => (current.length > 1 ? current.filter((row) => row.id !== id) : current));
-  };
-
-  const saveAndGoToSettlementTool = () => {
-    const payloadRows = rows
-      .map((row) => {
-        const boreholeId = (row.boreholeId || "").trim();
-        const sampleDepth = parse(row.sampleDepth);
-        const hasDepthIssue = !Number.isFinite(sampleDepth) || sampleDepth <= 0;
-        const rawResult =
-          !hasDepthIssue && parse(magnitude) > 0
-            ? computeLiquefactionScreening({
-                method,
-                magnitude: parse(magnitude),
-                peakGroundAcceleration: parse(peakGroundAcceleration),
-                groundwaterDepth: parse(groundwaterDepth),
-                unitWeight: parse(row.unitWeight),
-                finesContent: parse(row.finesContent),
-                sampleDepth,
-                n160: parse(row.n160),
-              })
-            : null;
-
-        const checkStatus = hasDepthIssue
-          ? "Invalid sample depth"
-          : sampleDepth > 20
-            ? "Outside sample depth range"
-            : sampleDepth <= parse(groundwaterDepth)
-              ? "Above GWT"
-              : parse(row.n160) > 30
-                ? "(N1)60 > 30"
-                : "Analysis";
-
-        if (!boreholeId || checkStatus !== "Analysis" || !rawResult || !Number.isFinite(rawResult.fos)) {
-          return null;
-        }
-
-        const depthMetricRaw = convertInputValueBetweenSystems(String(sampleDepth), "m", unitSystem, "metric");
-        const depthMetric = Number(depthMetricRaw);
-        if (!Number.isFinite(depthMetric)) {
-          return null;
-        }
-
-        const n160 = parse(row.n160);
-        if (!Number.isFinite(n160) || n160 <= 0) {
-          return null;
-        }
-
-        return {
-          boreholeId,
-          sampleDepthM: Number(depthMetric.toFixed(2)),
-          correctedSptResistance: Number(n160.toFixed(2)), // (N1)60 as entered in this tool
-          factorOfSafety: Number(rawResult.fos.toFixed(2)),
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item));
-
-    if (typeof window !== "undefined" && typeof window.localStorage !== "undefined") {
-      window.localStorage.setItem(
-        "gih:handoff:post-liquefaction-settlement:v1",
-        JSON.stringify({
-          version: 1,
-          savedAt: new Date().toISOString(),
-          source: "liquefaction-screening",
-          rows: payloadRows,
-        }),
-      );
-      window.dispatchEvent(new Event("gih:post-liquefaction-handoff"));
-    }
-
-    router.push("/tools/post-liquefaction-settlement");
   };
 
   return (
@@ -601,22 +529,6 @@ export function LiquefactionProfileTab({
               }}
             >
               Export Excel
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Next step</p>
-          <p className="mt-1 text-sm text-slate-700">
-            Send the analysed sample list to <span className="font-semibold">Liquefiable Soil Settlement</span>.
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Transfers <span className="font-semibold text-slate-700">FS</span> and <span className="font-semibold text-slate-700">(N1)60</span> for rows that are in
-            Analysis state, then opens the settlement tool.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" className="btn-base px-3 py-1.5 text-sm" onClick={saveAndGoToSettlementTool}>
-              Save and go to Liquefiable Soil Settlement
             </button>
           </div>
         </div>

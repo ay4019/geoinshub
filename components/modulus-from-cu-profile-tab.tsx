@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -96,7 +96,7 @@ function parse(value: string): number {
 
 function sanitiseBoreholeLabel(value: string | null | undefined): string {
   const cleaned = (value ?? "")
-    .replace(/[â–¼â–¾â–¿â–²â–³]/g, "")
+    .replace(/[▼▾▿▲△]/g, "")
     .replace(/\s+/g, " ")
     .trim();
   return cleaned || "BH not set";
@@ -308,8 +308,7 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows, soilPolicyTool
   const previousUnitSystem = useRef(unitSystem);
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -323,9 +322,8 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows, soilPolicyTool
     );
 
     previousUnitSystem.current = unitSystem;
-  }, [unitSystem]);
-
-  useEffect(() => {
+  });
+  const syncImportedRows = useEffectEvent(() => {
     if (!importRows || importRows.length === 0) {
       return;
     }
@@ -349,6 +347,14 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows, soilPolicyTool
         };
       });
     });
+  });
+
+  useEffect(() => {
+    syncUnitSystem();
+  }, [unitSystem]);
+
+  useEffect(() => {
+    syncImportedRows();
   }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<ProfileRow>) => {
@@ -646,4 +652,3 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows, soilPolicyTool
 </section>
   );
 }
-

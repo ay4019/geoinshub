@@ -63,7 +63,7 @@ export async function getSubscriptionProfileAction(): Promise<SubscriptionProfil
   };
 }
 
-/** Consume one report slot (matrix PDF or tool report PDF). Bronze: daily cap; Silver/Gold: unlimited. */
+/** Consume one slot when the user completes a tool Report PDF (Create report → Download PDF). Bronze: daily cap; Silver/Gold: unlimited. Not used for Projects → parameter matrix Generate report. */
 export async function consumeReportGenerationAction(): Promise<QuotaResult> {
   const auth = await requireUserId();
   if ("error" in auth) {
@@ -94,7 +94,7 @@ export async function consumeReportGenerationAction(): Promise<QuotaResult> {
   if (current >= BRONZE_MAX_REPORTS_PER_DAY) {
     return {
       ok: false,
-      message: `Daily report limit reached (${BRONZE_MAX_REPORTS_PER_DAY} per day on Bronze). Upgrade to Silver or Gold for unlimited reports.`,
+      message: `Daily report limit reached (${BRONZE_MAX_REPORTS_PER_DAY} per day on Bronze). Ask the site admin to assign Silver or Gold for higher limits.`,
     };
   }
 

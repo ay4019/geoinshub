@@ -6,7 +6,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
   title: "Admin",
-  description: "Site administration — subscription tiers.",
+  description: "Site administration - subscription tiers.",
   robots: { index: false, follow: false },
 };
 

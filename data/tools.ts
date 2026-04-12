@@ -1284,7 +1284,7 @@ const liquefactionTools: ToolDefinition[] = [
   },
   {
     slug: "post-liquefaction-settlement",
-    status: "active",
+    status: "archived",
     title: "Liquefiable Soil Settlement",
     category: "Liquefaction",
     shortDescription:

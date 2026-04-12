@@ -45,7 +45,7 @@ function SubscriptionPlanColumn({
         {features.map((line) => (
           <li key={line} className="flex gap-2">
             <span className="mt-0.5 shrink-0 text-emerald-800/90" aria-hidden>
-              ✓
+              +
             </span>
             <span className="text-left opacity-95">{line}</span>
           </li>
@@ -59,23 +59,23 @@ const bronzeFeatures = [
   `Up to ${BRONZE_MAX_PROJECTS} projects`,
   `Up to ${BRONZE_MAX_BOREHOLES_PER_PROJECT} borehole IDs per project`,
   `Up to ${BRONZE_MAX_SAMPLES_PER_BOREHOLE} samples per borehole`,
-  `Integrated parameter reports — max ${BRONZE_MAX_REPORTS_PER_DAY} PDFs per day (Europe/Istanbul)`,
-  "Save analyses and matrix to the cloud",
-  "AI profile interpretation — not included",
-  "Further questions in blog research articles — Silver or Gold only",
+  `Tools - Report tab: Create report -> Download PDF up to ${BRONZE_MAX_REPORTS_PER_DAY} times per day (Europe/Istanbul)`,
+  "Save analyses and project data to the cloud",
+  "AI profile interpretation - not included",
+  "Further questions in blog research articles - Silver or Gold only",
 ] as const;
 
 const silverFeatures = [
   "Unlimited projects and boreholes",
-  "Unlimited integrated reports and PDF exports",
+  "Unlimited Create report -> Download PDF use in tools",
   "Further questions in blog research articles (guided follow-ups)",
   "All Bronze features included",
 ] as const;
 
 const goldFeatures = [
-  "Unlimited AI analysis for integrated reports and profile tools",
-  "Unlimited projects, reports, and exports",
-  "Priority use of new features as they ship",
+  "Unlimited AI analysis in profile tools (Analyse with AI)",
+  "Projects - parameter matrix Generate report (AI engineering report): Gold only; weekly quota may apply",
+  "Unlimited projects, tool PDFs, and exports; priority access to new features",
   "All Silver features included",
 ] as const;
 
@@ -87,7 +87,7 @@ export function MembershipTierColumns({
   tierLoading: boolean;
 }) {
   if (tierLoading) {
-    return <p className="text-sm text-slate-500">Loading membership tiers…</p>;
+    return <p className="text-sm text-slate-500">Loading membership tiers...</p>;
   }
   return (
     <div className="grid gap-4 md:grid-cols-3">

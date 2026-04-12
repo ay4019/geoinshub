@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Disclaimer",
-  description: "Engineering and liability disclaimer for Geotechnical Insights Hub.",
+  description: "Engineering and liability disclaimer for Geotechnical Insights Hub (Türkiye).",
 };
 
 export default function DisclaimerPage() {
@@ -13,8 +13,9 @@ export default function DisclaimerPage() {
 
       <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700 shadow-sm">
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
-          All tools and content are indicative and simplified. They must not be used directly as final project design
-          values without independent professional engineering verification.
+          Geotechnical Insights Hub is published from the Republic of Türkiye (Turkey). All tools and content are
+          indicative and simplified. They must not be used directly as final project design values without independent
+          professional engineering verification.
         </p>
 
         <div className="space-y-2">
@@ -57,7 +58,7 @@ export default function DisclaimerPage() {
           <h2 className="text-xl font-semibold text-slate-900">4. No Professional Duty of Care</h2>
           <p>
             Use of this website does not establish professional engagement, advisory duty, or consultant-client
-            relationship between the site owner and any user.
+            relationship between the operator and any user.
           </p>
         </div>
 
@@ -72,9 +73,9 @@ export default function DisclaimerPage() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">6. Limitation of Liability</h2>
           <p>
-            To the fullest extent permitted by law, the owner disclaims liability for direct, indirect, incidental,
-            consequential, financial, technical, professional, regulatory, and project-delay losses arising from use of
-            this site.
+            To the fullest extent permitted by applicable law in the Republic of Türkiye (Turkey), the operator
+            disclaims liability for direct, indirect, incidental, consequential, financial, technical, professional,
+            regulatory, and project-delay losses arising from use of this site.
           </p>
           <p>
             This includes losses connected to parameter selection, incorrect assumptions, unsuitable method choice,
@@ -83,7 +84,22 @@ export default function DisclaimerPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">7. Third-Party Services and External Dependencies</h2>
+          <h2 className="text-xl font-semibold text-slate-900">7. Data You Enter: No Uploads; Non-Confidential Use</h2>
+          <p>
+            The website does not offer a general document or file upload feature. Information processed through the
+            Service is what you type into forms and fields (and saved tool outputs you choose to store), not uploaded
+            borehole logs, drawings, or attachments.
+          </p>
+          <p>
+            You must not enter confidential, privileged, classified, or contractually restricted information, nor use
+            project or borehole name fields to encode real client names, exact site addresses, or proprietary identifiers.
+            Those labels exist only for your convenience inside the application to keep records distinct. You accept full
+            responsibility if you enter data you were obliged to protect.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-slate-900">8. Third-Party Services and External Dependencies</h2>
           <p>
             The site may rely on external providers (for authentication, hosting, and communications). Service
             disruptions, outages, or third-party failures may affect functionality and data availability.
@@ -91,7 +107,7 @@ export default function DisclaimerPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">8. Legal and Privacy Cross-Reference</h2>
+          <h2 className="text-xl font-semibold text-slate-900">9. Legal and Privacy Cross-Reference</h2>
           <p>
             Additional legal terms are available in the{" "}
             <Link href="/terms" className="font-semibold underline underline-offset-4">
@@ -106,7 +122,7 @@ export default function DisclaimerPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Last updated: 6 April 2026. This page is general information and is not legal advice.
+          Last updated: 12 April 2026. This page is general information and is not legal advice.
         </p>
       </section>
     </div>

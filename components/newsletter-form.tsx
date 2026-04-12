@@ -16,7 +16,7 @@ export function NewsletterForm() {
     startTransition(async () => {
       const response = await subscribeNewsletterAction(email);
       if (response.ok) {
-        setMessage("Subscribed. Your email was saved locally for v1 testing.");
+        setMessage("You're subscribed. We'll use this address for product and content updates.");
         setEmail("");
       } else {
         setMessage("Please enter a valid email address.");

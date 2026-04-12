@@ -270,8 +270,8 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
         {mode === "signup" ? (
           <div className="space-y-3 border-t border-slate-200 pt-5">
             <p className="text-sm leading-relaxed text-slate-600">
-              Compare membership tiers. New accounts start on Bronze; Silver and Gold unlock higher limits when you
-              upgrade.
+              Compare membership tiers. New accounts can be placed on Bronze first, and Silver or Gold can be assigned
+              manually later by the site admin.
             </p>
             <MembershipTierColumns effectiveTier="none" tierLoading={false} />
           </div>

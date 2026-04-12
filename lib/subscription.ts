@@ -11,7 +11,7 @@ export const BRONZE_MAX_BOREHOLES_PER_PROJECT = 5;
 export const BRONZE_MAX_SAMPLES_PER_BOREHOLE = 30;
 export const BRONZE_MAX_REPORTS_PER_DAY = 15;
 
-/** Gold (non-admin): max Integrated Parameter Matrix AI report generations per calendar week (Europe/Istanbul, Mon–Sun). */
+/** Gold (non-admin): max parameter matrix AI report generations (Projects → Generate report) per calendar week (Europe/Istanbul, Mon–Sun). */
 export const MATRIX_AI_REPORTS_PER_WEEK = 5;
 
 /**

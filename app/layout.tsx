@@ -4,6 +4,7 @@ import { IBM_Plex_Sans, Lora } from "next/font/google";
 import { AppProviders } from "@/components/app-providers";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -20,8 +21,10 @@ const serif = Lora({
   weight: ["500", "600", "700"],
 });
 
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://geotechnical-insights-hub.example"),
+  metadataBase: new URL(siteUrl),
   title: {
     default: "Geotechnical Insights Hub",
     template: "%s | Geotechnical Insights Hub",
@@ -32,7 +35,7 @@ export const metadata: Metadata = {
     title: "Geotechnical Insights Hub",
     description:
       "Geotechnical articles and practical engineering tools for preliminary assessment and learning.",
-    url: "https://geotechnical-insights-hub.example",
+    url: siteUrl,
     siteName: "Geotechnical Insights Hub",
     type: "website",
   },

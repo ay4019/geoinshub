@@ -1,18 +1,26 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { Resend } from "resend";
+
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface ContactMessagePayload {
   name: string;
   email: string;
   subject: string;
   message: string;
+  company?: string;
 }
 
 export interface ContactMessageResult {
   ok: boolean;
   message: string;
 }
+
+const CONTACT_COOLDOWN_COOKIE = "gih_contact_cooldown";
+const CONTACT_COOLDOWN_SECONDS = 90;
+const CONTACT_MAX_PER_HOUR = 3;
 
 function isLikelyEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -28,10 +36,15 @@ function escapeHtml(value: string): string {
 }
 
 export async function sendContactMessageAction(payload: ContactMessagePayload): Promise<ContactMessageResult> {
+  const company = payload.company?.trim() ?? "";
   const name = payload.name.trim();
   const email = payload.email.trim();
   const subject = payload.subject.trim();
   const message = payload.message.trim();
+
+  if (company) {
+    return { ok: true, message: "Your message has been sent successfully." };
+  }
 
   if (name.length < 2) {
     return { ok: false, message: "Name is required." };
@@ -56,11 +69,38 @@ export async function sendContactMessageAction(payload: ContactMessagePayload): 
   if (!apiKey || !fromEmail || !toEmail) {
     return {
       ok: false,
-      message: "Contact email is not configured yet. Please set RESEND_API_KEY, CONTACT_FROM_EMAIL, and CONTACT_TO_EMAIL.",
+      message: "Contact email is not configured. Please set RESEND_API_KEY, CONTACT_FROM_EMAIL, and CONTACT_TO_EMAIL.",
     };
   }
 
   try {
+    const cookieStore = await cookies();
+    if (cookieStore.get(CONTACT_COOLDOWN_COOKIE)?.value === "1") {
+      return {
+        ok: false,
+        message: "Please wait a moment before sending another message.",
+      };
+    }
+
+    try {
+      const admin = createSupabaseAdminClient();
+      const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count } = await admin
+        .from("contact_message_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("email", email.toLowerCase())
+        .gte("created_at", since);
+
+      if ((count ?? 0) >= CONTACT_MAX_PER_HOUR) {
+        return {
+          ok: false,
+          message: "Too many messages were sent from this email recently. Please try again in about an hour.",
+        };
+      }
+    } catch {
+      // Continue with cookie throttling when contact logs are not available yet.
+    }
+
     const resend = new Resend(apiKey);
 
     const safeName = escapeHtml(name);
@@ -94,9 +134,27 @@ export async function sendContactMessageAction(payload: ContactMessagePayload): 
       return { ok: false, message: "Message could not be sent. Please try again." };
     }
 
+    cookieStore.set(CONTACT_COOLDOWN_COOKIE, "1", {
+      httpOnly: true,
+      maxAge: CONTACT_COOLDOWN_SECONDS,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+
+    try {
+      const admin = createSupabaseAdminClient();
+      await admin.from("contact_message_logs").insert({
+        email: email.toLowerCase(),
+        subject,
+        status: "sent",
+      });
+    } catch {
+      // Best-effort logging only.
+    }
+
     return { ok: true, message: "Your message has been sent successfully." };
   } catch {
     return { ok: false, message: "Message could not be sent. Please try again." };
   }
 }
-

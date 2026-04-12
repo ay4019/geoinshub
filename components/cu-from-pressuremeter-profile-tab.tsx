@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -198,8 +198,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
 
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -213,9 +212,8 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
     );
 
     previousUnitSystem.current = unitSystem;
-  }, [unitSystem]);
-
-  useEffect(() => {
+  });
+  const syncImportedRows = useEffectEvent(() => {
     if (!importRows || importRows.length === 0) {
       return;
     }
@@ -231,6 +229,14 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
             : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
       }));
     });
+  });
+
+  useEffect(() => {
+    syncUnitSystem();
+  }, [unitSystem]);
+
+  useEffect(() => {
+    syncImportedRows();
   }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<CuFromPressuremeterRow>) => {

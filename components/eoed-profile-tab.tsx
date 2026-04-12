@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -401,8 +401,7 @@ export function EoedProfileTab({ unitSystem, importRows, soilPolicyToolSlug }: E
   const depthUnit = getDisplayUnit("m", unitSystem) ?? "m";
   const eoedUnit = getDisplayUnit("MPa", unitSystem) ?? "MPa";
   const mvUnit = getDisplayUnit("m2/MN", unitSystem) ?? "m2/MN";
-
-  useEffect(() => {
+  const syncUnitSystem = useEffectEvent(() => {
     if (previousUnitSystem.current === unitSystem) {
       return;
     }
@@ -416,9 +415,8 @@ export function EoedProfileTab({ unitSystem, importRows, soilPolicyToolSlug }: E
     );
 
     previousUnitSystem.current = unitSystem;
-  }, [unitSystem]);
-
-  useEffect(() => {
+  });
+  const syncImportedRows = useEffectEvent(() => {
     if (!importRows || importRows.length === 0) {
       return;
     }
@@ -434,6 +432,14 @@ export function EoedProfileTab({ unitSystem, importRows, soilPolicyToolSlug }: E
             : convertInputValueBetweenSystems(String(item.sampleTopDepth), "m", "metric", unitSystem),
       }));
     });
+  });
+
+  useEffect(() => {
+    syncUnitSystem();
+  }, [unitSystem]);
+
+  useEffect(() => {
+    syncImportedRows();
   }, [importRows, unitSystem]);
 
   const updateRow = (id: number, patch: Partial<EoedProfileRow>) => {

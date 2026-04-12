@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const metadata: Metadata = {
   title: "Account",
   description: "Your Geotechnical Insights Hub account page.",
+  robots: { index: false, follow: false },
 };
 
 export default async function AccountPage({

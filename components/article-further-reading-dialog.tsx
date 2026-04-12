@@ -99,7 +99,7 @@ export function ArticleFurtherReadingDialog({ block }: { block: DialogBlock }) {
                   >
                     Open your account
                   </Link>{" "}
-                  to review your plan or upgrade.
+                  to review your plan or contact the site admin for a higher tier.
                 </p>
               </div>
             ) : block.preset === "hardening-soil-further-questions" ? (

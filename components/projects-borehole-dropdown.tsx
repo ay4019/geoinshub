@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -78,7 +78,7 @@ export function ProjectsBoreholeDropdown() {
     selectedBoreholeIds.includes(entry.representative.id),
   );
 
-  const loadProjects = async () => {
+  const loadProjects = useEffectEvent(async () => {
     if (!supabaseReady) {
       setIsAuthenticated(false);
       setProjects([]);
@@ -222,44 +222,45 @@ export function ProjectsBoreholeDropdown() {
       setStatusMessage(null);
     }
     setIsLoading(false);
-  };
+  });
 
   useEffect(() => {
     void loadProjects();
   }, [supabaseReady]);
 
-  useEffect(() => {
-    function onActiveSelectionChange() {
-      const stored = readActiveProjectBorehole();
-      if (!stored) {
-        setSelectedBoreholeIds([]);
-        return;
-      }
-      setSelectedProjectId((current) => (current || stored.projectId ? stored.projectId : current));
-      const project = projects.find((item) => item.id === stored.projectId) ?? null;
-      const grouped = groupProjectBoreholes(project);
-      const selectedLabels = new Set(
-        (stored.selectedBoreholes ?? [])
-          .map((item) => normaliseBoreholeLabel(item.boreholeLabel))
-          .filter(Boolean),
-      );
-      const nextSelectedIds = grouped
-        .filter((entry) => selectedLabels.has(normaliseBoreholeLabel(entry.boreholeLabel)))
-        .map((entry) => entry.representative.id);
-      if (nextSelectedIds.length > 0) {
-        setSelectedBoreholeIds(nextSelectedIds);
-        return;
-      }
-      const fallbackId =
-        grouped.find((entry) => entry.representative.id === stored.boreholeId)?.representative.id ??
-        grouped[0]?.representative.id ??
-        "";
-      setSelectedBoreholeIds(fallbackId ? [fallbackId] : []);
+  const syncStoredSelection = useEffectEvent(() => {
+    const stored = readActiveProjectBorehole();
+    if (!stored) {
+      setSelectedBoreholeIds([]);
+      return;
     }
+    setSelectedProjectId((current) => (current || stored.projectId ? stored.projectId : current));
+    const project = projects.find((item) => item.id === stored.projectId) ?? null;
+    const grouped = groupProjectBoreholes(project);
+    const selectedLabels = new Set(
+      (stored.selectedBoreholes ?? [])
+        .map((item) => normaliseBoreholeLabel(item.boreholeLabel))
+        .filter(Boolean),
+    );
+    const nextSelectedIds = grouped
+      .filter((entry) => selectedLabels.has(normaliseBoreholeLabel(entry.boreholeLabel)))
+      .map((entry) => entry.representative.id);
+    if (nextSelectedIds.length > 0) {
+      setSelectedBoreholeIds(nextSelectedIds);
+      return;
+    }
+    const fallbackId =
+      grouped.find((entry) => entry.representative.id === stored.boreholeId)?.representative.id ??
+      grouped[0]?.representative.id ??
+      "";
+    setSelectedBoreholeIds(fallbackId ? [fallbackId] : []);
+  });
 
-    window.addEventListener("gih:active-project-changed", onActiveSelectionChange);
+  useEffect(() => {
+    syncStoredSelection();
+    window.addEventListener("gih:active-project-changed", syncStoredSelection);
     return () => {
-      window.removeEventListener("gih:active-project-changed", onActiveSelectionChange);
+      window.removeEventListener("gih:active-project-changed", syncStoredSelection);
     };
   }, [projects]);
 

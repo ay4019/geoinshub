@@ -29,7 +29,7 @@ export function ReportGuestPanel() {
       return undefined;
     }
     if (effectiveTier === "none") {
-      return "AI analysis requires Gold membership. Sign up; new accounts start on Bronze, then you can upgrade.";
+      return "AI analysis requires Gold membership. Sign up first, then ask the site admin to assign a higher tier.";
     }
     return "AI analysis requires Gold membership.";
   }, [aiTierOk, effectiveTier, subscriptionLoading]);
@@ -59,8 +59,8 @@ export function ReportGuestPanel() {
                 >
                   sign up
                 </Link>{" "}
-                and choose a membership tier that fits you. Without signing up, you can still use the tools with manual
-                inputs only.
+                and wait for the site admin to assign the membership tier you need. Without signing up, you can still
+                use the tools with manual inputs only.
               </p>
             </div>
           ) : null}

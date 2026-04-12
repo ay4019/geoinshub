@@ -9,6 +9,7 @@ interface FormState {
   email: string;
   subject: string;
   message: string;
+  company: string;
 }
 
 const initialState: FormState = {
@@ -16,6 +17,7 @@ const initialState: FormState = {
   email: "",
   subject: "",
   message: "",
+  company: "",
 };
 
 export function ContactForm() {
@@ -125,6 +127,21 @@ export function ContactForm() {
           className="w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm outline-none transition-colors focus:border-slate-500"
         />
         {errors.subject ? <p className="mt-1 text-xs text-red-700">{errors.subject}</p> : null}
+      </div>
+
+      <div>
+        <label htmlFor="contact-company" className="sr-only">
+          Company
+        </label>
+        <input
+          id="contact-company"
+          type="text"
+          value={values.company}
+          onChange={(event) => setValues((prev) => ({ ...prev, company: event.target.value }))}
+          autoComplete="off"
+          tabIndex={-1}
+          className="hidden"
+        />
       </div>
 
       <div>

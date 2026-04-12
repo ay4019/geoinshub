@@ -56,7 +56,7 @@ export function validateBoreholeSampleAdd(
   if (Number.isFinite(maxB) && keys.size >= maxB) {
     return {
       ok: false,
-      message: `Each project can have at most ${maxB} boreholes on your tier. Add samples under an existing borehole ID or upgrade.`,
+      message: `Each project can have at most ${maxB} boreholes on your tier. Add samples under an existing borehole ID or ask the site admin for a higher tier.`,
     };
   }
   return { ok: true };

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -14,10 +14,13 @@ export function SavedBoreholesPreview({ compact = false }: SavedBoreholesPreview
   const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [selectedBorehole, setSelectedBorehole] = useState("bh-01");
+  const syncAuthState = useEffectEvent((nextValue: boolean) => {
+    setIsAuthenticated(nextValue);
+  });
 
   useEffect(() => {
     if (!supabaseReady) {
-      setIsAuthenticated(false);
+      syncAuthState(false);
       return;
     }
 
@@ -27,7 +30,7 @@ export function SavedBoreholesPreview({ compact = false }: SavedBoreholesPreview
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      setIsAuthenticated(Boolean(user));
+      syncAuthState(Boolean(user));
     };
 
     void syncAuth();
@@ -92,4 +95,3 @@ export function SavedBoreholesPreview({ compact = false }: SavedBoreholesPreview
     </section>
   );
 }
-

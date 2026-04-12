@@ -44,25 +44,19 @@ const guideImgReportTab =
   "mx-auto block h-auto w-full max-w-3xl object-contain object-top [max-height:min(44rem,88vh)] sm:[max-height:min(48rem,90vh)]";
 
 export function UserGuidePage() {
-  const [lang, setLang] = useState<"tr" | "en" | "de" | "es">("en");
+  const [lang, setLang] = useState<"tr" | "en" | "de" | "es">(() => {
+    if (typeof window === "undefined") {
+      return "en";
+    }
+    const stored = window.localStorage.getItem("gih:userGuideLang");
+    return stored === "en" || stored === "tr" || stored === "de" || stored === "es" ? stored : "en";
+  });
   const nonTrLang: "en" | "de" | "es" = lang === "de" || lang === "es" ? lang : "en";
   /** Turkish + English + German + Spanish (single source for headings, TOC, FAQ). */
   const L = (tr: string, en: string, de: string, es: string) =>
     lang === "tr" ? tr : nonTrLang === "de" ? de : nonTrLang === "es" ? es : en;
   /** English / German / Spanish only (used where Turkish lives in a separate `lang === "tr"` branch). */
   const t = (en: string, de: string, es: string) => (nonTrLang === "de" ? de : nonTrLang === "es" ? es : en);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const stored = window.localStorage.getItem("gih:userGuideLang");
-    if (stored === "en" || stored === "tr" || stored === "de" || stored === "es") {
-      setLang(stored);
-    } else {
-      setLang("en");
-    }
-  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -107,10 +101,10 @@ export function UserGuidePage() {
       "9. Ver análisis guardados",
     ),
     L(
-      "10. Entegre parametre matrisi",
-      "10. Integrated Parameter Matrix",
-      "10. Integrierte Parameter‑Matrix",
-      "10. Matriz integrada de parámetros",
+      "10. Parametre matrisi (Projects)",
+      "10. Parameter matrix (Projects)",
+      "10. Parameter‑Matrix (Projects)",
+      "10. Matriz de parámetros (Projects)",
     ),
     L("11. Sıkça sorulan sorular", "11. FAQ", "11. Häufige Fragen", "11. Preguntas frecuentes"),
   ];
@@ -304,21 +298,28 @@ export function UserGuidePage() {
                   <strong>Bronze:</strong> Tüm yeni üyeler bu seviyeden başlar. En fazla{" "}
                   <strong>{BRONZE_MAX_PROJECTS} proje</strong>, proje başına en fazla{" "}
                   <strong>{BRONZE_MAX_BOREHOLES_PER_PROJECT} borehole kimliği</strong>, borehole başına en fazla{" "}
-                  <strong>{BRONZE_MAX_SAMPLES_PER_BOREHOLE} örnek</strong> tanımlayabilirsiniz. Entegre parametre raporları
-                  için günde en fazla <strong>{BRONZE_MAX_REPORTS_PER_DAY} PDF</strong> (Avrupa/İstanbul takvimine göre)
-                  üretebilir; analizleri ve matrisi buluta kaydedebilirsiniz. Profil araçlarında{" "}
-                  <strong>AI yorumu</strong> bu planda yer almaz. Blog araştırma yazılarındaki{" "}
-                  <strong>Further questions</strong> (ek sorular) yalnızca Silver veya Gold ile sunulur.
+                  <strong>{BRONZE_MAX_SAMPLES_PER_BOREHOLE} örnek</strong> tanımlayabilirsiniz. Araçlarda{" "}
+                  <strong>Report</strong> sekmesinde <strong>Create report</strong> akışıyla tamamlanan{" "}
+                  <strong>Download PDF</strong> işlemi, Avrupa/İstanbul takvim günü başına en fazla{" "}
+                  <strong>{BRONZE_MAX_REPORTS_PER_DAY}</strong> kez kullanılabilir. Analizleri buluta kaydedebilirsiniz. Profil
+                  araçlarında <strong>AI yorumu</strong> (Analyse with AI) bu planda yer almaz. Projects’teki parametre
+                  matrisindeki <strong>Generate report</strong> (yapay zekâ mühendislik raporu) yalnızca{" "}
+                  <strong>Gold</strong> ile sunulur ve günlük 15 kotasından bağımsız, ayrı haftalık kota kullanır. Blog
+                  araştırma yazılarındaki <strong>Further questions</strong> (ek sorular) yalnızca Silver veya Gold ile
+                  sunulur.
                 </p>
                 <p>
-                  <strong>Silver:</strong> <strong>Sınırsız proje ve borehole</strong>; entegre raporlar ve PDF dışa aktarımda
-                  sınır yoktur. Blog araştırma içeriklerinde rehberli takip niteliğinde{" "}
-                  <strong>Further questions</strong> kullanılabilir. Bronze’daki tüm özellikler Silver’a dahildir.
+                  <strong>Silver:</strong> <strong>Sınırsız proje ve borehole</strong>; araçlarda{" "}
+                  <strong>Create report → Download PDF</strong> kullanımında günlük tavan yoktur. Parametre matrisi{" "}
+                  <strong>Generate report</strong> (AI) Silver’da yer almaz — yalnızca Gold. Blog araştırma içeriklerinde
+                  rehberli takip niteliğinde <strong>Further questions</strong> kullanılabilir. Bronze’daki tüm özellikler
+                  Silver’a dahildir.
                 </p>
                 <p>
-                  <strong>Gold:</strong> Entegre raporlar ve profil araçlarında <strong>sınırsız AI analizi</strong>; proje,
-                  rapor ve dışa aktarımda pratikte sınırsız kullanım. Yeni özelliklere öncelikli erişim ve Silver’daki tüm
-                  özellikler Gold kapsamındadır.
+                  <strong>Gold:</strong> Profil araçlarında <strong>sınırsız AI analizi</strong> (Analyse with AI). Projects’te
+                  parametre matrisinde <strong>Generate report</strong> (AI mühendislik raporu) Gold üyelikte açılır; haftalık
+                  kullanım kotası gösterilebilir. Araç PDF’leri ve projelerde pratikte sınırsız kullanım; yeni özelliklere
+                  öncelikli erişim. Silver’daki tüm özellikler Gold kapsamındadır.
                 </p>
                 <p className="text-slate-600">
                   <strong>Not:</strong> Araçları ve blogu hesap açmadan da gezebilir; bulut projesi, kayıtlı analiz ve üyelikle
@@ -539,31 +540,31 @@ export function UserGuidePage() {
                   )}{" "}
                   <strong>{BRONZE_MAX_SAMPLES_PER_BOREHOLE}</strong>{" "}
                   {t(
-                    "samples per borehole. Integrated parameter reports: up to",
-                    "Proben pro Bohrung. Integrierte Parameterberichte: bis zu",
-                    "muestras por perforación. Informes integrados de parámetros: hasta",
+                    "samples per borehole. In each tool’s Report tab, completed Create report → Download PDF actions are limited to",
+                    "Proben pro Bohrung. Im Report‑Tab jedes Tools sind abgeschlossene Aktionen Create report → Download PDF begrenzt auf",
+                    "muestras por perforación. En la pestaña Report de cada herramienta, las descargas PDF completadas (Create report → Download PDF) están limitadas a",
                   )}{" "}
                   <strong>{BRONZE_MAX_REPORTS_PER_DAY}</strong>{" "}
                   {t(
-                    "PDFs per day (Europe/Istanbul calendar). Save analyses and the matrix to the cloud. AI profile interpretation is not included. Further questions in blog research articles are Silver or Gold only.",
-                    "PDFs pro Tag (Kalender Europa/Istanbul). Analysen und Matrix können in der Cloud gespeichert werden. KI‑Profilinterpretation ist nicht enthalten. Further questions in Blog‑Forschungsartikeln nur mit Silver oder Gold.",
-                    "PDFs al día (calendario Europa/Estambul). Guarde análisis y la matriz en la nube. La interpretación del perfil con IA no está incluida. Further questions en artículos de investigación del blog solo con Silver o Gold.",
+                    "per calendar day (Europe/Istanbul). Save analyses to the cloud. Analyse with AI in tools is not included. The Projects parameter matrix Generate report (AI engineering report) is Gold only and uses a separate weekly quota—not this daily limit. Further questions in blog research articles are Silver or Gold only.",
+                    "pro Kalendertag (Europa/Istanbul). Analysen können in der Cloud gespeichert werden. Analyse with AI in den Tools ist nicht enthalten. Generate report in der Parameter‑Matrix unter Projects (KI‑Ingenieurbericht) nur mit Gold, mit separatem Wochenkontingent — nicht dieses Tageslimit. Further questions in Blog‑Artikeln nur mit Silver oder Gold.",
+                    "por día natural (Europa/Estambul). Guarde análisis en la nube. Analyse with AI en herramientas no está incluido. Generate report en la matriz de parámetros de Projects (informe de IA de ingeniería) solo con Gold, con cupo semanal aparte: no cuenta para este límite diario. Further questions en artículos del blog solo con Silver o Gold.",
                   )}
                 </p>
                 <p>
                   <strong>{t("Silver:", "Silver:", "Silver:")}</strong>{" "}
                   {t(
-                    "Unlimited projects and boreholes; unlimited integrated reports and PDF exports. Further questions (guided follow-ups) in blog research articles. All Bronze features are included.",
-                    "Unbegrenzte Projekte und Bohrungen; unbegrenzte integrierte Berichte und PDF‑Exporte. Further questions (geführte Nachfragen) in Blog‑Forschungsartikeln. Alle Bronze‑Funktionen sind enthalten.",
-                    "Proyectos y perforaciones ilimitados; informes integrados y exportaciones PDF ilimitadas. Further questions (seguimientos guiados) en artículos de investigación del blog. Incluye todas las funciones de Bronze.",
+                    "Unlimited projects and boreholes; unlimited Create report → Download PDF use in tools. Parameter matrix Generate report (AI) is not included — Gold only. Further questions (guided follow-ups) in blog research articles. All Bronze features are included.",
+                    "Unbegrenzte Projekte und Bohrungen; unbegrenzte Nutzung von Create report → Download PDF in den Tools. Generate report in der Parameter‑Matrix (KI) ist nicht enthalten — nur Gold. Further questions (geführte Nachfragen) in Blog‑Forschungsartikeln. Alle Bronze‑Funktionen sind enthalten.",
+                    "Proyectos y perforaciones ilimitados; uso ilimitado de Create report → Download PDF en herramientas. Generate report en la matriz de parámetros (IA) no está incluido: solo Gold. Further questions (seguimientos guiados) en artículos de investigación del blog. Incluye todas las funciones de Bronze.",
                   )}
                 </p>
                 <p>
                   <strong>{t("Gold:", "Gold:", "Gold:")}</strong>{" "}
                   {t(
-                    "Unlimited AI analysis for integrated reports and profile tools; unlimited projects, reports, and exports in practice; priority access to new features. All Silver features are included.",
-                    "Unbegrenzte KI‑Analyse für integrierte Berichte und Profil‑Tools; in der Praxis unbegrenzte Projekte, Berichte und Exporte; vorrangiger Zugang zu neuen Funktionen. Alle Silver‑Funktionen sind enthalten.",
-                    "Análisis IA ilimitado para informes integrados y herramientas de perfil; proyectos, informes y exportaciones ilimitados en la práctica; acceso prioritario a novedades. Incluye todas las funciones de Silver.",
+                    "Unlimited AI analysis in profile tools (Analyse with AI). On Projects, parameter matrix Generate report (AI engineering report) is included for Gold with a weekly allowance that may be shown. Unlimited projects and tool PDFs in practice; priority access to new features. All Silver features are included.",
+                    "Unbegrenzte KI‑Analyse in Profil‑Tools (Analyse with AI). Unter Projects ist Generate report in der Parameter‑Matrix (KI‑Ingenieurbericht) für Gold enthalten, mit wöchentlichem Kontingent. In der Praxis unbegrenzte Projekte und Tool‑PDFs; vorrangiger Zugang zu neuen Funktionen. Alle Silver‑Funktionen sind enthalten.",
+                    "Análisis IA ilimitado en herramientas de perfil (Analyse with AI). En Projects, Generate report en la matriz de parámetros (informe de ingeniería IA) está incluido en Gold con cupo semanal que puede mostrarse. Proyectos y PDF de herramientas ilimitados en la práctica; acceso prioritario a novedades. Incluye todas las funciones de Silver.",
                   )}
                 </p>
                 <p className="text-slate-600">
@@ -685,15 +686,15 @@ export function UserGuidePage() {
             {lang === "tr" ? (
               <>
                 Her proje altında <strong>Boreholes</strong> (sondaj kayıtları), <strong>Saved analyses</strong> (araçlardan
-                kaydedilen analizler) ve <strong>Integrated parameter matrix</strong> (birleşik parametre görünümü)
-                bölümleri yer alır; bu kartlar üzerinden ilgili ekranlara geçebilirsiniz.
+                kaydedilen analizler) ve parametre matrisi kartı (ekranda <strong>Integrated Parameter Matrix</strong> başlığı)
+                yer alır; bu kartlar üzerinden ilgili ekranlara geçebilirsiniz.
               </>
             ) : (
               <>
                 {t(
-                  "Each project includes Boreholes, Saved analyses, and the Integrated parameter matrix—open the matching cards to work with borehole data, saved tool runs, and the merged parameter table.",
-                  "Jedes Projekt enthält Boreholes, Saved analyses und die Integrated parameter matrix — öffnen Sie die passenden Karten, um Bohrdaten, gespeicherte Tool‑Läufe und die zusammengeführte Parametertabelle zu bearbeiten.",
-                  "Cada proyecto incluye Boreholes, Saved analyses y la Integrated parameter matrix: abra las tarjetas para trabajar con datos de sondeos, ejecuciones guardadas y la tabla de parámetros fusionada.",
+                  "Each project includes Boreholes, Saved analyses, and a parameter matrix card (on-screen title: Integrated Parameter Matrix)—open the cards to work with borehole data, saved tool runs, and the merged parameter table.",
+                  "Jedes Projekt enthält Boreholes, Saved analyses und eine Parameter‑Matrix‑Karte (Anzeigename: Integrated Parameter Matrix) — öffnen Sie die Karten für Bohrdaten, gespeicherte Tool‑Läufe und die zusammengeführte Tabelle.",
+                  "Cada proyecto incluye Boreholes, Saved analyses y una tarjeta de matriz de parámetros (título en pantalla: Integrated Parameter Matrix): abra las tarjetas para datos de sondeos, ejecuciones guardadas y la tabla fusionada.",
                 )}
               </>
             )}
@@ -732,11 +733,11 @@ export function UserGuidePage() {
                 src="/images/guide/projects-active.png"
                 alt={
                   lang === "tr"
-                    ? "Projects: seçili proje ve Boreholes / Saved analyses / Integrated parameter matrix kartları"
+                    ? "Projects: seçili proje ve Boreholes / Saved analyses / parametre matrisi kartları"
                     : t(
-                        "Projects: selected project with Boreholes, Saved analyses, and Integrated parameter matrix cards",
-                        "Projects: ausgewähltes Projekt mit Karten Boreholes, Saved analyses und Integrated parameter matrix",
-                        "Projects: proyecto seleccionado con tarjetas Boreholes, Saved analyses e Integrated parameter matrix",
+                        "Projects: selected project with Boreholes, Saved analyses, and parameter matrix cards",
+                        "Projects: ausgewähltes Projekt mit Karten Boreholes, Saved analyses und Parameter‑Matrix",
+                        "Projects: proyecto seleccionado con tarjetas Boreholes, Saved analyses y matriz de parámetros",
                       )
                 }
                 className={guideImgProjects}
@@ -744,11 +745,11 @@ export function UserGuidePage() {
             </div>
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr"
-                ? "Proje seçildiğinde alt kartlardan Boreholes, Saved analyses ve Integrated parameter matrix ekranlarına geçilir."
+                ? "Proje seçildiğinde alt kartlardan Boreholes, Saved analyses ve parametre matrisi ekranlarına geçilir."
                 : t(
-                    "With a project selected, use the cards to open Boreholes, Saved analyses, and the Integrated parameter matrix.",
-                    "Mit gewähltem Projekt öffnen Sie über die Karten Boreholes, Saved analyses und die Integrated parameter matrix.",
-                    "Con un proyecto seleccionado, use las tarjetas para abrir Boreholes, Saved analyses y la Integrated parameter matrix.",
+                    "With a project selected, use the cards to open Boreholes, Saved analyses, and the parameter matrix.",
+                    "Mit gewähltem Projekt öffnen Sie über die Karten Boreholes, Saved analyses und die Parameter‑Matrix.",
+                    "Con un proyecto seleccionado, use las tarjetas para abrir Boreholes, Saved analyses y la matriz de parámetros.",
                   )}
             </figcaption>
           </figure>
@@ -1298,6 +1299,32 @@ export function UserGuidePage() {
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
+                <strong>Bronze</strong> üyelikte, bu sekmede tamamlanan her{" "}
+                <strong>Create report → Download PDF</strong> işlemi günlük kotaya girer: Avrupa/İstanbul takvim günü
+                başına en fazla <strong>{BRONZE_MAX_REPORTS_PER_DAY}</strong> kez. <strong>Silver</strong> ve{" "}
+                <strong>Gold</strong>’da bu günlük tavan yoktur. Projects ekranındaki parametre matrisi{" "}
+                <strong>Generate report</strong> (yapay zekâ mühendislik raporu) yalnızca <strong>Gold</strong> ile açılır ve
+                bu günlük kotadan sayılmaz.
+              </>
+            ) : (
+              <>
+                {t(
+                  "Bronze: each completed Create report → Download PDF from this tab counts toward a daily allowance of up to",
+                  "Bronze: Jede abgeschlossene Aktion Create report → Download PDF in diesem Tab zählt auf ein Tageskontingent von bis zu",
+                  "Bronze: cada descarga PDF completada (Create report → Download PDF) en esta pestaña cuenta para un máximo de",
+                )}{" "}
+                <strong>{BRONZE_MAX_REPORTS_PER_DAY}</strong>{" "}
+                {t(
+                  "uses per calendar day (Europe/Istanbul). Silver and Gold have no daily cap on that. The Projects parameter matrix Generate report (AI engineering report) is Gold only and does not use this daily allowance.",
+                  "pro Kalendertag (Europa/Istanbul). Silver und Gold haben dafür kein Tageslimit. Generate report in der Parameter‑Matrix unter Projects (KI‑Ingenieurbericht) ist nur für Gold und nutzt nicht dieses Tageskontingent.",
+                  "usos por día natural (Europa/Estambul). Silver y Gold no tienen tope diario para eso. Generate report en la matriz de parámetros de Projects (informe IA de ingeniería) solo Gold y no usa este cupo diario.",
+                )}
+              </>
+            )}
+          </p>
+          <p className="text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
                 <strong>Gold</strong> üyelikte etkinleşen{" "}
                 <span className="font-semibold text-[#c9a227]">Analyse with AI</span>, özel olarak eğitilmiş ve sınanmış
                 mühendislik <strong>prompt</strong> çerçevesinde veriyi yorumlar ve sayfada özet çıktı üretir.
@@ -1333,11 +1360,11 @@ export function UserGuidePage() {
             </div>
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr"
-                ? "Create report taslak önizlemeyi açar; Download PDF uygun hesaplarda Soil Profile Plot hazır olduğunda kullanılabilir. Altın Analyse with AI, tablo ve profil plotuna hızlı yapay zekâ yorumu üretir. REPORT TYPES kutusu her seçeneğin kapsamını özetler."
+                ? "Create report taslak önizlemeyi açar; Download PDF uygun hesaplarda Soil Profile Plot hazır olduğunda kullanılabilir (Bronze’da günlük kota). Altın Analyse with AI, tablo ve profil plotuna hızlı yapay zekâ yorumu üretir. REPORT TYPES kutusu her seçeneğin kapsamını özetler."
                 : t(
-                    "Create report opens the on-page draft; Download PDF is available for eligible accounts once Soil Profile Plot is ready. Gold Analyse with AI gives a quick AI read of tabulated values and the profile plot. REPORT TYPES summarizes what each option includes.",
-                    "Create report öffnet die Seitenvorschau; Download PDF steht bei berechtigten Konten zur Verfügung, sobald Soil Profile Plot vorliegt. Gold Analyse with AI liefert eine schnelle KI‑Auswertung von Tabellen und Profilplot. REPORT TYPES fasst den Umfang jeder Option zusammen.",
-                    "Create report abre el borrador en la página; Download PDF está disponible para cuentas elegibles cuando Soil Profile Plot esté listo. Analyse with AI (dorado) ofrece una lectura rápida con IA de tablas y el gráfico de perfil. REPORT TYPES resume el alcance de cada opción.",
+                    "Create report opens the on-page draft; Download PDF is available for eligible accounts once Soil Profile Plot is ready (Bronze has a daily allowance). Gold Analyse with AI gives a quick AI read of tabulated values and the profile plot. REPORT TYPES summarizes what each option includes.",
+                    "Create report öffnet die Seitenvorschau; Download PDF steht bei berechtigten Konten zur Verfügung, sobald Soil Profile Plot vorliegt (Bronze hat ein Tageskontingent). Gold Analyse with AI liefert eine schnelle KI‑Auswertung von Tabellen und Profilplot. REPORT TYPES fasst den Umfang jeder Option zusammen.",
+                    "Create report abre el borrador en la página; Download PDF está disponible para cuentas elegibles cuando Soil Profile Plot esté listo (Bronze tiene cupo diario). Analyse with AI (dorado) ofrece una lectura rápida con IA de tablas y el gráfico de perfil. REPORT TYPES resume el alcance de cada opción.",
                   )}
             </figcaption>
           </figure>
@@ -1583,41 +1610,35 @@ export function UserGuidePage() {
         <section id="guide-section-10" className="scroll-mt-20 space-y-4">
           <h2 className="text-xl font-semibold text-[#c9a227]">
             {L(
-              "10. Entegre parametre matrisi",
-              "10. Integrated Parameter Matrix",
-              "10. Integrierte Parameter‑Matrix",
-              "10. Matriz integrada de parámetros",
+              "10. Parametre matrisi (Projects)",
+              "10. Parameter matrix (Projects)",
+              "10. Parameter‑Matrix (Projects)",
+              "10. Matriz de parámetros (Projects)",
             )}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
-                Bu bölüm, ilgili projedeki tüm sondajlardaki örnekler üzerinden yürütülen ve{" "}
-                <strong>Save Analysis to Project</strong> ile kaydedilen araç analizlerinin toplandığı yerdir. Üstteki{" "}
-                <span className="font-semibold text-[#c9a227]">Generate report</span> düğmesi, özel olarak eğitilmiş uzun
-                ve ayrıntılı bir yapay zeka <strong>prompt</strong> ile çalışarak bu analizlerden elde edilen parametreleri
-                yorumlar; bu yoruma dayanarak önerilen idealize zemin profili, tasarım parametreleri ve benzeri birçok
-                ayrıntıyı içeren bir rapor üretir. <strong>Refresh</strong> ve <strong>Export Excel</strong> ile tabloyu
-                güncelleyebilir veya Excel’e aktarabilirsiniz; Gold üyelerde matris AI raporu için haftalık kullanım kotası
-                gösterilir.
+                Bu ekran (başlık: <strong>Integrated Parameter Matrix</strong>), ilgili projedeki sondaj örnekleriyle
+                ilişkili ve <strong>Save Analysis to Project</strong> ile kaydedilen araç analizlerinden birleşen parametre
+                tablosunu gösterir. <strong>Refresh</strong> ve <strong>Export Excel</strong> uygun üyeliklerle kullanılabilir.
+                Altın renkli <span className="font-semibold text-[#c9a227]">Generate report</span> düğmesi yalnızca{" "}
+                <strong>Gold</strong> üyelikte çalışır; uzun bir yapay zekâ <strong>prompt</strong> ile mühendislik raporu
+                üretir ve haftalık kota satırı gösterebilir. Bu rapor, araçlardaki günlük{" "}
+                <strong>Create report → Download PDF</strong> kotasından tamamen ayrıdır.
               </>
             ) : (
               <>
                 {t(
-                  "This view aggregates tool analyses that were saved to the project using samples from every borehole in that project. The gold ",
-                  "Hier werden Tool‑Analysen zusammengeführt, die Sie mit Proben aus allen Bohrungen des Projekts gespeichert haben. Der goldfarbene Button ",
-                  "Aquí se consolidan los análisis de herramientas guardados en el proyecto a partir de las muestras de todos los sondeos. El botón dorado ",
+                  "This screen (title on the app: Integrated Parameter Matrix) shows parameters merged from tool analyses saved to the project with borehole samples. Refresh and Export Excel are available where your plan allows. The gold ",
+                  "Diese Ansicht (Titel in der App: Integrated Parameter Matrix) zeigt Parameter aus gespeicherten Tool‑Analysen mit Bohrproben. Refresh und Export Excel sind je nach Tarif verfügbar. Der goldfarbene Button ",
+                  "Esta pantalla (título en la app: Integrated Parameter Matrix) muestra parámetros fusionados a partir de análisis guardados con muestras de sondeos. Refresh y Export Excel están disponibles según el plan. El botón dorado ",
                 )}
                 <span className="font-semibold text-[#c9a227]">Generate report</span>
                 {t(
-                  " runs a long, detailed trained AI prompt to interpret the combined parameters and draft a report that can include an idealised soil profile, design parameters, and other engineering detail.",
-                  " nutzt einen langen, detaillierten KI‑Prompt, um die Parameter zu interpretieren und einen Bericht mit idealisiertem Bodenprofil, Bemessungsgrößen und weiteren Inhalten zu erzeugen.",
-                  " ejecuta un prompt de IA largo y detallado para interpretar los parámetros combinados y generar un informe con perfil de suelo idealizado, parámetros de diseño y otros detalles.",
-                )}{" "}
-                {t(
-                  "Use Refresh and Export Excel as needed; Gold accounts may see weekly limits for matrix AI reports.",
-                  "Refresh und Export Excel stehen zur Verfügung; bei Gold‑Konten kann ein wöchentliches Kontingent für Matrix‑KI‑Berichte angezeigt werden.",
-                  "Refresh y Export Excel están disponibles según necesidad; las cuentas Gold pueden ver límites semanales para informes de IA de la matriz.",
+                  " button is Gold only: it runs a long AI prompt to produce an engineering report and may show a weekly allowance line. This is separate from the daily Create report → Download PDF limit in tools.",
+                  " ist nur für Gold: erzeugt einen KI‑Ingenieurbericht und kann ein wöchentliches Kontingent anzeigen. Das ist getrennt vom täglichen Limit für Create report → Download PDF in den Tools.",
+                  " solo está disponible en Gold: ejecuta un prompt de IA largo para un informe de ingeniería y puede mostrar cupo semanal. Esto es independiente del límite diario de Create report → Download PDF en herramientas.",
                 )}
               </>
             )}
@@ -1628,22 +1649,22 @@ export function UserGuidePage() {
               src="/images/guide/integrated-parameter-matrix.png"
               alt={
                 lang === "tr"
-                  ? "Integrated Parameter Matrix: tablo, Refresh, Export Excel ve Generate report"
+                  ? "Parametre matrisi: tablo, Refresh, Export Excel ve Generate report (Gold)"
                   : t(
-                      "Integrated Parameter Matrix: table, Refresh, Export Excel, and Generate report",
-                      "Integrated Parameter Matrix: Tabelle, Refresh, Export Excel und Generate report",
-                      "Integrated Parameter Matrix: tabla, Refresh, Export Excel y Generate report",
+                      "Parameter matrix: table, Refresh, Export Excel, and Generate report (Gold)",
+                      "Parameter‑Matrix: Tabelle, Refresh, Export Excel und Generate report (Gold)",
+                      "Matriz de parámetros: tabla, Refresh, Export Excel y Generate report (Gold)",
                     )
               }
               className="block h-auto w-full object-contain object-top"
             />
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr"
-                ? "Parametreler kayıtlı analizlerden birleştirilir; Generate report (altın) matris AI raporu üretir. Matrix AI satırında Gold için haftalık kota görünebilir."
+                ? "Generate report yalnızca Gold; haftalık kota satırı görünebilir. Araçlardaki Create report günlük kotası bundan ayrıdır."
                 : t(
-                    "Parameters are merged from saved analyses; Generate report (gold) builds the matrix AI report. The line about Matrix AI may show weekly allowance for Gold.",
-                    "Parameter stammen aus gespeicherten Analysen; Generate report erstellt den Matrix‑KI‑Bericht. Die Matrix‑AI‑Zeile kann das Wochenkontingent für Gold anzeigen.",
-                    "Los parámetros provienen de análisis guardados; Generate report genera el informe de IA de la matriz. La línea Matrix AI puede mostrar el cupo semanal para Gold.",
+                    "Generate report is Gold only; a weekly allowance line may appear. Tool Create report daily limits are separate.",
+                    "Generate report nur für Gold; eine Wochenkontingent‑Zeile kann erscheinen. Das Tageslimit für Create report in Tools ist getrennt.",
+                    "Generate report solo Gold; puede aparecer línea de cupo semanal. El límite diario de Create report en herramientas es aparte.",
                   )}
             </figcaption>
           </figure>
@@ -1737,18 +1758,18 @@ export function UserGuidePage() {
             <div>
               <dt className="text-[15px] font-semibold text-slate-900">
                 {L(
-                  "Integrated Parameter Matrix ekranına nasıl giderim?",
-                  "How do I open the Integrated Parameter Matrix?",
-                  "Wie öffne ich die Integrated Parameter Matrix?",
-                  "¿Cómo abro la Integrated Parameter Matrix?",
+                  "Parametre matrisi ekranına nasıl giderim?",
+                  "How do I open the parameter matrix?",
+                  "Wie öffne ich die Parameter‑Matrix?",
+                  "¿Cómo abro la matriz de parámetros?",
                 )}
               </dt>
               <dd className="mt-2 text-[15px] leading-7 text-slate-700">
                 {L(
-                  "Projects → projenizi seçin → Integrated parameter matrix kartına tıklayın. Tablo, projeye kaydedilmiş araç analizlerinden birleşik parametreleri gösterir.",
-                  "Go to Projects → select your project → open the Integrated parameter matrix card. The table merges parameters from analyses saved to that project.",
-                  "Projects → Projekt wählen → Karte Integrated parameter matrix öffnen. Die Tabelle führt gespeicherte Tool‑Analysen zusammen.",
-                  "Vaya a Projects → elija el proyecto → tarjeta Integrated parameter matrix. La tabla consolida análisis guardados en el proyecto.",
+                  "Projects → projenizi seçin → parametre matrisi kartına tıklayın (ekran başlığı Integrated Parameter Matrix). Tablo, projeye kaydedilmiş araç analizlerinden birleşir.",
+                  "Go to Projects → select your project → open the parameter matrix card (on-screen title: Integrated Parameter Matrix). The table merges parameters from analyses saved to that project.",
+                  "Projects → Projekt wählen → Parameter‑Matrix‑Karte öffnen (Anzeigename: Integrated Parameter Matrix). Die Tabelle führt gespeicherte Tool‑Analysen zusammen.",
+                  "Vaya a Projects → elija el proyecto → tarjeta de matriz de parámetros (título en pantalla: Integrated Parameter Matrix). La tabla fusiona análisis guardados en el proyecto.",
                 )}
               </dd>
             </div>
@@ -1763,10 +1784,10 @@ export function UserGuidePage() {
               </dt>
               <dd className="mt-2 text-[15px] leading-7 text-slate-700">
                 {L(
-                  "İlgili araçta Report sekmesine geçin → Create report taslak önizlemeyi açar. Uygun üyelik ve Soil Profile Plot hazırsa Download PDF kullanılabilir.",
-                  "Open the Report tab in the tool → Create report opens the draft preview. Download PDF is available for eligible accounts when Soil Profile Plot is ready.",
-                  "Im Tool den Tab Report → Create report öffnet die Vorschau. Download PDF steht bei berechtigten Konten zur Verfügung, sobald Soil Profile Plot vorliegt.",
-                  "En la herramienta, pestaña Report → Create report abre el borrador. Download PDF está disponible para cuentas elegibles cuando Soil Profile Plot esté listo.",
+                  "İlgili araçta Report sekmesine geçin → Create report taslak önizlemeyi açar. Uygun üyelik ve Soil Profile Plot hazırsa Download PDF kullanılabilir; Bronze’da bu indirmeler günlük kota ile sınırlıdır (Projects’teki Generate report değil).",
+                  "Open the Report tab in the tool → Create report opens the draft preview. Download PDF is available for eligible accounts when Soil Profile Plot is ready; on Bronze, downloads count toward a daily allowance (separate from Projects → parameter matrix Generate report).",
+                  "Im Tool den Tab Report → Create report öffnet die Vorschau. Download PDF steht bei berechtigten Konten zur Verfügung, sobald Soil Profile Plot vorliegt; bei Bronze zählen Downloads auf ein Tageskontingent (getrennt von Generate report in der Parameter‑Matrix unter Projects).",
+                  "En la herramienta, pestaña Report → Create report abre el borrador. Download PDF está disponible para cuentas elegibles cuando Soil Profile Plot esté listo; en Bronze cuentan para un cupo diario (aparte de Generate report en la matriz de parámetros en Projects).",
                 )}
               </dd>
             </div>
