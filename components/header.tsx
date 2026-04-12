@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useSubscription } from "@/components/subscription-context";
+import { isGuideCapturePath } from "@/lib/guide-capture";
 import { tierUi } from "@/lib/subscription";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -44,9 +45,12 @@ function CloseIcon() {
 
 export function Header() {
   const pathname = usePathname();
+  const guideCapture = isGuideCapturePath(pathname);
   const supabaseReady = isSupabaseConfigured();
   const { isAdmin: isSubscriptionAdmin, loading: subscriptionLoading, tier } = useSubscription();
+  const tierForNav = guideCapture ? "gold" : tier;
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const showSignedInChrome = guideCapture || (supabaseReady && isAuthenticated);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -82,12 +86,24 @@ export function Header() {
 
   type NavItem = { href: string; label: string };
 
+  const navItemActive = (item: NavItem) => {
+    if (guideCapture) {
+      if (item.href === "/account") {
+        return pathname?.includes("/guide-capture/account-header") ?? false;
+      }
+      if (item.href === "/projects") {
+        return pathname?.includes("/guide-capture/projects") ?? false;
+      }
+    }
+    return isActive(pathname, item.href);
+  };
+
   const renderNavLink = (
     item: NavItem,
     dense: boolean,
     options?: { inlineRow?: boolean; accountExtras?: boolean },
   ) => {
-    const active = isActive(pathname, item.href);
+    const active = navItemActive(item);
     const inlineRow = Boolean(options?.inlineRow && dense);
     const base = inlineRow
       ? "inline-flex rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base"
@@ -98,7 +114,7 @@ export function Header() {
     const activeCls =
       active
         ? showAccountChrome
-          ? `nav-link-active ${tierUi(tier, isSubscriptionAdmin).tabActiveClass} hover:font-bold`
+          ? `nav-link-active ${tierUi(tierForNav, guideCapture ? false : isSubscriptionAdmin).tabActiveClass} hover:font-bold`
           : "nav-link-active bg-slate-800 text-white hover:font-bold"
         : "text-slate-800 hover:font-bold hover:text-slate-950";
     return (
@@ -111,7 +127,7 @@ export function Header() {
         {showAccountChrome ? (
           <span className="relative inline-flex items-center">
             <span>{item.label}</span>
-            {supabaseReady && isAuthenticated ? (
+            {showSignedInChrome ? (
               <span
                 className="ml-1.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white"
                 aria-label="Signed in"
@@ -167,7 +183,7 @@ export function Header() {
           {navItems.map((item) => renderNavLink(item, false))}
           <div className="flex items-center gap-1.5 lg:gap-2">
             {renderNavLink(accountNav, false, { accountExtras: true })}
-            {supabaseReady && isAuthenticated ? (
+            {showSignedInChrome ? (
               <>
                 <span className="select-none text-slate-400" aria-hidden="true">
                   |
@@ -200,7 +216,7 @@ export function Header() {
             {navItems.map((item) => renderNavLink(item, true))}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {renderNavLink(accountNav, true, { inlineRow: true, accountExtras: true })}
-              {supabaseReady && isAuthenticated ? (
+              {showSignedInChrome ? (
                 <>
                   <span className="select-none text-slate-400" aria-hidden="true">
                     |

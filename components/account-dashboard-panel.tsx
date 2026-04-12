@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
 import { deleteCurrentUserAccountAction } from "@/app/actions/account";
 import { LogoutButton } from "@/components/logout-button";
@@ -10,7 +10,8 @@ import { MembershipTierColumns } from "@/components/membership-tier-columns";
 import { useSubscription } from "@/components/subscription-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { tierUi } from "@/lib/subscription";
+import { isGuideCapturePath } from "@/lib/guide-capture";
+import { effectiveSubscriptionTier, effectiveTierDisplayLabel, tierUi } from "@/lib/subscription";
 
 type MainAccountTab = "subscription" | "personal";
 type PersonalTab = "information" | "password" | "privacy";
@@ -32,8 +33,15 @@ const personalTabItems: Array<{ id: PersonalTab; label: string }> = [
 
 export function AccountDashboardPanel({ email }: AccountDashboardPanelProps) {
   const router = useRouter();
-  const { tier, isAdmin, effectiveTier, effectiveTierLabel, loading: tierLoading, refresh: refreshSubscription } =
-    useSubscription();
+  const pathname = usePathname();
+  const guideCapture = isGuideCapturePath(pathname);
+  const subscription = useSubscription();
+  const tier = guideCapture ? "gold" : subscription.tier;
+  const isAdmin = guideCapture ? false : subscription.isAdmin;
+  const tierLoading = guideCapture ? false : subscription.loading;
+  const refreshSubscription = subscription.refresh;
+  const effectiveTier = useMemo(() => effectiveSubscriptionTier(tier, isAdmin), [tier, isAdmin]);
+  const effectiveTierLabel = useMemo(() => effectiveTierDisplayLabel(tier, isAdmin), [tier, isAdmin]);
   const tierStyle = tierUi(tier, isAdmin);
   const [activeMainTab, setActiveMainTab] = useState<MainAccountTab>("subscription");
   const [activePersonalTab, setActivePersonalTab] = useState<PersonalTab>("information");

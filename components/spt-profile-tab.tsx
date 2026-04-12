@@ -101,6 +101,9 @@ function parse(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** Field N = 50 conventionally indicates SPT refusal (Refü); N60 and (N1)60 use 50 for screening. */
+const SPT_FIELD_N_REFUSAL = 50;
+
 const DEPTH_MATCH_EPS_M = 0.005;
 
 function normaliseBoreholeKey(value: string): string {
@@ -625,9 +628,14 @@ export function SptProfileTab({
             0.1,
           );
           const cr = computeCrFromSampleDepth(depthMetric);
-          const n60Float = parse(row.nField) * ce * cb * cr * cs;
+          const fieldN = parse(row.nField);
+          let n60Float = fieldN * ce * cb * cr * cs;
           const cn = computeCnIdrissBoulanger2008(sigmaEffMetric);
-          const n160Float = Math.min(n60Float * cn, 2 * n60Float);
+          let n160Float = Math.min(n60Float * cn, 2 * n60Float);
+          if (fieldN === SPT_FIELD_N_REFUSAL) {
+            n60Float = SPT_FIELD_N_REFUSAL;
+            n160Float = SPT_FIELD_N_REFUSAL;
+          }
           return {
             boreholeId: row.boreholeId?.trim() || "BH not set",
             depth: depthDisplay,
@@ -670,14 +678,19 @@ export function SptProfileTab({
           convertInputValueBetweenSystems(String(sigmaEffMetric), "kPa", "metric", unitSystem),
         );
         const cr = computeCrFromSampleDepth(depthMetric);
-        const n60Float = parse(row.nField) * ce * cb * cr * cs;
+        const fieldN = parse(row.nField);
+        let n60Float = fieldN * ce * cb * cr * cs;
         const cn = computeCnIdrissBoulanger2008(sigmaEffMetric);
-        const n160Float = Math.min(n60Float * cn, 2 * n60Float);
+        let n160Float = Math.min(n60Float * cn, 2 * n60Float);
+        if (fieldN === SPT_FIELD_N_REFUSAL) {
+          n60Float = SPT_FIELD_N_REFUSAL;
+          n160Float = SPT_FIELD_N_REFUSAL;
+        }
 
         return {
           boreholeId: row.boreholeId?.trim() || "BH not set",
           sampleDepth: depthDisplay.toFixed(2),
-          nField: parse(row.nField).toFixed(0),
+          nField: fieldN.toFixed(0),
           sigmaV0: sigmaEffDisplay.toFixed(2),
           ce: ce.toFixed(3),
           cb: cb.toFixed(3),
@@ -1088,9 +1101,14 @@ export function SptProfileTab({
                   convertInputValueBetweenSystems(String(sigmaEffMetric), "kPa", "metric", unitSystem),
                 );
                 const cr = computeCrFromSampleDepth(sampleDepthMetric);
-                const n60Float = parse(row.nField) * ce * cb * cr * cs;
+                const fieldN = parse(row.nField);
+                let n60Float = fieldN * ce * cb * cr * cs;
                 const cn = computeCnIdrissBoulanger2008(sigmaEffMetric);
-                const n160Float = Math.min(n60Float * cn, 2 * n60Float);
+                let n160Float = Math.min(n60Float * cn, 2 * n60Float);
+                if (fieldN === SPT_FIELD_N_REFUSAL) {
+                  n60Float = SPT_FIELD_N_REFUSAL;
+                  n160Float = SPT_FIELD_N_REFUSAL;
+                }
                 const n60 = Math.round(n60Float);
                 const n160 = Math.round(n160Float);
 

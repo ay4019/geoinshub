@@ -4,6 +4,34 @@ import { useEffect, useRef, useState } from "react";
 
 import { downloadElementAsPdf } from "@/lib/download-user-guide-pdf";
 import { MAX_BOREHOLES_PER_PROJECT, MAX_PROJECTS_PER_USER } from "@/lib/project-limits";
+import {
+  BRONZE_MAX_BOREHOLES_PER_PROJECT,
+  BRONZE_MAX_PROJECTS,
+  BRONZE_MAX_REPORTS_PER_DAY,
+  BRONZE_MAX_SAMPLES_PER_BOREHOLE,
+} from "@/lib/subscription";
+
+/** Framed guide screenshots so narrow/wide assets share a consistent layout in print and on screen. */
+const guideShotFrame =
+  "flex w-full items-center justify-center bg-gradient-to-b from-slate-50 to-white px-3 py-8 sm:px-5 sm:py-10";
+const guideImgHero =
+  "mx-auto w-full max-w-4xl object-contain object-top [max-height:min(26rem,58vh)] sm:[max-height:min(30rem,62vh)]";
+const guideImgNav =
+  "mx-auto w-full max-w-5xl object-contain object-top [max-height:min(9rem,26vh)] sm:[max-height:min(10rem,28vh)]";
+const guideImgLogin =
+  "mx-auto w-full max-w-md object-contain object-top [max-height:min(28rem,62vh)] sm:[max-height:min(32rem,68vh)]";
+const guideImgSignup =
+  "mx-auto w-full max-w-4xl object-contain object-top [max-height:min(30rem,65vh)] sm:[max-height:min(34rem,72vh)]";
+const guideImgTiers =
+  "mx-auto w-full max-w-5xl object-contain object-top [max-height:min(34rem,72vh)] sm:[max-height:min(38rem,78vh)]";
+const guideImgAccountHeader =
+  "mx-auto w-full max-w-5xl object-contain object-top [max-height:min(9rem,26vh)] sm:[max-height:min(10rem,28vh)]";
+const guideImgAccountDashboard =
+  "mx-auto w-full max-w-5xl object-contain object-top [max-height:min(38rem,82vh)] sm:[max-height:min(42rem,85vh)]";
+const guideImgProjects =
+  "mx-auto w-full max-w-5xl object-contain object-top [max-height:min(36rem,80vh)] sm:[max-height:min(40rem,84vh)]";
+const guideImgBoreholes =
+  "mx-auto w-full max-w-5xl object-contain object-top [max-height:min(40rem,85vh)] sm:[max-height:min(44rem,88vh)]";
 
 export function UserGuidePage() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -134,122 +162,536 @@ export function UserGuidePage() {
         {lang === "tr" ? (
           <>
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-slate-900">1. Giriş ve Hesap</h2>
-              <ul className="list-disc space-y-2 pl-5 text-[15px] leading-7 text-slate-700">
-                <li>
-                  <strong>Yol:</strong> Header → Signup / Login
-                </li>
-                <li>
-                  <strong>Kayıt / Giriş:</strong> Menüdeki <strong>Account</strong> bölümünden üye olabilir veya üye
-                  girişi yapabilirsiniz.
-                </li>
-                <li>
-                  <strong>Üyelik ile:</strong> Proje oluşturduğunuzda <strong>borehole</strong> ekleyebilir, bu borehole’ları
-                  tool’larda kullanabilir, tool sonuçlarını projeye kaydedebilir,{" "}
-                  <strong>Integrated parameter matrix</strong> oluşturabilir ve çıktı alabilirsiniz.
-                </li>
-                <li>
-                  <strong>Üye olmadan:</strong> Tool’lar yine kullanılabilir; manuel olarak borehole ve sample ekleyerek
-                  hesaplamaları çalıştırabilirsiniz.
-                </li>
-              </ul>
+              <h2 className="text-xl font-semibold text-slate-900">1. Site and Menu</h2>
+              <p className="text-[15px] leading-7 text-slate-700">
+                Siteye girdiğinizde karşınıza çıkan ana sayfada, hesaplayıcılara ve teknik içeriklere hızlıca geçmek için{" "}
+                <strong>Explore Tools</strong> ve <strong>Read Blog</strong> düğmelerini kullanabilirsiniz. Alt bölümdeki{" "}
+                <strong>Başlangıç kılavuzu</strong> bağlantısı ise araçlar, hesap, projeler ve kayıtlı analizler hakkında
+                özet bir yol haritası sunar.
+              </p>
+              <p className="text-[15px] leading-7 text-slate-700">
+                Üst menüden tüm ana bölümlere ulaşırsınız: <strong>Home</strong> ana sayfa; <strong>Tools</strong> araç
+                listesi; <strong>Blog</strong> yazıları; soru ve geri bildirim için <strong>Contact</strong>; üye olmak,
+                giriş yapmak ve hesabınızı yönetmek için ise <strong>Account</strong>. Bulunduğunuz sayfaya göre ilgili menü
+                öğesi seçili görünür.
+              </p>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/site-hero.png"
+                    alt="Ana sayfa: Geotechnical Insights Hub, Explore Tools ve Read Blog düğmeleri"
+                    className={guideImgHero}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  Ana sayfa: Araçlara ve bloga doğrudan geçiş düğmeleri ile başlangıç kılavuzu bağlantısı.
+                </figcaption>
+              </figure>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/site-main-navigation.png"
+                    alt="Üst başlık: site logosu ve ana menü (Home, Tools, Blog, Contact, Account)"
+                    className={guideImgNav}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  Üst başlık: logo ve ana menü. Home, Tools, Blog, Contact ve Account; bulunduğunuz sayfa vurgulanır.
+                </figcaption>
+              </figure>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-900">2. Account: Login and Sign Up</h2>
+              <p className="text-[15px] leading-7 text-slate-700">
+                Üst menüden <strong>Account</strong>’a tıkladığınızda <code className="rounded bg-slate-100 px-1">/account</code>{" "}
+                sayfası açılır. Burada <strong>Log in to your account</strong> formu ile e‑posta ve şifrenizi girerek oturum
+                açabilir; <strong>Forgot password?</strong> ile şifre sıfırlama akışına gidebilirsiniz. Henüz hesabınız yoksa{" "}
+                <strong>Register now.</strong> bağlantısı sizi kayıt görünümüne geçirir: <strong>Create your account</strong>{" "}
+                formunda güçlü şifre kurallarını karşılayan bir şifre belirler ve yasal metinleri onayladıktan sonra{" "}
+                <strong>Sign Up</strong> ile üyeliğinizi oluşturursunuz.
+              </p>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-login.png"
+                    alt="Account: Log in to your account formu"
+                    className={guideImgLogin}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  Giriş ekranı: e‑posta, şifre, Log In ve kayıt için Register now.
+                </figcaption>
+              </figure>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-signup.png"
+                    alt="Account: Create your account kayıt formu"
+                    className={guideImgSignup}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  Kayıt ekranı: şifre gereksinimleri, şartları onaylama ve Sign Up.
+                </figcaption>
+              </figure>
+
+              <p className="text-[15px] leading-7 text-slate-700">
+                Üyelik seviyeleri üç ana kategoridedir: <strong>Bronze</strong>, <strong>Silver</strong> ve{" "}
+                <strong>Gold</strong>. Kayıt ekranının altında <strong>Compare membership tiers</strong> bölümünde bu planlar
+                yan yana özetlenir; yeni hesaplar varsayılan olarak <strong>Bronze</strong> ile başlar, yükseltme ile Silver
+                veya Gold limitleri açılır.
+              </p>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-membership-tiers.png"
+                    alt="Bronze, Silver ve Gold üyelik kartları karşılaştırması"
+                    className={guideImgTiers}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  Üyelik karşılaştırması: Bronze, Silver ve Gold özellik özetleri.
+                </figcaption>
+              </figure>
+
+              <div className="space-y-3 text-[15px] leading-7 text-slate-700">
+                <p>
+                  <strong>Bronze:</strong> Tüm yeni üyeler bu seviyeden başlar. En fazla{" "}
+                  <strong>{BRONZE_MAX_PROJECTS} proje</strong>, proje başına en fazla{" "}
+                  <strong>{BRONZE_MAX_BOREHOLES_PER_PROJECT} borehole kimliği</strong>, borehole başına en fazla{" "}
+                  <strong>{BRONZE_MAX_SAMPLES_PER_BOREHOLE} örnek</strong> tanımlayabilirsiniz. Entegre parametre raporları
+                  için günde en fazla <strong>{BRONZE_MAX_REPORTS_PER_DAY} PDF</strong> (Avrupa/İstanbul takvimine göre)
+                  üretebilir; analizleri ve matrisi buluta kaydedebilirsiniz. Profil araçlarında{" "}
+                  <strong>AI yorumu</strong> bu planda yer almaz. Blog araştırma yazılarındaki{" "}
+                  <strong>Further questions</strong> (ek sorular) yalnızca Silver veya Gold ile sunulur.
+                </p>
+                <p>
+                  <strong>Silver:</strong> <strong>Sınırsız proje ve borehole</strong>; entegre raporlar ve PDF dışa aktarımda
+                  sınır yoktur. Blog araştırma içeriklerinde rehberli takip niteliğinde{" "}
+                  <strong>Further questions</strong> kullanılabilir. Bronze’daki tüm özellikler Silver’a dahildir.
+                </p>
+                <p>
+                  <strong>Gold:</strong> Entegre raporlar ve profil araçlarında <strong>sınırsız AI analizi</strong>; proje,
+                  rapor ve dışa aktarımda pratikte sınırsız kullanım. Yeni özelliklere öncelikli erişim ve Silver’daki tüm
+                  özellikler Gold kapsamındadır.
+                </p>
+                <p className="text-slate-600">
+                  <strong>Not:</strong> Araçları ve blogu hesap açmadan da gezebilir; bulut projesi, kayıtlı analiz ve üyelikle
+                  gelen kota özellikleri için hesap gerekir.
+                </p>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-900">3. Account: Information</h2>
+              <p className="text-[15px] leading-7 text-slate-700">
+                Giriş yaptıktan sonra hesabınız, abonelik kaydınızdaki <strong>üyelik seviyesine (tier)</strong> göre
+                özellikleri açar. Üst menüdeki <strong>Account</strong> bağlantısının dolgu rengi, geçerli tier’ınıza göre
+                (Bronze, Silver, Gold) değişir; oturum açıkken küçük yeşil onay işareti görünür. Giriş yaptığınızda{" "}
+                <strong>Projects</strong> bağlantısı da menüde listelenir.
+              </p>
+              <p className="text-[15px] leading-7 text-slate-700">
+                <code className="rounded bg-slate-100 px-1">/account</code> sayfasındaki bilgi çerçevesinin kenar rengi de aynı
+                tier paletini kullanır. Bu ekranda <strong>Subscription</strong> (mevcut plan ve karşılaştırma),{" "}
+                <strong>Personal Information</strong> altında e‑posta görüntüleme ve şifre güncelleme ile{" "}
+                <strong>Logout</strong> (çıkış) bulunur.
+              </p>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-header-tier.png"
+                    alt="Üst menü: Account düğmesi üyelik seviyesine göre renkli"
+                    className={guideImgAccountHeader}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  Örnek: Gold üyelikte Account düğmesi ve Projects bağlantısı (üst menü).
+                </figcaption>
+              </figure>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-information-panel.png"
+                    alt="Account sayfası: Subscription sekmesi ve tier kartları"
+                    className={guideImgAccountDashboard}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  Account ekranı: Subscription, Personal Information, Logout; çerçeve rengi tier ile uyumludur.
+                </figcaption>
+              </figure>
             </section>
           </>
         ) : (
           <>
             <section className="space-y-4">
               <h2 className="text-xl font-semibold text-slate-900">
-                {t("1. Account and sign-in", "1. Konto und Anmeldung", "1. Cuenta e inicio de sesión")}
+                {t("1. Site and Menu", "1. Website und Menü", "1. Sitio y menú")}
               </h2>
-              <ul className="list-disc space-y-2 pl-5 text-[15px] leading-7 text-slate-700">
-                <li>
-                  <strong>{t("Path:", "Pfad:", "Ruta:")}</strong> Header → Signup / Login
-                </li>
-                <li>
-                  <strong>{t("Sign up / Sign in:", "Registrieren / Anmelden:", "Registrarse / Iniciar sesión:")}</strong>{" "}
-                  {t("Use the header links or", "Nutzen Sie die Links im Header oder", "Use los enlaces del encabezado o")}{" "}
-                  <code className="rounded bg-slate-100 px-1">/signup</code>,{" "}
-                  <code className="rounded bg-slate-100 px-1">/login</code>.
-                </li>
-                <li>
-                  <strong>{t("What requires an account:", "Was ein Konto erfordert:", "Qué requiere una cuenta:")}</strong>{" "}
-                  {t(
-                    "Tools and blog pages can be browsed without an account, but",
-                    "Tools und Blogseiten können ohne Konto angesehen werden, aber",
-                    "Las herramientas y el blog se pueden ver sin cuenta, pero",
-                  )}{" "}
-                  <strong>
-                    {t(
-                      "projects, boreholes, and saved analyses",
-                      "Projekte, Boreholes und gespeicherte Analysen",
-                      "proyectos, perforaciones y análisis guardados",
+              <p className="text-[15px] leading-7 text-slate-700">
+                {t(
+                  "On the home page, use Explore Tools and Read Blog to jump straight to calculators and articles. The Getting started guide link at the bottom gives a short overview of tools, account, projects, and saved analyses.",
+                  "On the home page, use Explore Tools and Read Blog to jump straight to calculators and articles. The Getting started guide link at the bottom gives a short overview of tools, account, projects, and saved analyses.",
+                  "On the home page, use Explore Tools and Read Blog to jump straight to calculators and articles. The Getting started guide link at the bottom gives a short overview of tools, account, projects, and saved analyses.",
+                )}
+              </p>
+              <p className="text-[15px] leading-7 text-slate-700">
+                {t(
+                  "The top navigation lists Home, Tools, Blog, Contact, and Account. Use Account to sign up, sign in, and manage your profile; Contact for messages. The active page is highlighted in the menu.",
+                  "The top navigation lists Home, Tools, Blog, Contact, and Account. Use Account to sign up, sign in, and manage your profile; Contact for messages. The active page is highlighted in the menu.",
+                  "The top navigation lists Home, Tools, Blog, Contact, and Account. Use Account to sign up, sign in, and manage your profile; Contact for messages. The active page is highlighted in the menu.",
+                )}
+              </p>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/site-hero.png"
+                    alt={t(
+                      "Home: Geotechnical Insights Hub with Explore Tools and Read Blog",
+                      "Home: Geotechnical Insights Hub with Explore Tools and Read Blog",
+                      "Home: Geotechnical Insights Hub with Explore Tools and Read Blog",
                     )}
-                  </strong>{" "}
+                    className={guideImgHero}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
                   {t(
-                    "require a configured user account.",
-                    "erfordern ein eingerichtetes Benutzerkonto.",
-                    "requieren una cuenta de usuario configurada.",
+                    "Home page: quick links to tools and blog, plus the getting started guide.",
+                    "Home page: quick links to tools and blog, plus the getting started guide.",
+                    "Home page: quick links to tools and blog, plus the getting started guide.",
                   )}
-                </li>
-              </ul>
+                </figcaption>
+              </figure>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/site-main-navigation.png"
+                    alt={t(
+                      "Site header: logo and primary navigation (Home, Tools, Blog, Contact, Account)",
+                      "Site header: logo and primary navigation (Home, Tools, Blog, Contact, Account)",
+                      "Site header: logo and primary navigation (Home, Tools, Blog, Contact, Account)",
+                    )}
+                    className={guideImgNav}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  {t(
+                    "Site header: logo and main menu. Home, Tools, Blog, Contact, and Account; the current page is highlighted.",
+                    "Site header: logo and main menu. Home, Tools, Blog, Contact, and Account; the current page is highlighted.",
+                    "Site header: logo and main menu. Home, Tools, Blog, Contact, and Account; the current page is highlighted.",
+                  )}
+                </figcaption>
+              </figure>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {t("2. Account: Login and Sign Up", "2. Account: Login and Sign Up", "2. Account: Login and Sign Up")}
+              </h2>
+              <p className="text-[15px] leading-7 text-slate-700">
+                {t(
+                  "Click Account in the top menu to open /account. Use Log in to your account with email and password, or Forgot password? for a reset. If you are new, choose Register now. to switch to Create your account: meet the password rules, accept the legal terms, then Sign Up.",
+                  "Click Account in the top menu to open /account. Use Log in to your account with email and password, or Forgot password? for a reset. If you are new, choose Register now. to switch to Create your account: meet the password rules, accept the legal terms, then Sign Up.",
+                  "Click Account in the top menu to open /account. Use Log in to your account with email and password, or Forgot password? for a reset. If you are new, choose Register now. to switch to Create your account: meet the password rules, accept the legal terms, then Sign Up.",
+                )}
+              </p>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-login.png"
+                    alt={t(
+                      "Account: Log in to your account form",
+                      "Account: Log in to your account form",
+                      "Account: Log in to your account form",
+                    )}
+                    className={guideImgLogin}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  {t(
+                    "Sign-in screen: email, password, Log In, and Register now.",
+                    "Sign-in screen: email, password, Log In, and Register now.",
+                    "Sign-in screen: email, password, Log In, and Register now.",
+                  )}
+                </figcaption>
+              </figure>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-signup.png"
+                    alt={t(
+                      "Account: Create your account registration form",
+                      "Account: Create your account registration form",
+                      "Account: Create your account registration form",
+                    )}
+                    className={guideImgSignup}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  {t(
+                    "Sign-up screen: password requirements, legal acknowledgement, and Sign Up.",
+                    "Sign-up screen: password requirements, legal acknowledgement, and Sign Up.",
+                    "Sign-up screen: password requirements, legal acknowledgement, and Sign Up.",
+                  )}
+                </figcaption>
+              </figure>
+
+              <p className="text-[15px] leading-7 text-slate-700">
+                {t(
+                  "Membership has three tiers: Bronze, Silver, and Gold. Under Compare membership tiers on the sign-up view, plans are shown side by side. New accounts start on Bronze; upgrading unlocks Silver or Gold limits.",
+                  "Membership has three tiers: Bronze, Silver, and Gold. Under Compare membership tiers on the sign-up view, plans are shown side by side. New accounts start on Bronze; upgrading unlocks Silver or Gold limits.",
+                  "Membership has three tiers: Bronze, Silver, and Gold. Under Compare membership tiers on the sign-up view, plans are shown side by side. New accounts start on Bronze; upgrading unlocks Silver or Gold limits.",
+                )}
+              </p>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-membership-tiers.png"
+                    alt={t(
+                      "Bronze, Silver, and Gold membership comparison cards",
+                      "Bronze, Silver, and Gold membership comparison cards",
+                      "Bronze, Silver, and Gold membership comparison cards",
+                    )}
+                    className={guideImgTiers}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  {t(
+                    "Membership comparison: feature summaries for Bronze, Silver, and Gold.",
+                    "Membership comparison: feature summaries for Bronze, Silver, and Gold.",
+                    "Membership comparison: feature summaries for Bronze, Silver, and Gold.",
+                  )}
+                </figcaption>
+              </figure>
+
+              <div className="space-y-3 text-[15px] leading-7 text-slate-700">
+                <p>
+                  <strong>{t("Bronze:", "Bronze:", "Bronze:")}</strong>{" "}
+                  {t(
+                    "All new members start here. Up to",
+                    "All new members start here. Up to",
+                    "All new members start here. Up to",
+                  )}{" "}
+                  <strong>{BRONZE_MAX_PROJECTS}</strong>{" "}
+                  {t("projects,", "projects,", "projects,")}{" "}
+                  <strong>{BRONZE_MAX_BOREHOLES_PER_PROJECT}</strong>{" "}
+                  {t("borehole IDs per project,", "borehole IDs per project,", "borehole IDs per project,")}{" "}
+                  <strong>{BRONZE_MAX_SAMPLES_PER_BOREHOLE}</strong>{" "}
+                  {t(
+                    "samples per borehole. Integrated parameter reports: up to",
+                    "samples per borehole. Integrated parameter reports: up to",
+                    "samples per borehole. Integrated parameter reports: up to",
+                  )}{" "}
+                  <strong>{BRONZE_MAX_REPORTS_PER_DAY}</strong>{" "}
+                  {t(
+                    "PDFs per day (Europe/Istanbul calendar). Save analyses and the matrix to the cloud. AI profile interpretation is not included. Further questions in blog research articles are Silver or Gold only.",
+                    "PDFs per day (Europe/Istanbul calendar). Save analyses and the matrix to the cloud. AI profile interpretation is not included. Further questions in blog research articles are Silver or Gold only.",
+                    "PDFs per day (Europe/Istanbul calendar). Save analyses and the matrix to the cloud. AI profile interpretation is not included. Further questions in blog research articles are Silver or Gold only.",
+                  )}
+                </p>
+                <p>
+                  <strong>{t("Silver:", "Silver:", "Silver:")}</strong>{" "}
+                  {t(
+                    "Unlimited projects and boreholes; unlimited integrated reports and PDF exports. Further questions (guided follow-ups) in blog research articles. All Bronze features are included.",
+                    "Unlimited projects and boreholes; unlimited integrated reports and PDF exports. Further questions (guided follow-ups) in blog research articles. All Bronze features are included.",
+                    "Unlimited projects and boreholes; unlimited integrated reports and PDF exports. Further questions (guided follow-ups) in blog research articles. All Bronze features are included.",
+                  )}
+                </p>
+                <p>
+                  <strong>{t("Gold:", "Gold:", "Gold:")}</strong>{" "}
+                  {t(
+                    "Unlimited AI analysis for integrated reports and profile tools; unlimited projects, reports, and exports in practice; priority access to new features. All Silver features are included.",
+                    "Unlimited AI analysis for integrated reports and profile tools; unlimited projects, reports, and exports in practice; priority access to new features. All Silver features are included.",
+                    "Unlimited AI analysis for integrated reports and profile tools; unlimited projects, reports, and exports in practice; priority access to new features. All Silver features are included.",
+                  )}
+                </p>
+                <p className="text-slate-600">
+                  <strong>{t("Note:", "Note:", "Note:")}</strong>{" "}
+                  {t(
+                    "You can browse tools and the blog without signing in; cloud projects, saved analyses, and membership quotas require an account.",
+                    "You can browse tools and the blog without signing in; cloud projects, saved analyses, and membership quotas require an account.",
+                    "You can browse tools and the blog without signing in; cloud projects, saved analyses, and membership quotas require an account.",
+                  )}
+                </p>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {t("3. Account: Information", "3. Account: Information", "3. Account: Information")}
+              </h2>
+              <p className="text-[15px] leading-7 text-slate-700">
+                {t(
+                  "After you sign in, your account unlocks features based on your membership tier. The Account control in the top menu uses tier colours (Bronze, Silver, or Gold); when signed in it also shows a small green checkmark. The Projects link appears next to Account.",
+                  "After you sign in, your account unlocks features based on your membership tier. The Account control in the top menu uses tier colours (Bronze, Silver, or Gold); when signed in it also shows a small green checkmark. The Projects link appears next to Account.",
+                  "After you sign in, your account unlocks features based on your membership tier. The Account control in the top menu uses tier colours (Bronze, Silver, or Gold); when signed in it also shows a small green checkmark. The Projects link appears next to Account.",
+                )}
+              </p>
+              <p className="text-[15px] leading-7 text-slate-700">
+                {t(
+                  "On /account, the information card border uses the same tier palette. You get Subscription (current plan and comparison), Personal Information (email display and password change), and Logout.",
+                  "On /account, the information card border uses the same tier palette. You get Subscription (current plan and comparison), Personal Information (email display and password change), and Logout.",
+                  "On /account, the information card border uses the same tier palette. You get Subscription (current plan and comparison), Personal Information (email display and password change), and Logout.",
+                )}
+              </p>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-header-tier.png"
+                    alt={t(
+                      "Top menu: Account button styled by membership tier",
+                      "Top menu: Account button styled by membership tier",
+                      "Top menu: Account button styled by membership tier",
+                    )}
+                    className={guideImgAccountHeader}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  {t(
+                    "Example: Gold membership — Account button and Projects in the header.",
+                    "Example: Gold membership — Account button and Projects in the header.",
+                    "Example: Gold membership — Account button and Projects in the header.",
+                  )}
+                </figcaption>
+              </figure>
+
+              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className={guideShotFrame}>
+                  <img
+                    src="/images/guide/account-information-panel.png"
+                    alt={t(
+                      "Account page: Subscription tab and tier cards",
+                      "Account page: Subscription tab and tier cards",
+                      "Account page: Subscription tab and tier cards",
+                    )}
+                    className={guideImgAccountDashboard}
+                  />
+                </div>
+                <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                  {t(
+                    "Account screen: Subscription, Personal Information, Logout; border matches tier.",
+                    "Account screen: Subscription, Personal Information, Logout; border matches tier.",
+                    "Account screen: Subscription, Personal Information, Logout; border matches tier.",
+                  )}
+                </figcaption>
+              </figure>
             </section>
           </>
         )}
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
-            {lang === "tr"
-              ? "2. Account: Proje Oluşturma"
-              : t("2. Account: creating a project", "2. Konto: Projekt erstellen", "2. Cuenta: crear un proyecto")}
+            {lang === "tr" ? "4. Project" : t("4. Project", "4. Project", "4. Project")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
-                <strong>Yol:</strong> <code className="rounded bg-slate-100 px-1">/account</code> →{" "}
-                <strong>Projects</strong>. Yeni proje adı yazıp <strong>Create Project</strong> ile ekleyin. Sayaçta{" "}
-                <strong>{MAX_PROJECTS_PER_USER} projeye</strong> ulaşınca yeni proje oluşturma devre dışı kalır.
+                Üye girişi yaptıktan sonra üst menüde <strong>Projects</strong> bağlantısı görünür.{" "}
+                <code className="rounded bg-slate-100 px-1">/projects</code> sayfasında bulut projelerinizi oluşturur,
+                seçer, düzenler veya kaldırırsınız; bu ekran proje yaşam döngüsünün merkezidir. Üyelik planınıza göre
+                en fazla <strong>{MAX_PROJECTS_PER_USER} proje</strong> tanımlayabilirsiniz; sınıra ulaşıldığında yeni
+                proje oluşturma kapatılır.
               </>
             ) : (
               <>
-                <strong>{t("Path:", "Pfad:", "Ruta:")}</strong>{" "}
-                <code className="rounded bg-slate-100 px-1">/account</code> → <strong>Projects</strong>.{" "}
                 {t(
-                  "Enter a project name and click Create Project.",
-                  "Geben Sie einen Projektnamen ein und klicken Sie auf Create Project.",
-                  "Introduzca un nombre de proyecto y haga clic en Create Project.",
+                  "After you sign in, the Projects link appears in the top menu.",
+                  "After you sign in, the Projects link appears in the top menu.",
+                  "After you sign in, the Projects link appears in the top menu.",
                 )}{" "}
+                <code className="rounded bg-slate-100 px-1">/projects</code>{" "}
                 {t(
-                  "When you reach",
-                  "Sobald Sie",
-                  "Cuando alcance",
+                  "is where you create, select, edit, or remove cloud projects—the main hub for project management. Depending on your plan you can have up to",
+                  "is where you create, select, edit, or remove cloud projects—the main hub for project management. Depending on your plan you can have up to",
+                  "is where you create, select, edit, or remove cloud projects—the main hub for project management. Depending on your plan you can have up to",
                 )}{" "}
-                <strong>{MAX_PROJECTS_PER_USER} {t("projects", "Projekte", "proyectos")}</strong>,{" "}
+                <strong>{MAX_PROJECTS_PER_USER}</strong>{" "}
+                {t("projects; when the limit is reached, creating new projects is disabled.", "projects; when the limit is reached, creating new projects is disabled.", "projects; when the limit is reached, creating new projects is disabled.")}
+              </>
+            )}
+          </p>
+          <p className="text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
+                Her proje altında <strong>Boreholes</strong> (sondaj kayıtları), <strong>Saved analyses</strong> (araçlardan
+                kaydedilen analizler) ve <strong>Integrated parameter matrix</strong> (birleşik parametre görünümü)
+                bölümleri yer alır; bu kartlar üzerinden ilgili ekranlara geçebilirsiniz.
+              </>
+            ) : (
+              <>
                 {t(
-                  "creating new projects is disabled.",
-                  "wird das Erstellen neuer Projekte deaktiviert.",
-                  "se desactivará la creación de nuevos proyectos.",
+                  "Each project includes Boreholes, Saved analyses, and the Integrated parameter matrix—open the matching cards to work with borehole data, saved tool runs, and the merged parameter table.",
+                  "Each project includes Boreholes, Saved analyses, and the Integrated parameter matrix—open the matching cards to work with borehole data, saved tool runs, and the merged parameter table.",
+                  "Each project includes Boreholes, Saved analyses, and the Integrated parameter matrix—open the matching cards to work with borehole data, saved tool runs, and the merged parameter table.",
                 )}
               </>
             )}
           </p>
 
           <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <img
-              src="/images/guide/account-projects-topbar.png"
-              alt={
-                lang === "tr"
-                  ? "Account — Projects ekran görüntüsü"
-                  : t("Account — Projects screenshot", "Account — Projects Screenshot", "Captura de Account — Projects")
-              }
-              className="block h-auto w-full"
-            />
+            <div className={guideShotFrame}>
+              <img
+                src="/images/guide/projects-empty.png"
+                alt={
+                  lang === "tr"
+                    ? "Projects: henüz proje yokken Active Project ve New Project"
+                    : t(
+                        "Projects: Active Project dropdown when no projects exist yet",
+                        "Projects: Active Project dropdown when no projects exist yet",
+                        "Projects: Active Project dropdown when no projects exist yet",
+                      )
+                }
+                className={guideImgProjects}
+              />
+            </div>
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr"
-                ? "Örnek: Account/Projects ekranı. Bu bölümde proje seçebilir, düzenleyebilir, yeni proje oluşturabilir veya projeyi kaldırabilirsiniz."
+                ? "Başlangıç: Active Project listesi boşken New Project ile ilk projenizi oluşturabilirsiniz."
                 : t(
-                    "Example: Account/Projects screen with a project selected. Here you can select, edit, and create projects.",
-                    "Beispiel: Account/Projects‑Ansicht mit ausgewähltem Projekt. Hier können Sie Projekte auswählen, bearbeiten und erstellen.",
-                    "Ejemplo: pantalla Account/Projects con un proyecto seleccionado. Aquí puede seleccionar, editar y crear proyectos.",
+                    "Starting out: use New Project when the Active Project list is empty.",
+                    "Starting out: use New Project when the Active Project list is empty.",
+                    "Starting out: use New Project when the Active Project list is empty.",
+                  )}
+            </figcaption>
+          </figure>
+
+          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className={guideShotFrame}>
+              <img
+                src="/images/guide/projects-active.png"
+                alt={
+                  lang === "tr"
+                    ? "Projects: seçili proje ve Boreholes / Saved analyses / Integrated parameter matrix kartları"
+                    : t(
+                        "Projects: selected project with Boreholes, Saved analyses, and Integrated parameter matrix cards",
+                        "Projects: selected project with Boreholes, Saved analyses, and Integrated parameter matrix cards",
+                        "Projects: selected project with Boreholes, Saved analyses, and Integrated parameter matrix cards",
+                      )
+                }
+                className={guideImgProjects}
+              />
+            </div>
+            <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              {lang === "tr"
+                ? "Proje seçildiğinde alt kartlardan Boreholes, Saved analyses ve Integrated parameter matrix ekranlarına geçilir."
+                : t(
+                    "With a project selected, use the cards to open Boreholes, Saved analyses, and the Integrated parameter matrix.",
+                    "With a project selected, use the cards to open Boreholes, Saved analyses, and the Integrated parameter matrix.",
+                    "With a project selected, use the cards to open Boreholes, Saved analyses, and the Integrated parameter matrix.",
                   )}
             </figcaption>
           </figure>
@@ -257,42 +699,42 @@ export function UserGuidePage() {
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
-            {lang === "tr"
-              ? "3. Sondaj Örneği (Borehole Sample) Ekleme"
-              : t("3. Adding a borehole sample", "3. Borehole‑Probe hinzufügen", "3. Añadir una muestra de perforación")}
+            {lang === "tr" ? "5. Boreholes" : t("5. Boreholes", "5. Boreholes", "5. Boreholes")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
               <>
-                Projeyi seçtikten sonra sağ panelde <strong>Add borehole sample</strong> formu görünür.{" "}
-                <strong>New Borehole ID</strong> yeni bir sondaj adı tanımlar; <strong>Existing Borehole ID</strong> aynı
-                sondaja farklı derinlikte ek örnek ekler. Örnek derinliği, GWT, birim hacim ağırlığı, zemin davranışı ve
-                N değerleri burada tutulur. Projede <strong>{MAX_BOREHOLES_PER_PROJECT} farklı</strong> sondaj ID sınırına
-                ulaşıldığında yalnızca mevcut ID’lere örnek ekleyebilirsiniz.
+                Proje altında <strong>Boreholes</strong> görünümünde sondaj tanımlayabilir, her sondaja ait temel verileri
+                (kimlik, GWT, birim hacim ağırlığı vb.) girebilir ve örnek satırlarını yönetebilirsiniz.{" "}
+                <strong>Existing Borehole ID</strong> ile aynı sondaja yeni derinlikte örnek ekledikçe, o sondaj için
+                kayıtlı alanlar projeden otomatik doldurulur; yalnızca yeni örneğe özgü değerleri (ör. derinlik, N, PI)
+                girmeniz yeterlidir.
               </>
             ) : (
               <>
                 {t(
-                  "After selecting a project, the right panel shows the Add borehole sample form.",
-                  "Nach der Projektauswahl zeigt das rechte Panel das Formular Add borehole sample.",
-                  "Tras seleccionar un proyecto, el panel derecho muestra el formulario Add borehole sample.",
-                )}{" "}
-                <strong>New Borehole ID</strong>{" "}
+                  "Under each project, open Boreholes to define boreholes and enter their key data (ID, GWT, unit weight, and sample rows). When you add another sample under an existing borehole ID, saved fields for that borehole load from the project automatically—you mainly enter the new sample-specific values (depth, N, PI, and so on).",
+                  "Under each project, open Boreholes to define boreholes and enter their key data (ID, GWT, unit weight, and sample rows). When you add another sample under an existing borehole ID, saved fields for that borehole load from the project automatically—you mainly enter the new sample-specific values (depth, N, PI, and so on).",
+                  "Under each project, open Boreholes to define boreholes and enter their key data (ID, GWT, unit weight, and sample rows). When you add another sample under an existing borehole ID, saved fields for that borehole load from the project automatically—you mainly enter the new sample-specific values (depth, N, PI, and so on).",
+                )}
+              </>
+            )}
+          </p>
+          <p className="text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
+                <strong>Add borehole sample</strong> bölümünde <strong>New Borehole ID</strong> yeni bir sondaj adı
+                tanımlar; <strong>Existing Borehole ID</strong> aynı sondaja farklı derinlikte ek örnek ekler. Örnek
+                derinliği, GWT, birim hacim ağırlığı, zemin davranışı ve N değerleri burada tutulur. Projede{" "}
+                <strong>{MAX_BOREHOLES_PER_PROJECT} farklı</strong> sondaj kimliği sınırına ulaşıldığında yalnızca mevcut
+                kimliklere örnek ekleyebilirsiniz.
+              </>
+            ) : (
+              <>
                 {t(
-                  "creates a new borehole name;",
-                  "erstellt eine neue Borehole‑Bezeichnung;",
-                  "crea un nuevo identificador de perforación;",
-                )}{" "}
-                <strong>Existing Borehole ID</strong>{" "}
-                {t(
-                  "adds another sample depth under the same borehole.",
-                  "fügt eine weitere Probentiefe unter demselben Borehole hinzu.",
-                  "añade otra profundidad de muestra bajo la misma perforación.",
-                )}{" "}
-                {t(
-                  "Sample depth, GWT, unit weight, soil behaviour and N values are stored here.",
-                  "Probentiefe, GWT, Wichte, Bodenverhalten und N‑Werte werden hier gespeichert.",
-                  "Aquí se guardan la profundidad de muestra, GWT, peso unitario, comportamiento del suelo y valores N.",
+                  "In the Add borehole sample section, New Borehole ID defines a new borehole name; Existing Borehole ID adds another sample depth under the same borehole. Sample depth, GWT, unit weight, soil behaviour and N values are stored here.",
+                  "In the Add borehole sample section, New Borehole ID defines a new borehole name; Existing Borehole ID adds another sample depth under the same borehole. Sample depth, GWT, unit weight, soil behaviour and N values are stored here.",
+                  "In the Add borehole sample section, New Borehole ID defines a new borehole name; Existing Borehole ID adds another sample depth under the same borehole. Sample depth, GWT, unit weight, soil behaviour and N values are stored here.",
                 )}{" "}
                 {t(
                   "Once you reach",
@@ -312,27 +754,98 @@ export function UserGuidePage() {
           </p>
 
           <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <img
-              src="/images/guide/add-borehole-sample.png"
-              alt={
-                lang === "tr"
-                  ? "Add borehole sample formu ekran görüntüsü"
-                  : t(
-                      "Add borehole sample form screenshot",
-                      "Screenshot: Add borehole sample‑Formular",
-                      "Captura: formulario Add borehole sample",
-                    )
-              }
-              className="block h-auto w-full"
-            />
+            <div className={guideShotFrame}>
+              <img
+                src="/images/guide/boreholes-workspace.png"
+                alt={
+                  lang === "tr"
+                    ? "Boreholes: tablo ve Add borehole sample formu"
+                    : t(
+                        "Boreholes: data table and Add borehole sample form",
+                        "Boreholes: data table and Add borehole sample form",
+                        "Boreholes: data table and Add borehole sample form",
+                      )
+                }
+                className={guideImgBoreholes}
+              />
+            </div>
             <figcaption className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
               {lang === "tr"
-                ? "Yol: Account - Projects - Add borehole sample • Add borehole sample formu: New/Existing Borehole ID seçimiyle yeni sondaj tanımlayabilir veya mevcut sondaja yeni derinlik ekleyebilirsiniz."
+                ? "Boreholes: örnek tablosu ve Add borehole sample formu. New / Existing Borehole ID ile yeni sondaj veya aynı sondaja ek derinlik eklenebilir."
                 : t(
-                    "Path: Account → Projects → Add borehole sample. Switch between New/Existing Borehole ID to create a new borehole or add another sample depth under an existing one.",
-                    "Pfad: Account → Projects → Add borehole sample. Wechseln Sie zwischen New/Existing Borehole ID, um ein neues Borehole anzulegen oder eine weitere Probentiefe zu einem bestehenden hinzuzufügen.",
-                    "Ruta: Account → Projects → Add borehole sample. Cambie entre New/Existing Borehole ID para crear una nueva perforación o añadir otra profundidad de muestra a una existente.",
+                    "Boreholes: sample table and Add borehole sample form. Use New / Existing Borehole ID to add a new borehole or another depth on an existing one.",
+                    "Boreholes: sample table and Add borehole sample form. Use New / Existing Borehole ID to add a new borehole or another depth on an existing one.",
+                    "Boreholes: sample table and Add borehole sample form. Use New / Existing Borehole ID to add a new borehole or another depth on an existing one.",
                   )}
+            </figcaption>
+          </figure>
+
+          <p className="text-[15px] leading-7 text-slate-700">
+            {lang === "tr" ? (
+              <>
+                Araç sayfalarında (<strong>/tools/…</strong>) projedeki sondaj verisini kullanmak için üstteki{" "}
+                <strong>Projects and Boreholes</strong> panelinden proje ve sondajları seçip{" "}
+                <strong>Use in Tools</strong> düğmesine basın; örnekler ilgili araçlarda profile satırlarına otomatik
+                dağıtılır. Projeyle bağlantılı otomatik doldurmayı kapatıp elle girmek için{" "}
+                <strong>Clear</strong> kullanın; böylece araç içinde yalnızca manuel girdiyle devam edebilirsiniz.
+              </>
+            ) : (
+              <>
+                {t(
+                  "On tool pages (/tools/…), open Projects and Boreholes in the header, pick your project and boreholes, then click Use in Tools—samples are pushed into the tool’s profile rows automatically. Click Clear to detach project data and switch back to manual entry inside the tool.",
+                  "On tool pages (/tools/…), open Projects and Boreholes in the header, pick your project and boreholes, then click Use in Tools—samples are pushed into the tool’s profile rows automatically. Click Clear to detach project data and switch back to manual entry inside the tool.",
+                  "On tool pages (/tools/…), open Projects and Boreholes in the header, pick your project and boreholes, then click Use in Tools—samples are pushed into the tool’s profile rows automatically. Click Clear to detach project data and switch back to manual entry inside the tool.",
+                )}
+              </>
+            )}
+          </p>
+
+          <figure className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="grid gap-3 bg-slate-50/80 p-3 md:grid-cols-2">
+              <img
+                src="/images/guide/boreholes-tools-panel-use-in-tools.png"
+                alt={
+                  lang === "tr"
+                    ? "Projects and Boreholes: Use in Tools ile seçim aktif"
+                    : t(
+                        "Projects and Boreholes: Use in Tools with active selection",
+                        "Projects and Boreholes: Use in Tools with active selection",
+                        "Projects and Boreholes: Use in Tools with active selection",
+                      )
+                }
+                className="block max-h-[min(22rem,48vh)] w-full rounded-lg border border-slate-200 bg-white object-contain p-1 sm:max-h-[min(26rem,52vh)]"
+              />
+              <img
+                src="/images/guide/boreholes-tools-panel-clear.png"
+                alt={
+                  lang === "tr"
+                    ? "Projects and Boreholes: Clear sonrası manuel girişe dönüş"
+                    : t(
+                        "Projects and Boreholes: after Clear, manual entry",
+                        "Projects and Boreholes: after Clear, manual entry",
+                        "Projects and Boreholes: after Clear, manual entry",
+                      )
+                }
+                className="block max-h-[min(22rem,48vh)] w-full rounded-lg border border-slate-200 bg-white object-contain p-1 sm:max-h-[min(26rem,52vh)]"
+              />
+            </div>
+            <figcaption className="space-y-2 border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              <p>
+                {lang === "tr" ? (
+                  <>
+                    <strong>Sol:</strong> Use in Tools sonrası örneklerin araçlarda aktif olduğu durum.{" "}
+                    <strong>Sağ:</strong> Clear ile seçimin kaldırıldığı, manuel girişe geçilebilecek durum.
+                  </>
+                ) : (
+                  <>
+                    {t(
+                      "Left: samples active in tools after Use in Tools. Right: selection cleared with Clear—switch to manual input.",
+                      "Left: samples active in tools after Use in Tools. Right: selection cleared with Clear—switch to manual input.",
+                      "Left: samples active in tools after Use in Tools. Right: selection cleared with Clear—switch to manual input.",
+                    )}
+                  </>
+                )}
+              </p>
             </figcaption>
           </figure>
         </section>
@@ -340,11 +853,11 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "4. Tools Sayfasında Proje / Sondaj Seçimi"
+              ? "6. Tools sayfasında proje / sondaj seçimi"
               : t(
-                  "4. Selecting project / boreholes in Tools",
-                  "4. Projekt / Boreholes in Tools auswählen",
-                  "4. Seleccionar proyecto / perforaciones en Tools",
+                  "6. Selecting project / boreholes in Tools",
+                  "6. Projekt / Boreholes in Tools auswählen",
+                  "6. Seleccionar proyecto / perforaciones en Tools",
                 )}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
@@ -438,8 +951,8 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "5. Borehole Kullanmadan Araç Kullanımı"
-              : t("5. Using tools without boreholes", "5. Tools ohne Boreholes nutzen", "5. Usar herramientas sin perforaciones")}
+              ? "7. Borehole kullanmadan araç kullanımı"
+              : t("7. Using tools without boreholes", "7. Tools ohne Boreholes nutzen", "7. Usar herramientas sin perforaciones")}
           </h2>
           <ul className="list-disc space-y-2 pl-5 text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
@@ -491,8 +1004,8 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "6. Proje Verisiyle Araç Kullanımı"
-              : t("6. Using tools with project data", "6. Tools mit Projektdaten nutzen", "6. Usar herramientas con datos del proyecto")}
+              ? "8. Proje verisiyle araç kullanımı"
+              : t("8. Using tools with project data", "8. Tools mit Projektdaten nutzen", "8. Usar herramientas con datos del proyecto")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
@@ -590,11 +1103,11 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "7. Sekmeler: Parameters, Soil Profile Plot, Information, Report"
+              ? "9. Sekmeler: Parameters, Soil Profile Plot, Information, Report"
               : t(
-                  "7. Tabs: Parameters, Soil Profile Plot, Information, Report",
-                  "7. Tabs: Parameters, Soil Profile Plot, Information, Report",
-                  "7. Pestañas: Parameters, Soil Profile Plot, Information, Report",
+                  "9. Tabs: Parameters, Soil Profile Plot, Information, Report",
+                  "9. Tabs: Parameters, Soil Profile Plot, Information, Report",
+                  "9. Pestañas: Parameters, Soil Profile Plot, Information, Report",
                 )}
           </h2>
           <div className="space-y-3 text-[15px] leading-7 text-slate-700">
@@ -805,8 +1318,8 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "8. Plotlar (Grafikler) Nerede?"
-              : t("8. Where are the plots?", "8. Wo sind die Plots?", "8. ¿Dónde están los gráficos?")}
+              ? "10. Plotlar (grafikler) nerede?"
+              : t("10. Where are the plots?", "10. Wo sind die Plots?", "10. ¿Dónde están los gráficos?")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
@@ -865,8 +1378,8 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "9. Analizi Projeye Kaydetme"
-              : t("9. Saving an analysis to a project", "9. Analyse in einem Projekt speichern", "9. Guardar un análisis en un proyecto")}
+              ? "11. Analizi projeye kaydetme"
+              : t("11. Saving an analysis to a project", "11. Analyse in einem Projekt speichern", "11. Guardar un análisis en un proyecto")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
@@ -920,8 +1433,8 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "10. Kayıtlı Sonuçları Görüntüleme"
-              : t("10. Viewing saved analyses", "10. Gespeicherte Analysen anzeigen", "10. Ver análisis guardados")}
+              ? "12. Kayıtlı sonuçları görüntüleme"
+              : t("12. Viewing saved analyses", "12. Gespeicherte Analysen anzeigen", "12. Ver análisis guardados")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (
@@ -988,8 +1501,8 @@ export function UserGuidePage() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-900">
             {lang === "tr"
-              ? "11. Rapor (PDF) ve Excel"
-              : t("11. Report (PDF) and Excel exports", "11. Report (PDF) und Excel‑Exporte", "11. Informe (PDF) y exportaciones a Excel")}
+              ? "13. Rapor (PDF) ve Excel"
+              : t("13. Report (PDF) and Excel exports", "13. Report (PDF) und Excel‑Exporte", "13. Informe (PDF) y exportaciones a Excel")}
           </h2>
           <p className="text-[15px] leading-7 text-slate-700">
             {lang === "tr" ? (

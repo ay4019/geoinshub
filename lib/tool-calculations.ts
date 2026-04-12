@@ -1345,10 +1345,15 @@ const calculators: Record<string, Calculator> = {
     const cr = computeCrFromSampleDepth(sampleDepth);
     const sigmaEff = Math.max(unitWeight * sampleDepth - 9.81 * Math.max(sampleDepth - groundwaterDepth, 0), 0.1);
     const ce = er / 60;
-    const n60 = nField * ce * cb * cr * cs;
+    const isSptRefusal = nField === 50;
+    let n60 = nField * ce * cb * cr * cs;
     const cnRaw = 9.78 * Math.sqrt(1 / sigmaEff);
     const cn = Math.max(0.4, Math.min(cnRaw, 1.7));
-    const n160 = Math.min(n60 * cn, 2 * n60);
+    let n160 = Math.min(n60 * cn, 2 * n60);
+    if (isSptRefusal) {
+      n60 = 50;
+      n160 = 50;
+    }
     const hammerRange =
       hammerType === "automatic" ? [90, 160] : hammerType === "donut" ? [45, 100] : [60, 117];
     const erRangeWarning =
@@ -1371,6 +1376,11 @@ const calculators: Record<string, Calculator> = {
         { label: "(N1)60", value: round(n160, 2) },
       ],
       notes: [
+        ...(isSptRefusal
+          ? [
+              "Field N = 50 is treated as refusal (Refü); N60 and (N1)60 are taken as 50 for screening (corrections not applied to these outputs).",
+            ]
+          : []),
         "Vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight.",
         "C_r is assigned automatically from sample depth ranges (<3: 0.75, 3-4: 0.80, 4-6: 0.85, 6-10: 0.95, 10-30: 1.00, >30 m: 0.95 screening default).",
         "C_N uses Idriss and Boulanger (2008): C_N = 9.78(1/sigma'_v0)^0.5 with bounds 0.40 to 1.70.",
