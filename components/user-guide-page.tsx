@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MAX_BOREHOLES_PER_PROJECT, MAX_PROJECTS_PER_USER } from "@/lib/project-limits";
 import {
   BRONZE_MAX_BOREHOLES_PER_PROJECT,
@@ -43,14 +43,12 @@ const guideImgToolTabs =
 const guideImgReportTab =
   "mx-auto block h-auto w-full max-w-3xl object-contain object-top [max-height:min(44rem,88vh)] sm:[max-height:min(48rem,90vh)]";
 
+const DEFAULT_USER_GUIDE_LANG: "tr" | "en" | "de" | "es" = "en";
+
 export function UserGuidePage() {
-  const [lang, setLang] = useState<"tr" | "en" | "de" | "es">(() => {
-    if (typeof window === "undefined") {
-      return "en";
-    }
-    const stored = window.localStorage.getItem("gih:userGuideLang");
-    return stored === "en" || stored === "tr" || stored === "de" || stored === "es" ? stored : "en";
-  });
+  /** English by default; optional saved choice is applied after mount so SSR and first paint stay in sync. */
+  const [lang, setLang] = useState<"tr" | "en" | "de" | "es">(DEFAULT_USER_GUIDE_LANG);
+  const hydrated = useRef(false);
   const nonTrLang: "en" | "de" | "es" = lang === "de" || lang === "es" ? lang : "en";
   /** Turkish + English + German + Spanish (single source for headings, TOC, FAQ). */
   const L = (tr: string, en: string, de: string, es: string) =>
@@ -60,6 +58,14 @@ export function UserGuidePage() {
 
   useEffect(() => {
     if (typeof window === "undefined") {
+      return;
+    }
+    if (!hydrated.current) {
+      hydrated.current = true;
+      const stored = window.localStorage.getItem("gih:userGuideLang");
+      if (stored === "en" || stored === "tr" || stored === "de" || stored === "es") {
+        setLang(stored);
+      }
       return;
     }
     window.localStorage.setItem("gih:userGuideLang", lang);
