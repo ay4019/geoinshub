@@ -61,7 +61,8 @@ export function OnboardingTour() {
   const pathname = usePathname();
   const router = useRouter();
   const [run, setRun] = useState(false);
-  const [seen, setSeen] = useState<boolean>(() => readTourSeen());
+  // During SSR (no window), default to "seen" to avoid any beacon flash before hydration.
+  const [seen, setSeen] = useState<boolean>(() => (typeof window === "undefined" ? true : readTourSeen()));
 
   const steps: Step[] = useMemo(
     () => [
