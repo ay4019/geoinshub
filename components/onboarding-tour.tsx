@@ -10,11 +10,12 @@ const STORAGE_KEY = "onboardingTourSeen:v1";
 type JoyrideCallbackData = { status?: string | null } & Record<string, unknown>;
 const JoyrideCompat = Joyride as unknown as ComponentType<Record<string, unknown>>;
 
-function markTourSeen() {
+function readTourSeen(): boolean {
+  if (typeof window === "undefined") return false;
   try {
-    window.localStorage.setItem(STORAGE_KEY, "1");
+    return window.localStorage.getItem(STORAGE_KEY) === "1";
   } catch {
-    // ignore
+    return false;
   }
 }
 
@@ -60,6 +61,7 @@ export function OnboardingTour() {
   const pathname = usePathname();
   const router = useRouter();
   const [run, setRun] = useState(false);
+  const [seen, setSeen] = useState<boolean>(() => readTourSeen());
 
   const steps: Step[] = useMemo(
     () => [
@@ -82,7 +84,13 @@ export function OnboardingTour() {
               type="button"
               className="btn-base btn-md w-full"
               onClick={() => {
-                markTourSeen();
+                try {
+                  window.localStorage.setItem(STORAGE_KEY, "1");
+                } catch {
+                  // ignore
+                }
+                setSeen(true);
+                setRun(false);
                 router.push("/signup");
               }}
             >
@@ -106,18 +114,11 @@ export function OnboardingTour() {
 
   useEffect(() => {
     if (pathname !== "/") return;
-
-    let seen = false;
-    try {
-      seen = window.localStorage.getItem(STORAGE_KEY) === "1";
-    } catch {
-      seen = false;
-    }
     if (seen) return;
 
     const t = window.setTimeout(() => setRun(true), 600);
     return () => window.clearTimeout(t);
-  }, [pathname]);
+  }, [pathname, seen]);
 
   const handleCallback = (data: JoyrideCallbackData) => {
     const action = typeof data.action === "string" ? data.action : undefined;
@@ -125,11 +126,17 @@ export function OnboardingTour() {
     const closed = action === "close";
     if (!finished && !closed) return;
 
-    markTourSeen();
+    try {
+      window.localStorage.setItem(STORAGE_KEY, "1");
+    } catch {
+      // ignore
+    }
+    setSeen(true);
     setRun(false);
   };
 
   if (pathname !== "/") return null;
+  if (seen) return null;
 
   const joyrideProps: Record<string, unknown> = {
     steps,
