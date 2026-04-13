@@ -19,6 +19,15 @@ function readTourSeen(): boolean {
   }
 }
 
+function persistTourSeen(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
+
 function GoldBeacon() {
   return (
     <div
@@ -85,11 +94,7 @@ export function OnboardingTour() {
               type="button"
               className="btn-base btn-md w-full"
               onClick={() => {
-                try {
-                  window.localStorage.setItem(STORAGE_KEY, "1");
-                } catch {
-                  // ignore
-                }
+                persistTourSeen();
                 setSeen(true);
                 setRun(false);
                 router.push("/signup");
@@ -117,7 +122,10 @@ export function OnboardingTour() {
     if (pathname !== "/") return;
     if (seen) return;
 
-    const t = window.setTimeout(() => setRun(true), 600);
+    const t = window.setTimeout(() => {
+      persistTourSeen();
+      setRun(true);
+    }, 600);
     return () => window.clearTimeout(t);
   }, [pathname, seen]);
 
@@ -127,11 +135,7 @@ export function OnboardingTour() {
     const closed = action === "close";
     if (!finished && !closed) return;
 
-    try {
-      window.localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      // ignore
-    }
+    persistTourSeen();
     setSeen(true);
     setRun(false);
   };
@@ -237,4 +241,3 @@ export function OnboardingTour() {
     </>
   );
 }
-
