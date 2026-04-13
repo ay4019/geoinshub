@@ -124,6 +124,7 @@ export function Header() {
       <Link
         key={item.href}
         href={item.href}
+        data-tour={item.href === "/tools" ? "nav-tools" : item.href === "/account" ? "nav-account" : undefined}
         className={`${base} ${activeCls}`}
         onClick={() => setMenuOpen(false)}
       >

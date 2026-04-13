@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ArticleCard } from "@/components/article-card";
+import { OnboardingTour } from "@/components/onboarding-tour";
 import { ToolCard } from "@/components/tool-card";
 import { VisitTracker } from "@/components/visit-tracker";
 import { getFeaturedArticles, getFeaturedTools } from "@/lib/data-layer";
@@ -14,6 +15,7 @@ export default async function HomePage() {
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-10 px-3 py-6 sm:space-y-16 sm:px-6 sm:py-12">
       <VisitTracker />
+      <OnboardingTour />
 
       <section className="flex flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:gap-8 sm:p-10">
         <div className="flex flex-col gap-4 sm:gap-5">
@@ -39,7 +41,8 @@ export default async function HomePage() {
             <span className="font-semibold text-slate-900">New to the hub?</span>{" "}
             <Link
               href="/docs/guide"
-              className="font-semibold !text-amber-700 underline !decoration-amber-400/90 decoration-2 underline-offset-[5px] transition-colors hover:!text-amber-800 hover:!decoration-amber-500"
+              data-tour="getting-started-guide"
+              className="scroll-mt-32 font-semibold !text-amber-700 underline !decoration-amber-400/90 decoration-2 underline-offset-[5px] transition-colors hover:!text-amber-800 hover:!decoration-amber-500"
             >
               Getting started guide
             </Link>
@@ -47,13 +50,15 @@ export default async function HomePage() {
               {" "}
               — tools, account, projects, saved analyses, and{" "}
             </span>
-            <span className="font-semibold text-amber-600">AI-powered reporting</span>
+            <span className="scroll-mt-32 font-semibold text-amber-600" data-tour="ai-reporting">
+              AI-powered reporting
+            </span>
             <span className="text-slate-600">.</span>
           </p>
         </div>
       </section>
 
-      <section className="space-y-4 sm:space-y-5">
+      <section className="scroll-mt-32 space-y-4 sm:space-y-5" data-tour="featured-tools">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Featured Tools</h2>
