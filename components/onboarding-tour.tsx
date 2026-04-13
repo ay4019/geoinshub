@@ -10,6 +10,14 @@ const STORAGE_KEY = "onboardingTourSeen:v1";
 type JoyrideCallbackData = { status?: string | null } & Record<string, unknown>;
 const JoyrideCompat = Joyride as unknown as ComponentType<Record<string, unknown>>;
 
+function markTourSeen() {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
+
 function GoldBeacon() {
   return (
     <div
@@ -74,11 +82,7 @@ export function OnboardingTour() {
               type="button"
               className="btn-base btn-md w-full"
               onClick={() => {
-                try {
-                  window.localStorage.setItem(STORAGE_KEY, "1");
-                } catch {
-                  // ignore
-                }
+                markTourSeen();
                 router.push("/signup");
               }}
             >
@@ -116,14 +120,12 @@ export function OnboardingTour() {
   }, [pathname]);
 
   const handleCallback = (data: JoyrideCallbackData) => {
+    const action = typeof data.action === "string" ? data.action : undefined;
     const finished = data.status === STATUS.FINISHED || data.status === STATUS.SKIPPED;
-    if (!finished) return;
+    const closed = action === "close";
+    if (!finished && !closed) return;
 
-    try {
-      window.localStorage.setItem(STORAGE_KEY, "1");
-    } catch {
-      // ignore
-    }
+    markTourSeen();
     setRun(false);
   };
 
