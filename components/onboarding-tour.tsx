@@ -70,8 +70,8 @@ export function OnboardingTour() {
   const pathname = usePathname();
   const router = useRouter();
   const [run, setRun] = useState(false);
-  // During SSR (no window), default to "seen" to avoid any beacon flash before hydration.
-  const [seen, setSeen] = useState<boolean>(() => (typeof window === "undefined" ? true : readTourSeen()));
+  const [hydrated, setHydrated] = useState(false);
+  const [seen, setSeen] = useState(true);
 
   const steps: Step[] = useMemo(
     () => [
@@ -119,7 +119,13 @@ export function OnboardingTour() {
   );
 
   useEffect(() => {
+    setSeen(readTourSeen());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
     if (pathname !== "/") return;
+    if (!hydrated) return;
     if (seen) return;
 
     const t = window.setTimeout(() => {
@@ -127,7 +133,7 @@ export function OnboardingTour() {
       setRun(true);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [pathname, seen]);
+  }, [pathname, seen, hydrated]);
 
   const handleCallback = (data: JoyrideCallbackData) => {
     const action = typeof data.action === "string" ? data.action : undefined;
@@ -141,6 +147,7 @@ export function OnboardingTour() {
   };
 
   if (pathname !== "/") return null;
+  if (!hydrated) return null;
   if (seen) return null;
 
   const joyrideProps: Record<string, unknown> = {

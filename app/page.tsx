@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ArticleCard } from "@/components/article-card";
+import { AiReportingLink } from "@/components/ai-reporting-link";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { ToolCard } from "@/components/tool-card";
 import { VisitTracker } from "@/components/visit-tracker";
@@ -50,9 +51,7 @@ export default async function HomePage() {
               {" "}
               — tools, account, projects, saved analyses, and{" "}
             </span>
-            <span className="scroll-mt-32 font-semibold text-amber-600" data-tour="ai-reporting">
-              AI-powered reporting
-            </span>
+            <AiReportingLink className="scroll-mt-32" data-tour="ai-reporting" />
             <span className="text-slate-600">.</span>
           </p>
         </div>

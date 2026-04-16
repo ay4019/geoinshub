@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import type { MouseEvent } from "react";
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { useSubscription } from "@/components/subscription-context";
@@ -45,6 +46,7 @@ function CloseIcon() {
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const guideCapture = isGuideCapturePath(pathname);
   const supabaseReady = isSupabaseConfigured();
   const { isAdmin: isSubscriptionAdmin, loading: subscriptionLoading, tier } = useSubscription();
@@ -124,9 +126,23 @@ export function Header() {
       <Link
         key={item.href}
         href={item.href}
-        data-tour={item.href === "/tools" ? "nav-tools" : item.href === "/account" ? "nav-account" : undefined}
+        data-tour={
+          item.href === "/tools"
+            ? "nav-tools"
+            : item.href === "/account"
+              ? "nav-account"
+              : item.href === "/projects"
+                ? "nav-projects"
+                : undefined
+        }
         className={`${base} ${activeCls}`}
-        onClick={() => setMenuOpen(false)}
+        onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+          setMenuOpen(false);
+          if (item.href === "/projects" && !showSignedInChrome) {
+            event.preventDefault();
+            router.push("/account");
+          }
+        }}
       >
         {showAccountChrome ? (
           <span className="relative inline-flex items-center">
@@ -187,14 +203,10 @@ export function Header() {
           {navItems.map((item) => renderNavLink(item, false))}
           <div className="flex items-center gap-1.5 lg:gap-2">
             {renderNavLink(accountNav, false, { accountExtras: true })}
-            {showSignedInChrome ? (
-              <>
-                <span className="select-none text-slate-400" aria-hidden="true">
-                  |
-                </span>
-                {renderNavLink(projectsNav, false)}
-              </>
-            ) : null}
+            <span className="select-none text-slate-400" aria-hidden="true">
+              |
+            </span>
+            {renderNavLink(projectsNav, false)}
           </div>
           {supabaseReady && isAuthenticated && isSubscriptionAdmin && !subscriptionLoading ? (
             <Link
@@ -220,14 +232,10 @@ export function Header() {
             {navItems.map((item) => renderNavLink(item, true))}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {renderNavLink(accountNav, true, { inlineRow: true, accountExtras: true })}
-              {showSignedInChrome ? (
-                <>
-                  <span className="select-none text-slate-400" aria-hidden="true">
-                    |
-                  </span>
-                  {renderNavLink(projectsNav, true, { inlineRow: true })}
-                </>
-              ) : null}
+              <span className="select-none text-slate-400" aria-hidden="true">
+                |
+              </span>
+              {renderNavLink(projectsNav, true, { inlineRow: true })}
             </div>
             {supabaseReady && isAuthenticated && isSubscriptionAdmin && !subscriptionLoading ? (
               <Link
