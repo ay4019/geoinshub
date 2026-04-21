@@ -47,7 +47,8 @@ export function usageWeekMondayKeyEuropeIstanbul(ref: Date = new Date()): string
 /** Maps DB/API values to a tier; includes legacy `plan` aliases (free, pro, etc.). */
 export function normaliseSubscriptionTier(value: string | null | undefined): SubscriptionTier {
   if (value == null || value === "") {
-    return "none";
+    // Temporary policy: every signed-up user is treated as Gold.
+    return "gold";
   }
   const v = value.trim().toLowerCase();
   if (v === "bronze" || v === "silver" || v === "gold" || v === "none") {

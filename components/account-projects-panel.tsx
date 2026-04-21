@@ -446,6 +446,7 @@ export function AccountProjectsPanel() {
   const [integratedMatrixAiReport, setIntegratedMatrixAiReport] = useState<string | null>(null);
   const [matrixAiReportTruncated, setMatrixAiReportTruncated] = useState(false);
   const [matrixReportDataStale, setMatrixReportDataStale] = useState(false);
+  const [isDownloadingMatrixAiPdf, setIsDownloadingMatrixAiPdf] = useState(false);
   const [matrixAiWeeklyQuota, setMatrixAiWeeklyQuota] = useState<{
     loaded: boolean;
     remaining: number;
@@ -775,6 +776,22 @@ export function AccountProjectsPanel() {
       setMessageType("ok");
     } finally {
       setIsGeneratingMatrixAiReport(false);
+    }
+  };
+
+  const downloadIntegratedMatrixAiPdf = async () => {
+    if (!selectedProject || !integratedMatrixAiReport) {
+      return;
+    }
+    setIsDownloadingMatrixAiPdf(true);
+    try {
+      const { createIntegratedMatrixAiReportPdf } = await import("@/lib/matrix-ai-report-pdf");
+      await createIntegratedMatrixAiReportPdf({
+        projectName: selectedProject.name,
+        markdown: integratedMatrixAiReport,
+      });
+    } finally {
+      setIsDownloadingMatrixAiPdf(false);
     }
   };
 
@@ -2699,24 +2716,38 @@ export function AccountProjectsPanel() {
                           <h4 className="text-sm font-bold uppercase tracking-[0.06em] text-amber-950">
                             AI engineering interpretation
                           </h4>
-                          <button
-                            type="button"
-                            className="btn-base shrink-0 px-2 py-1 text-[11px] text-slate-700"
-                            onClick={() => {
-                              if (authUserId && selectedProjectId) {
-                                try {
-                                  localStorage.removeItem(matrixAiReportStorageKey(authUserId, selectedProjectId));
-                                } catch {
-                                  /* ignore */
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className="btn-base shrink-0 px-2 py-1 text-[11px]"
+                              onClick={() => {
+                                void downloadIntegratedMatrixAiPdf();
+                              }}
+                              disabled={isDownloadingMatrixAiPdf}
+                              title="Download the AI interpretation as a PDF"
+                            >
+                              {isDownloadingMatrixAiPdf ? "Preparing…" : "Download PDF"}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-base shrink-0 px-2 py-1 text-[11px] text-slate-700"
+                              onClick={() => {
+                                if (authUserId && selectedProjectId) {
+                                  try {
+                                    localStorage.removeItem(matrixAiReportStorageKey(authUserId, selectedProjectId));
+                                  } catch {
+                                    /* ignore */
+                                  }
                                 }
-                              }
-                              setIntegratedMatrixAiReport(null);
-                              setMatrixAiReportTruncated(false);
-                              setMatrixReportDataStale(false);
-                            }}
-                          >
-                            Clear
-                          </button>
+                                setIntegratedMatrixAiReport(null);
+                                setMatrixAiReportTruncated(false);
+                                setMatrixReportDataStale(false);
+                              }}
+                              disabled={isDownloadingMatrixAiPdf}
+                            >
+                              Clear
+                            </button>
+                          </div>
                         </div>
                         {matrixReportDataStale ? (
                           <p className="mt-2 rounded-lg border border-amber-500/70 bg-amber-100/80 px-3 py-2 text-xs font-medium text-amber-950">

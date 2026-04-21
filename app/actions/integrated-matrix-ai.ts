@@ -32,6 +32,63 @@ interface GeminiGenerateContentResponse {
   }>;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function readResponseSnippet(response: Response): Promise<string> {
+  try {
+    const contentType = response.headers.get("content-type") ?? "";
+    const raw = contentType.toLowerCase().includes("application/json")
+      ? JSON.stringify(await response.json())
+      : await response.text();
+    return raw.trim().slice(0, 600);
+  } catch {
+    return "";
+  }
+}
+
+function maybeExtractGeminiErrorMessage(snippet: string): string | null {
+  if (!snippet) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(snippet) as unknown;
+    const message = (parsed as { error?: { message?: unknown } })?.error?.message;
+    return typeof message === "string" && message.trim() ? message.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchGeminiWithRetry(url: string, init: RequestInit, attempts = 4) {
+  let last: Response | null = null;
+  for (let i = 0; i < attempts; i += 1) {
+    const response = await fetch(url, init);
+    last = response;
+    if (response.ok) {
+      return response;
+    }
+    // Retry a small set of transient failure codes.
+    if (![429, 500, 502, 503, 504].includes(response.status)) {
+      return response;
+    }
+    if (i < attempts - 1) {
+      const base = 800 * 2 ** i;
+      const jitter = Math.floor(Math.random() * 250);
+      await sleep(Math.min(base + jitter, 6000));
+    }
+  }
+  return last ?? fetch(url, init);
+}
+
+function parseFallbackModels(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
 function extractGeminiText(payload: GeminiGenerateContentResponse): string {
   const parts =
     payload.candidates
@@ -159,39 +216,83 @@ export async function interpretIntegratedMatrixReportAction(request: {
       return { ok: false, message: "AI reporting is not configured (GEMINI_API_KEY missing on the server)." };
     }
 
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const primaryModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const fallbackModels =
+      parseFallbackModels(process.env.GEMINI_MATRIX_FALLBACK_MODELS) ||
+      [];
+    const modelsToTry = [primaryModel, ...fallbackModels].filter(Boolean);
     const maxOut = Number.parseInt(process.env.GEMINI_MATRIX_MAX_OUTPUT_TOKENS ?? "24576", 10);
     const maxOutputTokens = Number.isFinite(maxOut) && maxOut >= 1024 ? Math.min(maxOut, 65536) : 24576;
     const userPrompt = buildUserPrompt(request.projectName, request.columnOrder, request.columnHeaders, request.rows);
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: INTEGRATED_MATRIX_AI_SYSTEM_PROMPT }],
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: userPrompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.25,
-          maxOutputTokens,
-          thinkingConfig: {
-            thinkingBudget: 0,
-          },
-        },
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutMs = Number.parseInt(process.env.GEMINI_TIMEOUT_MS ?? "60000", 10);
+    const timeout = Number.isFinite(timeoutMs) && timeoutMs >= 5000 ? timeoutMs : 60000;
+    const timer = setTimeout(() => controller.abort(), timeout);
 
-    if (!response.ok) {
-      return { ok: false, message: `AI request failed (${response.status}). Please try again later.` };
+    let lastFailure: { status: number; message: string } | null = null;
+    let response: Response | null = null;
+    for (const model of modelsToTry) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      response = await fetchGeminiWithRetry(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: INTEGRATED_MATRIX_AI_SYSTEM_PROMPT }],
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: userPrompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.25,
+            maxOutputTokens,
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
+          },
+        }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
+
+      if (response.ok) {
+        lastFailure = null;
+        break;
+      }
+
+      const snippet = await readResponseSnippet(response);
+      const statusText = response.statusText?.trim();
+      const extra = [statusText, snippet].filter(Boolean).join(" — ");
+      const apiMessage = maybeExtractGeminiErrorMessage(snippet);
+      const highDemand =
+        response.status === 503 &&
+        typeof apiMessage === "string" &&
+        apiMessage.toLowerCase().includes("high demand");
+
+      lastFailure = {
+        status: response.status,
+        message: highDemand
+          ? `AI request failed (${response.status}). The selected AI model is experiencing high demand; this is usually temporary. Wait 30–60 seconds and try again.`
+          : `AI request failed (${response.status}).${extra ? ` ${extra}` : ""} Please try again later.`,
+      };
+
+      if (!highDemand) {
+        break;
+      }
+      // If this model is overloaded, try the next fallback model (if any).
+    }
+
+    if (lastFailure) {
+      return { ok: false, message: lastFailure.message };
+    }
+    if (!response) {
+      return { ok: false, message: "AI reporting is temporarily unavailable. Please try again." };
     }
 
     const payload = (await response.json()) as GeminiGenerateContentResponse;

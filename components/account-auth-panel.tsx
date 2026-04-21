@@ -152,6 +152,17 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
         {mode === "login" ? "Log in to your account" : "Create your account"}
       </h2>
 
+      {mode === "signup" ? (
+        <div className="mt-4 rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50 via-white to-amber-50/90 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:px-5">
+          <p className="text-center text-[13px] font-semibold leading-snug tracking-tight text-amber-950 sm:text-sm">
+            Register now — become a <span className="whitespace-nowrap text-amber-900">free Gold</span> member
+          </p>
+          <p className="mt-1.5 text-center text-xs leading-relaxed text-amber-900/85">
+            New sign-ups currently receive full Gold access at no extra cost.
+          </p>
+        </div>
+      ) : null}
+
       <form onSubmit={onSubmit} className="mt-4 space-y-4">
         <div>
           <label htmlFor="account-email" className="mb-1 block text-sm font-medium text-slate-700">
@@ -270,8 +281,8 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
         {mode === "signup" ? (
           <div className="space-y-3 border-t border-slate-200 pt-5">
             <p className="text-sm leading-relaxed text-slate-600">
-              Compare membership tiers. New accounts can be placed on Bronze first, and Silver or Gold can be assigned
-              manually later by the site admin.
+              Compare what each tier includes. New accounts currently start as Gold; the site admin can still adjust
+              tiers when needed.
             </p>
             <MembershipTierColumns effectiveTier="none" tierLoading={false} />
           </div>

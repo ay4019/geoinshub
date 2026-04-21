@@ -87,11 +87,19 @@ export function SignUpForm({ showSwitchLink = true }: SignUpFormProps) {
       onSubmit={onSubmit}
       className="space-y-5 rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.45)] sm:p-7"
     >
-      <div className="space-y-2">
+      <div className="space-y-3">
         <h2 className="text-2xl font-semibold text-slate-900">Create Account</h2>
         <p className="text-sm leading-6 text-slate-600">
           Create an account with your email and password using secure Supabase authentication.
         </p>
+        <div className="rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50 via-white to-amber-50/90 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:px-5">
+          <p className="text-center text-[13px] font-semibold leading-snug tracking-tight text-amber-950 sm:text-sm">
+            Register now — become a <span className="whitespace-nowrap text-amber-900">free Gold</span> member
+          </p>
+          <p className="mt-1.5 text-center text-xs leading-relaxed text-amber-900/85">
+            New sign-ups currently receive full Gold access at no extra cost. Secure sign-in with Supabase.
+          </p>
+        </div>
       </div>
 
       <div>
