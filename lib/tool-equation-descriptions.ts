@@ -17,6 +17,8 @@
   ],
   "eoed-from-mv": [
     "This relationship computes the one-dimensional constrained modulus as the inverse of the coefficient of volume compressibility.",
+    "This step reads the empirical f2 factor from the digitised PI-f2 chart using the plasticity index.",
+    "This alternative estimates the oedometer constrained modulus by multiplying the PI-based f2 factor by corrected SPT resistance.",
   ],
   "ocr-calculator": [
     "This ratio shows how much larger the maximum past effective stress is than the current vertical effective stress.",
@@ -233,7 +235,9 @@
     "This Baguelin (1978) pressuremeter correlation estimates undrained shear strength from net limit pressure for preliminary cohesive-soil screening.",
   ],
   "cprime-from-cu": [
-    "This expression converts undrained shear strength to effective cohesion using the simplified c′ = 0.1c_u relationship cited for overconsolidated cohesive soils.",
+    "The default path keeps normally consolidated clay effective cohesion within a low 0-5 kPa screening range.",
+    "The default path treats sand / gravel as cohesionless, so c′ is taken as zero.",
+    "The c′ = 0.1c_u expression is retained as an optional empirical alternative and should not be assumed valid for all clays.",
   ],
   "friction-angle-from-spt": [
     "This empirical relationship, commonly cited after Peck, Hanson, and Thornburn (1974), gives an approximate effective friction angle for granular soils from corrected SPT resistance.",

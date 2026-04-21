@@ -15,7 +15,7 @@ import { CuFromSptProfileTab } from "@/components/cu-from-spt-profile-tab";
 import { EarthPressureProfileTab } from "@/components/earth-pressure-profile-tab";
 import { EprimeFromEuProfileTab } from "@/components/eprime-from-eu-profile-tab";
 import { EngineeringText } from "@/components/engineering-text";
-import { EoedProfileTab } from "@/components/eoed-profile-tab";
+import { EoedProfileTab, type EoedProfileReportPayload } from "@/components/eoed-profile-tab";
 import { EprimeFromSptCohesionlessProfileTab } from "@/components/eprime-from-spt-cohesionless-profile-tab";
 import { EuFromSptProfileTab } from "@/components/eu-from-spt-profile-tab";
 import {
@@ -406,6 +406,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const [frictionAngleFromPiProfileReportData, setFrictionAngleFromPiProfileReportData] =
     useState<FrictionAngleFromPiReportPayload | null>(null);
   const [sptProfileReportData, setSptProfileReportData] = useState<SptCorrectionsReportPayload | null>(null);
+  const [eoedProfileReportData, setEoedProfileReportData] = useState<EoedProfileReportPayload | null>(null);
   const [reportSessionUserId, setReportSessionUserId] = useState<string | null>(null);
   const [genericProfileReportData, setGenericProfileReportData] = useState<{
     columns: Array<{ header: string; key: string }>;
@@ -486,6 +487,16 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     modulusFromCuGuidance[2];
   const isAutoRatioMode = (formValues.manualRatioMode ?? "auto") === "auto";
   const recommendedModulusFromCuRatio = String(selectedModulusFromCuRow.recommendedRatio);
+  const isCprimeInputInactive = (inputName: string, values: Record<string, string> = formValues) =>
+    isCprimeFromCu &&
+    ((inputName === "cu" && values.cprimeMethod !== "cu-factor") ||
+      (inputName === "soilType" && values.cprimeMethod === "cu-factor") ||
+      (inputName === "ncClayCprime" &&
+        (values.cprimeMethod === "cu-factor" || values.soilType === "sand-gravel")));
+  const isEoedInputInactive = (inputName: string, values: Record<string, string> = formValues) =>
+    isEoedFromMv &&
+    ((inputName === "mv" && values.eoedInputMode === "pi-f2") ||
+      ((inputName === "plasticityIndex" || inputName === "n60") && values.eoedInputMode !== "pi-f2"));
 
   const getControlValue = (control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) => {
     if (control instanceof HTMLInputElement) {
@@ -1220,6 +1231,9 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     const nextErrors: FormErrors = {};
 
     for (const input of tool.inputs) {
+      if (isCprimeInputInactive(input.name) || isEoedInputInactive(input.name)) {
+        continue;
+      }
       const raw =
         isModulusFromCu && input.name === "ratio" && isAutoRatioMode
           ? recommendedModulusFromCuRatio
@@ -1364,6 +1378,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                     isGmaxFromVs &&
                     ((formValues.densityInputMode === "unit-weight" && input.name === "density") ||
                       (formValues.densityInputMode === "mass-density" && input.name === "unitWeight"));
+                  const isInactiveCprimeField = isCprimeInputInactive(input.name);
+                  const isInactiveEoedField = isEoedInputInactive(input.name);
                   const isBearingFullSpan =
                     showBearingVisual &&
                     (input.name === "method" ||
@@ -1396,6 +1412,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                         <select
                           id={id}
                           value={formValues[input.name] ?? ""}
+                          disabled={isInactiveCprimeField || isInactiveEoedField}
                           onChange={(event) => {
                             if (isLiquefactionScreening && input.name === "method") {
                               setResult(null);
@@ -1413,7 +1430,11 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                               [input.name]: event.target.value,
                             }));
                           }}
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 focus:border-slate-500"
+                          className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition-colors duration-200 ${
+                            isInactiveCprimeField || isInactiveEoedField
+                              ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500"
+                              : "border-slate-300 bg-white text-slate-900 focus:border-slate-500"
+                          }`}
                         >
                           {(input.options ?? []).map((option) => (
                             <option key={`${option.value}-${option.label}`} value={option.value}>
@@ -1430,7 +1451,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                           step={input.step ?? "any"}
                           placeholder={input.placeholder}
                           value={isAutoRatioField ? recommendedModulusFromCuRatio : (formValues[input.name] ?? "")}
-                          disabled={isAutoRatioField || isInactiveGmaxField}
+                          disabled={isAutoRatioField || isInactiveGmaxField || isInactiveCprimeField || isInactiveEoedField}
                           onChange={(event) =>
                             setFormValues((current) => ({
                               ...current,
@@ -1438,7 +1459,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                             }))
                           }
                           className={`w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-200 placeholder:text-slate-400 ${
-                            isAutoRatioField || isInactiveGmaxField
+                            isAutoRatioField || isInactiveGmaxField || isInactiveCprimeField || isInactiveEoedField
                               ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500"
                               : "border-slate-300 bg-white focus:border-slate-500"
                           }`}
@@ -1453,6 +1474,16 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                       {isInactiveGmaxField ? (
                         <p className="mt-1 text-xs text-slate-500">
                           Disabled because the other density input mode is currently selected.
+                        </p>
+                      ) : null}
+                      {isInactiveCprimeField ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Disabled by the selected c′ method or soil type.
+                        </p>
+                      ) : null}
+                      {isInactiveEoedField ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Disabled by the selected Eoed input method.
                         </p>
                       ) : null}
                     </div>
@@ -1623,6 +1654,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
+            projectParameters={activeProjectParameters}
+            onReportDataChange={setEoedProfileReportData}
           />
           {renderProfileSavePanel()}
         </div>
@@ -1743,6 +1776,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
               stressUnit={cprimeProfileReportData?.stressUnit}
               points={[]}
               rows={cprimeProfileReportData?.tableRows}
+              cprimeMethodNarrative={cprimeProfileReportData?.methodNarrative ?? null}
               columns={
                 cprimeProfileReportData
                   ? [
@@ -1751,6 +1785,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                         header: `Depth (${cprimeProfileReportData.depthUnit})`,
                         key: `Depth (${cprimeProfileReportData.depthUnit})`,
                       },
+                      { header: "Soil type", key: "Soil type" },
+                      { header: "c′ method", key: "c′ method" },
                       {
                         header: `cu (${cprimeProfileReportData.stressUnit})`,
                         key: `cu (${cprimeProfileReportData.stressUnit})`,
@@ -1841,6 +1877,50 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
               plotImageDataUrl={sptProfileReportData?.plotImageDataUrlN60 ?? null}
               plotImageDataUrl2={sptProfileReportData?.plotImageDataUrlN160 ?? null}
               sptReportEquipment={sptProfileReportData?.sptEquipment ?? null}
+            />
+          ) : isEoedFromMv ? (
+            <CuProfileReportTab
+              toolSlug={tool.slug}
+              toolTitle={tool.title}
+              isAuthenticated={isAuthenticated}
+              authUserId={reportSessionUserId}
+              projectId={activeProjectBorehole?.projectId ?? null}
+              boreholeId={
+                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
+              }
+              unitSystem={unitSystem}
+              projectName={activeProjectBorehole?.projectName ?? null}
+              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
+              depthUnit={eoedProfileReportData?.depthUnit}
+              stressUnit={eoedProfileReportData?.eoedUnit}
+              points={[]}
+              rows={eoedProfileReportData?.tableRows}
+              columns={
+                eoedProfileReportData
+                  ? [
+                      { header: "Borehole", key: "Borehole" },
+                      {
+                        header: `Depth (${eoedProfileReportData.depthUnit})`,
+                        key: `Depth (${eoedProfileReportData.depthUnit})`,
+                      },
+                      { header: "Input method", key: "Input method" },
+                      {
+                        header: `mv (${eoedProfileReportData.mvUnit})`,
+                        key: `mv (${eoedProfileReportData.mvUnit})`,
+                      },
+                      { header: "PI (%)", key: "PI (%)" },
+                      { header: "N60", key: "N60" },
+                      { header: "f2 (kN/m2)", key: "f2 (kN/m2)" },
+                      {
+                        header: `Eoed (${eoedProfileReportData.eoedUnit})`,
+                        key: `Eoed (${eoedProfileReportData.eoedUnit})`,
+                      },
+                    ]
+                  : undefined
+              }
+              plotImageDataUrl={eoedProfileReportData?.plotImageDataUrl ?? null}
+              plotImageDataUrl2={eoedProfileReportData?.plotImageDataUrl2 ?? null}
+              eoedMethodNarrative={eoedProfileReportData?.methodNarrative ?? null}
             />
           ) : !isAuthenticated ? (
             <ReportGuestPanel />
@@ -2118,5 +2198,3 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     </div>
   );
 }
-
-

@@ -31,6 +31,7 @@ interface CprimeFromCuRow {
   id: number;
   boreholeId: string;
   sampleDepth: string;
+  soilType: "nc-clay" | "sand-gravel";
   cu: string;
   cuSource: "manual" | "auto";
   cuSourceLabel: string | null;
@@ -45,6 +46,7 @@ interface PlotPoint {
 export interface CprimeFromCuReportPayload {
   depthUnit: string;
   stressUnit: string;
+  methodNarrative: string;
   points: PlotPoint[];
   tableRows: Array<Record<string, string>>;
   plotImageDataUrl: string | null;
@@ -65,10 +67,27 @@ interface CprimeFromCuProfileTabProps {
 }
 
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
+const DEFAULT_NC_CLAY_CPRIME_KPA = 5;
 
 const initialRows: CprimeFromCuRow[] = [
-  { id: 1, boreholeId: "", sampleDepth: "1.5", cu: "80", cuSource: "manual", cuSourceLabel: null },
-  { id: 2, boreholeId: "", sampleDepth: "3.0", cu: "140", cuSource: "manual", cuSourceLabel: null },
+  {
+    id: 1,
+    boreholeId: "",
+    sampleDepth: "1.5",
+    soilType: "nc-clay",
+    cu: "80",
+    cuSource: "manual",
+    cuSourceLabel: null,
+  },
+  {
+    id: 2,
+    boreholeId: "",
+    sampleDepth: "3.0",
+    soilType: "nc-clay",
+    cu: "140",
+    cuSource: "manual",
+    cuSourceLabel: null,
+  },
 ];
 
 function parse(value: string): number {
@@ -105,8 +124,31 @@ function sourceToolLabel(sourceToolSlug: string | null | undefined): string {
 
 const CU_FROM_PI_SPT_LABEL = "Undrained Shear Strength (cu) from SPT (N60) and Plasticity Index (PI)";
 
-function estimateCprimeFromCu(cuMetric: number): number {
-  return 0.1 * cuMetric;
+function clampNcClayCprime(valueMetric: number): number {
+  if (!Number.isFinite(valueMetric)) {
+    return DEFAULT_NC_CLAY_CPRIME_KPA;
+  }
+  return Math.min(Math.max(valueMetric, 0), 5);
+}
+
+function estimateCprime({
+  cuMetric,
+  soilType,
+  useCuFactor,
+  ncClayCprimeMetric,
+}: {
+  cuMetric: number;
+  soilType: CprimeFromCuRow["soilType"];
+  useCuFactor: boolean;
+  ncClayCprimeMetric: number;
+}): number | null {
+  if (useCuFactor) {
+    return Number.isFinite(cuMetric) && cuMetric > 0 ? 0.1 * cuMetric : null;
+  }
+  if (soilType === "sand-gravel") {
+    return 0;
+  }
+  return clampNcClayCprime(ncClayCprimeMetric);
 }
 
 function OutputCell({ value }: { value: string }) {
@@ -395,6 +437,8 @@ export function CprimeFromCuProfileTab({
   onReportDataChange,
 }: CprimeFromCuProfileTabProps) {
   const [rows, setRows] = useState<CprimeFromCuRow[]>(initialRows);
+  const [useCuFactor, setUseCuFactor] = useState(false);
+  const [ncClayCprime, setNcClayCprime] = useState(String(DEFAULT_NC_CLAY_CPRIME_KPA));
   const [isProjectLocked, setIsProjectLocked] = useState(() =>
     typeof window !== "undefined" ? isActiveProjectToolLocked() : false,
   );
@@ -405,6 +449,22 @@ export function CprimeFromCuProfileTab({
   const hasImportedSelection = (importRows?.length ?? 0) > 0;
   const shouldLockImportedFields = isProjectLocked && hasImportedSelection;
   const lockHint = "Locked from Projects and Boreholes. Edit values in Account > Projects.";
+  const ncClayCprimeDisplay = parse(ncClayCprime);
+  const ncClayCprimeMetric = clampNcClayCprime(
+    Number(convertInputValueBetweenSystems(String(ncClayCprimeDisplay), "kPa", unitSystem, "metric")),
+  );
+  const ncClayCprimeMaxDisplay = convertInputValueBetweenSystems(
+    String(DEFAULT_NC_CLAY_CPRIME_KPA),
+    "kPa",
+    "metric",
+    unitSystem,
+  );
+  const ncClayCprimeReportDisplay = convertInputValueBetweenSystems(
+    String(ncClayCprimeMetric),
+    "kPa",
+    "metric",
+    unitSystem,
+  );
 
   useEffect(() => {
     const syncLockState = () => setIsProjectLocked(isActiveProjectToolLocked());
@@ -457,6 +517,9 @@ export function CprimeFromCuProfileTab({
         cu: convertInputValueBetweenSystems(row.cu, "kPa", previousUnitSystem.current, unitSystem),
       })),
     );
+    setNcClayCprime((current) =>
+      convertInputValueBetweenSystems(current, "kPa", previousUnitSystem.current, unitSystem),
+    );
 
     previousUnitSystem.current = unitSystem;
   }, [unitSystem]);
@@ -499,6 +562,7 @@ export function CprimeFromCuProfileTab({
           ...template,
           id: index + 1,
           boreholeId,
+          soilType: item.soilBehavior === "granular" ? "sand-gravel" : "nc-clay",
           sampleDepth:
             sampleDepthMetric === null
               ? template.sampleDepth
@@ -528,6 +592,7 @@ export function CprimeFromCuProfileTab({
           id: nextId,
           boreholeId: "",
           sampleDepth: String(parse(lastDepth) + 1.5),
+          soilType: current[current.length - 1]?.soilType ?? "nc-clay",
           cu: "100",
           cuSource: "manual",
           cuSourceLabel: null,
@@ -551,11 +616,19 @@ export function CprimeFromCuProfileTab({
           const depthMetric = Number(convertInputValueBetweenSystems(String(depthDisplay), "m", unitSystem, "metric"));
           const cuDisplay = parse(row.cu);
           const cuMetric = Number(convertInputValueBetweenSystems(String(cuDisplay), "kPa", unitSystem, "metric"));
-          if (!Number.isFinite(depthMetric) || depthMetric < 0 || !Number.isFinite(cuMetric) || cuMetric <= 0) {
+          if (!Number.isFinite(depthMetric) || depthMetric < 0) {
             return null;
           }
 
-          const cprimeMetric = estimateCprimeFromCu(cuMetric);
+          const cprimeMetric = estimateCprime({
+            cuMetric,
+            soilType: row.soilType,
+            useCuFactor,
+            ncClayCprimeMetric,
+          });
+          if (cprimeMetric === null) {
+            return null;
+          }
           const cprimeDisplay = Number(
             convertInputValueBetweenSystems(String(cprimeMetric), "kPa", "metric", unitSystem),
           );
@@ -567,7 +640,7 @@ export function CprimeFromCuProfileTab({
           };
         })
         .filter((point): point is PlotPoint => point !== null),
-    [rows, soilPolicyToolSlug, importRows, unitSystem],
+    [rows, soilPolicyToolSlug, importRows, unitSystem, useCuFactor, ncClayCprimeMetric],
   );
 
   const reportTableRows: Array<Record<string, string>> = useMemo(
@@ -585,30 +658,41 @@ export function CprimeFromCuProfileTab({
         const depthDisplay = parse(row.sampleDepth);
         const depthStr = Number.isFinite(depthDisplay) ? depthDisplay.toFixed(2) : String(row.sampleDepth ?? "").trim() || "—";
         const depthKey = `Depth (${depthUnit})`;
+        const soilKey = "Soil type";
+        const methodKey = "c′ method";
         const cuKey = `cu (${stressUnit})`;
         const cpKey = `c′ (${stressUnit})`;
         if (soilRestricted) {
           return {
             Borehole: borehole,
             [depthKey]: depthStr,
+            [soilKey]: row.soilType === "sand-gravel" ? "Sand / gravel" : "NC clay",
+            [methodKey]: useCuFactor ? "0.1cu" : "Soil-type default",
             [cuKey]: "—",
             [cpKey]: "—",
           };
         }
         const cuDisplay = parse(row.cu);
         const cuMetric = Number(convertInputValueBetweenSystems(String(cuDisplay), "kPa", unitSystem, "metric"));
-        const cprimeMetric = cuMetric > 0 ? estimateCprimeFromCu(cuMetric) : 0;
+        const cprimeMetric = estimateCprime({
+          cuMetric,
+          soilType: row.soilType,
+          useCuFactor,
+          ncClayCprimeMetric,
+        });
         const cprimeDisplay = Number(
-          convertInputValueBetweenSystems(String(cprimeMetric), "kPa", "metric", unitSystem),
+          convertInputValueBetweenSystems(String(cprimeMetric ?? 0), "kPa", "metric", unitSystem),
         );
         return {
           Borehole: borehole,
           [depthKey]: depthStr,
+          [soilKey]: row.soilType === "sand-gravel" ? "Sand / gravel" : "NC clay",
+          [methodKey]: useCuFactor ? "0.1cu" : "Soil-type default",
           [cuKey]: Number.isFinite(cuDisplay) ? cuDisplay.toFixed(2) : "—",
-          [cpKey]: Number.isFinite(cprimeDisplay) ? cprimeDisplay.toFixed(2) : "—",
+          [cpKey]: cprimeMetric !== null && Number.isFinite(cprimeDisplay) ? cprimeDisplay.toFixed(2) : "—",
         };
       }),
-    [rows, depthUnit, stressUnit, unitSystem, soilPolicyToolSlug, importRows],
+    [rows, depthUnit, stressUnit, unitSystem, soilPolicyToolSlug, importRows, useCuFactor, ncClayCprimeMetric],
   );
 
   useEffect(() => {
@@ -618,18 +702,31 @@ export function CprimeFromCuProfileTab({
     onReportDataChange({
       depthUnit,
       stressUnit,
+      methodNarrative: useCuFactor
+        ? "In this report, the optional empirical relationship c′ = 0.1 × c_u was selected; therefore, the reported c′ values are derived directly from the entered or imported c_u values."
+        : `In this report, the soil-type default option was selected; NC clay rows use c′ = ${ncClayCprimeReportDisplay} ${stressUnit} within the low default range, and sand / gravel rows use c′ = 0 ${stressUnit}.`,
       points: plotPoints,
       tableRows: reportTableRows,
       plotImageDataUrl: buildCprimePlotPngDataUri({ points: plotPoints, depthUnit, stressUnit }),
     });
-  }, [depthUnit, onReportDataChange, plotPoints, reportTableRows, stressUnit]);
+  }, [
+    depthUnit,
+    ncClayCprimeReportDisplay,
+    onReportDataChange,
+    plotPoints,
+    reportTableRows,
+    stressUnit,
+    useCuFactor,
+  ]);
 
   return (
     <section className="space-y-5">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Soil Profile Plot</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Enter c<sub>u</sub> by sample depth. The tool applies c′ = 0.1c<sub>u</sub> (same as the Calculator tab).
+          By default, normally consolidated clay uses a selected low c′ value within 0-{ncClayCprimeMaxDisplay}{" "}
+          {stressUnit}, while sand / gravel uses c′ = 0. Use the optional c′ = 0.1c<sub>u</sub> path only when that
+          empirical interpretation is intended.
         </p>
         <p className="mt-1 text-xs leading-5 text-slate-500">
           When samples are imported from <span className="font-semibold">Projects and Boreholes</span> with the project
@@ -640,14 +737,42 @@ export function CprimeFromCuProfileTab({
           c<sub>u</sub> manually.
         </p>
 
+        <div className="mt-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(150px,220px)] sm:items-end">
+          <label className="flex items-start gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={useCuFactor}
+              onChange={(event) => setUseCuFactor(event.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900"
+            />
+            <span>
+              Use c′ = 0.1c<sub>u</sub> empirical alternative for all rows
+            </span>
+          </label>
+          <label className="text-sm font-medium text-slate-700">
+            <span className="mb-1 block">NC clay c′ default ({stressUnit})</span>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max={ncClayCprimeMaxDisplay}
+              value={ncClayCprime}
+              onChange={(event) => setNcClayCprime(event.target.value)}
+              disabled={useCuFactor}
+              className={cnProfileTableInput(useCuFactor)}
+            />
+          </label>
+        </div>
+
         <ProfileTableScroll>
-          <table className={profileTableClass("c5")}>
+          <table className={profileTableClass("c6")}>
             <colgroup>
+              <col className="w-[16%]" />
+              <col className="w-[16%]" />
               <col className="w-[20%]" />
-              <col className="w-[20%]" />
-              <col className="w-[28%]" />
-              <col className="w-[20%]" />
-              <col className="w-[12%]" />
+              <col className="w-[22%]" />
+              <col className="w-[16%]" />
+              <col className="w-[10%]" />
             </colgroup>
             <thead className="bg-slate-100 text-slate-600">
               <tr>
@@ -658,10 +783,16 @@ export function CprimeFromCuProfileTab({
                   <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
                 <th className={profileTableThClass}>
+                  <ProfileTableHeaderCell title="Soil type" />
+                </th>
+                <th className={profileTableThClass}>
                   <ProfileTableHeaderCell title={<span>c<sub>u</sub></span>} unit={stressUnit} />
                 </th>
                 <th className={profileTableThClass}>
-                  <ProfileTableHeaderCell title={<span>c′ = 0.1c<sub>u</sub></span>} unit={stressUnit} />
+                  <ProfileTableHeaderCell
+                    title={useCuFactor ? <span>c′ = 0.1c<sub>u</sub></span> : <span>c′ default</span>}
+                    unit={stressUnit}
+                  />
                 </th>
                 <th className={profileTableThClass}>
                   <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
@@ -689,9 +820,14 @@ export function CprimeFromCuProfileTab({
                 const rowLocked = shouldLockImportedFields || soilRestricted;
                 const cuDisplay = parse(row.cu);
                 const cuMetric = Number(convertInputValueBetweenSystems(String(cuDisplay), "kPa", unitSystem, "metric"));
-                const cprimeMetric = cuMetric > 0 ? estimateCprimeFromCu(cuMetric) : 0;
+                const cprimeMetric = estimateCprime({
+                  cuMetric,
+                  soilType: row.soilType,
+                  useCuFactor,
+                  ncClayCprimeMetric,
+                });
                 const cprimeRowDisplay = Number(
-                  convertInputValueBetweenSystems(String(cprimeMetric), "kPa", "metric", unitSystem),
+                  convertInputValueBetweenSystems(String(cprimeMetric ?? 0), "kPa", "metric", unitSystem),
                 );
 
                 return (
@@ -719,6 +855,20 @@ export function CprimeFromCuProfileTab({
                         title={rowLocked ? (soilRestricted ? "Soil type is not used with this tool." : lockHint) : undefined}
                         className={cnProfileTableInput(rowLocked)}
                       />
+                    </td>
+                    <td className="px-2 py-3">
+                      <select
+                        value={row.soilType}
+                        onChange={(event) =>
+                          updateRow(row.id, { soilType: event.target.value === "sand-gravel" ? "sand-gravel" : "nc-clay" })
+                        }
+                        disabled={shouldLockImportedFields}
+                        title={shouldLockImportedFields ? lockHint : undefined}
+                        className={cnProfileTableInput(shouldLockImportedFields)}
+                      >
+                        <option value="nc-clay">NC clay (0-5)</option>
+                        <option value="sand-gravel">Sand / gravel (0)</option>
+                      </select>
                     </td>
                     <td className="px-2 py-3">
                       {soilRestricted ? (
@@ -750,7 +900,7 @@ export function CprimeFromCuProfileTab({
                       )}
                     </td>
                     <td className="px-2 py-3">
-                      <OutputCell value={soilRestricted ? "—" : cprimeRowDisplay.toFixed(2)} />
+                      <OutputCell value={soilRestricted || cprimeMetric === null ? "—" : cprimeRowDisplay.toFixed(2)} />
                     </td>
                     <td className="px-2 py-3">
                       <button
@@ -773,7 +923,7 @@ export function CprimeFromCuProfileTab({
                     Add Layer
                   </button>
                 </td>
-                <td colSpan={3} />
+                <td colSpan={4} />
                 <td className="px-2 py-3 text-right align-top">
                   <button
                     type="button"

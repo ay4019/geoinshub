@@ -123,6 +123,33 @@ export function stroudF1FromPi(pi: number): number {
   return interpolateStroudF1(Math.max(0, pi)).f1;
 }
 
+const STROUD_F2_PI_ANCHORS = [
+  { pi: 15, f2: 750 },
+  { pi: 20, f2: 560 },
+  { pi: 25, f2: 485 },
+  { pi: 30, f2: 465 },
+  { pi: 40, f2: 450 },
+  { pi: 65, f2: 450 },
+] as const;
+
+/** Digitised PI-f₂ chart trend for estimating E_oed = f₂ × N₆₀. f₂ is in kN/m². */
+export function stroudF2FromPi(pi: number): number {
+  const boundedPi = Math.max(0, pi);
+  if (boundedPi <= STROUD_F2_PI_ANCHORS[0].pi) {
+    return STROUD_F2_PI_ANCHORS[0].f2;
+  }
+
+  for (let index = 1; index < STROUD_F2_PI_ANCHORS.length; index += 1) {
+    const prev = STROUD_F2_PI_ANCHORS[index - 1];
+    const next = STROUD_F2_PI_ANCHORS[index];
+    if (boundedPi <= next.pi) {
+      return prev.f2 + ((next.f2 - prev.f2) * (boundedPi - prev.pi)) / (next.pi - prev.pi);
+    }
+  }
+
+  return STROUD_F2_PI_ANCHORS[STROUD_F2_PI_ANCHORS.length - 1].f2;
+}
+
 function computeCrFromSampleDepth(sampleDepth: number): number {
   if (sampleDepth < 3) {
     return 0.75;
@@ -523,11 +550,39 @@ const calculators: Record<string, Calculator> = {
     };
   },
   "eoed-from-mv": (values) => {
+    const inputMode = values.eoedInputMode === "pi-f2" ? "pi-f2" : "mv";
+
+    if (inputMode === "pi-f2") {
+      const pi = ensureNonNegative(parseNumber(values.plasticityIndex, "Plasticity index"), "Plasticity index");
+      const n60 = ensurePositive(parseNumber(values.n60, "N60"), "N60");
+      const f2 = stroudF2FromPi(pi);
+      const eoed = (f2 * n60) / 1000;
+      const mv = eoed > 0 ? 1 / eoed : 0;
+
+      return {
+        title: "Constrained Modulus",
+        summary: "Estimated from PI-based f2 chart and corrected SPT resistance.",
+        items: [
+          { label: "Plasticity index, PI", value: round(pi, 2), unit: "%" },
+          { label: "N60", value: round(n60, 2) },
+          { label: "f2 from PI chart", value: round(f2, 1), unit: "kN/m2" },
+          { label: "Eoed = f2 N60", value: round(eoed, 3), unit: "MPa" },
+          { label: "Equivalent m_v", value: round(mv, 4), unit: "m2/MN" },
+        ],
+        notes: [
+          "The f2 value is read from the digitised PI-f2 chart; Eoed is calculated as f2 multiplied by N60.",
+          "Use oedometer test data where available; the PI-f2 path is a screening alternative.",
+        ],
+        warnings: baseWarnings(),
+      };
+    }
+
     const mv = ensurePositive(parseNumber(values.mv, "m_v"), "m_v");
     const eoed = 1 / mv;
 
     return {
       title: "Constrained Modulus",
+      summary: "Computed directly from the entered coefficient of volume compressibility.",
       items: [{ label: "Eoed", value: round(eoed, 3), unit: "MPa" }],
       notes: ["Because m_v is stress-dependent, Eoed should be interpreted over the same stress range."],
       warnings: baseWarnings(),
@@ -1501,20 +1556,62 @@ const calculators: Record<string, Calculator> = {
     };
   },
   "cprime-from-cu": (values) => {
-    const cu = ensurePositive(
-      parseNumber(values.cu, "Undrained shear strength"),
-      "Undrained shear strength",
-    );
-    const cprime = 0.1 * cu;
+    const method = values.cprimeMethod === "cu-factor" ? "cu-factor" : "soil-default";
+
+    if (method === "cu-factor") {
+      const cu = ensurePositive(
+        parseNumber(values.cu, "Undrained shear strength"),
+        "Undrained shear strength",
+      );
+      const cprime = 0.1 * cu;
+
+      return {
+        title: "Effective Cohesion from c_u",
+        summary: "Optional empirical c′ = 0.1c_u correlation.",
+        items: [
+          { label: "Selected method", value: "Use c′ = 0.1c_u" },
+          { label: "Input c_u", value: round(cu, 2), unit: "kPa" },
+          { label: "c′ = 0.1c_u", value: round(cprime, 2), unit: "kPa" },
+        ],
+        notes: [
+          "This option is an empirical alternative and is not assumed valid for all clays.",
+          "Check drained strength parameters against project-specific laboratory and field evidence.",
+        ],
+        warnings: baseWarnings(),
+      };
+    }
+
+    const soilType = values.soilType === "sand-gravel" ? "sand-gravel" : "nc-clay";
+    const cprime =
+      soilType === "sand-gravel"
+        ? 0
+        : ensureNonNegative(parseNumber(values.ncClayCprime, "NC clay c′"), "NC clay c′");
+
+    if (soilType === "nc-clay" && cprime > 5) {
+      throw new Error("NC clay c′ should be within the 0 to 5 kPa default range.");
+    }
 
     return {
-      title: "Effective Cohesion from c_u",
-      summary: "Simplified c′ = 0.1c_u correlation for cohesive soils.",
+      title: "Effective Cohesion",
+      summary:
+        soilType === "sand-gravel"
+          ? "Soil-type default: c′ = 0 kPa for sand / gravel."
+          : "Soil-type default: normally consolidated clay c′ selected within 0-5 kPa.",
       items: [
-        { label: "Input c_u", value: round(cu, 2), unit: "kPa" },
-        { label: "c′ = 0.1c_u", value: round(cprime, 2), unit: "kPa" },
+        { label: "Selected method", value: "Soil-type default" },
+        { label: "Soil type", value: soilType === "sand-gravel" ? "Sand / gravel" : "Normally consolidated clay" },
+        {
+          label: soilType === "sand-gravel" ? "Default c′" : "Selected NC clay c′ (0-5 kPa range)",
+          value: round(cprime, 2),
+          unit: "kPa",
+        },
       ],
-      notes: [],
+      notes: [
+        soilType === "sand-gravel"
+          ? "Effective cohesion is taken as zero for cohesionless sand / gravel in the default path."
+          : "The default path keeps normally consolidated clay c′ within a low 0-5 kPa range.",
+        "Use the c′ = 0.1c_u option only when that empirical interpretation is intentionally selected.",
+      ],
       warnings: baseWarnings(),
     };
   },

@@ -70,6 +70,27 @@ export const SPT_REPORT_REFERENCE_ENTRIES: readonly string[] = [
 export const SPT_REPORT_EQ_N60_PLACEHOLDER = "[[SPT_EQ_N60]]";
 export const SPT_REPORT_EQ_N160_PLACEHOLDER = "[[SPT_EQ_N160]]";
 
+/** Single-line block in `eoed-from-mv` narrative; UI/PDF replace with PI-f2 chart. */
+export const EOED_REPORT_PI_F2_FIGURE_PLACEHOLDER = "[[PI_F2_FIGURE]]";
+
+export const EOED_REPORT_PI_F2_FIGURE_CAPTION =
+  "Figure 1: PI-f2 chart used to select f2 for the empirical Eoed = f2N60 alternative";
+
+export const EOED_REPORT_TABLE_1_TITLE =
+  "Table 1 — Oedometer constrained modulus (Eoed) by borehole and depth";
+
+export const EOED_REPORT_FIGURE_2_CAPTION =
+  "Figure 2: Soil profile — coefficient of volume compressibility (mv) versus depth";
+
+export const EOED_REPORT_FIGURE_3_CAPTION =
+  "Figure 3: Soil profile — oedometer constrained modulus (Eoed) versus depth";
+
+export const EOED_REPORT_REFERENCE_ENTRIES: readonly string[] = [
+  "Das, B.M. and Sobhan, K. (2021) Principles of Geotechnical Engineering. 10th edn. Boston, MA: Cengage Learning.",
+  "Tomlinson, M.J. (2001) Foundation Design and Construction. 7th edn. Harlow: Pearson Education.",
+  "Bowles, J.E. (1996) Foundation Analysis and Design. 5th edn. New York: McGraw-Hill.",
+];
+
 const defaultNarrative =
   "This preliminary geotechnical report presents tool-based calculations and profile visualisation generated within Geotechnical Insights Hub. The results are intended for early-stage screening, technical comparison, and assumption testing. They must be reviewed and verified by qualified engineers, together with project-specific investigation data and governing design requirements, before any design or construction decision is made.";
 
@@ -78,6 +99,29 @@ const TOOL_REPORT_TEMPLATES: Record<string, ToolReportTemplate> = {
     defaultNarrative,
     aiPromptHint:
       "Focus on practical trend interpretation, possible data quality checks, and cautious preliminary implications.",
+  },
+  "eoed-from-mv": {
+    defaultNarrative: `1. Determination of Deformation Parameters
+
+The oedometer constrained modulus (Eoed) represents one-dimensional compression stiffness and is commonly interpreted from oedometer test data. When the coefficient of volume compressibility (m_v) is available for the relevant stress interval, Eoed is calculated directly as the reciprocal of m_v.
+
+Where oedometer test data are not available, an empirical screening alternative may be used. In this route, the plasticity index (PI) is used to select f2 from the PI-f2 chart shown in Figure 1, and Eoed is estimated from the corrected SPT resistance N60.
+
+${EOED_REPORT_PI_F2_FIGURE_PLACEHOLDER}
+
+The calculation paths used in this assessment are:
+
+Eoed = 1 / m_v
+
+f2 = f(PI)
+
+Eoed = f2 x N60
+
+{{eoedMethodParagraph}}
+
+Within this scope, the boreholes {{boreholes}} associated with the {{projectName}} Project have been evaluated. The obtained results, together with the soil profile established with respect to depth, are presented in Table 1, Figure 2 and Figure 3.`,
+    aiPromptHint:
+      "Interpret Eoed profiles from either direct mv input or the PI-f2 chart alternative. Comment on stress dependency, PI and N60 data quality, borehole consistency, and the limitations of empirical stiffness screening versus oedometer testing.",
   },
   "cprime-from-cu": {
     defaultNarrative: `1. Determination of Soil Parameters
@@ -88,15 +132,15 @@ Within the scope of this section, the correlations used for the estimation of st
 
 1.1. Effective Shear Strength (c′)
 
-For cohesive soils, the effective cohesion (c′) has been estimated using the empirical correlation presented in Figure 2.3, as proposed by Sorensen and Okkels.
+For parameter screening, the effective cohesion (c′) is assigned using cautious soil-type defaults unless the empirical c_u-based alternative is explicitly selected.
 
-According to this relationship, the effective cohesion is expressed as a function of the undrained shear strength (c_u), and has been approximated as:
+For normally consolidated clays, c′ should generally be kept within a low 0-5 kPa range. For sand and gravel, c′ is taken as 0 kPa. The c′ = 0.1 × c_u relationship is retained only as an optional empirical alternative and should not be assumed valid for all clays.
 
-c′ = 0.1 × c_u (kPa)
+{{cprimeMethodParagraph}}
 
 Within this scope, the boreholes {{boreholes}} associated with the {{projectName}} Project have been evaluated. The obtained results, together with the soil profile established with respect to depth, are presented in Table 1 and Figure 2.`,
     aiPromptHint:
-      "Interpret effective cohesion (c′) derived from c_u via the Sorensen and Okkels (2013) style relationship (c′ = 0.1 c_u), commenting on profile trends, consistency across boreholes, and limitations of the correlation.",
+      "Interpret effective cohesion (c′) using the selected method: soil-type defaults for NC clay and sand / gravel, or the optional c′ = 0.1 c_u empirical alternative only when explicitly selected. Comment on profile trends, consistency across boreholes, and limitations of the selected assumption.",
   },
   "friction-angle-from-pi": {
     defaultNarrative: `1. Determination of Soil Parameters
@@ -178,4 +222,3 @@ Within this scope, the boreholes {{boreholes}} associated with the {{projectName
 export function getToolReportTemplate(toolSlug: string): ToolReportTemplate {
   return TOOL_REPORT_TEMPLATES[toolSlug] ?? TOOL_REPORT_TEMPLATES.default;
 }
-

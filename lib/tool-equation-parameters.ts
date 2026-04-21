@@ -45,6 +45,15 @@ const equationParameterMap: Record<string, string[]> = {
     "E_oed = one-dimensional constrained or oedometer modulus",
     "m_v = coefficient of volume compressibility",
   ],
+  "f<sub>2</sub> = f(PI)": [
+    "f_2 = empirical PI-based modulus factor read from the digitised chart",
+    "PI = plasticity index (%)",
+  ],
+  "E<sub>oed</sub> = f<sub>2</sub>N<sub>60</sub>": [
+    "E_oed = one-dimensional constrained or oedometer modulus",
+    "f_2 = empirical modulus factor from the PI-f2 chart",
+    "N_60 = corrected SPT resistance",
+  ],
   "OCR = &sigma;'<sub>p</sub> / &sigma;'<sub>v0</sub>": [
     "OCR = overconsolidation ratio",
     "sigma'_p = preconsolidation stress",
@@ -575,7 +584,15 @@ const equationParameterMap: Record<string, string[]> = {
     "P_LN = pressuremeter net limit pressure",
     "0.67 and 0.75 = empirical Baguelin (1978) correlation constants",
   ],
-  "c′ = 0.1c<sub>u</sub>": [
+  "c′ = 0-5 kPa for normally consolidated clay (default)": [
+    "c′ = selected effective cohesion default for normally consolidated clay",
+    "0-5 kPa = low screening range; select a project-appropriate value within this interval",
+  ],
+  "c′ = 0 kPa for sand / gravel (default)": [
+    "c′ = effective cohesion",
+    "Sand / gravel is treated as cohesionless in the default path",
+  ],
+  "c′ = 0.1c<sub>u</sub> (optional empirical alternative)": [
     "c′ = effective cohesion interpreted from undrained shear strength",
     "c_u = undrained shear strength",
     "0.1 = empirical correlation coefficient",

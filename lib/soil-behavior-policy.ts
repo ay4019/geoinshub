@@ -94,7 +94,6 @@ export function isSampleSoilRestrictedForTool(toolSlug: string, behavior: SoilBe
       return false;
 
     case "cu-from-pi-and-spt":
-    case "cprime-from-cu":
     case "friction-angle-from-pi":
     case "modulus-from-cu":
     case "eu-from-spt-butler-1975":

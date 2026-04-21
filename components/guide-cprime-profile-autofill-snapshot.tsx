@@ -21,7 +21,7 @@ export function GuideCprimeProfileAutofillSnapshot() {
     >
       <h2 className="text-xl font-semibold text-slate-900">Soil Profile Plot</h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        Enter c<sub>u</sub> by sample depth. The tool applies c′ = 0.1c<sub>u</sub> (same as the Calculator tab).
+        By default, NC clay uses a selected low c′ value within 0-5 kPa, while sand / gravel uses c′ = 0.
       </p>
       <p className="mt-2 text-sm leading-6 text-slate-600">
         When samples are imported from <span className="font-semibold">Projects and Boreholes</span>, c<sub>u</sub> can
@@ -30,13 +30,14 @@ export function GuideCprimeProfileAutofillSnapshot() {
       </p>
 
       <ProfileTableScroll showHint={false} className="mt-5">
-        <table className={`${profileTableClass("c5")} text-[13px] sm:text-[14px]`}>
+        <table className={`${profileTableClass("c6")} text-[13px] sm:text-[14px]`}>
           <colgroup>
-            <col className="w-[18%]" />
             <col className="w-[16%]" />
-            <col className="w-[34%]" />
+            <col className="w-[16%]" />
             <col className="w-[18%]" />
+            <col className="w-[28%]" />
             <col className="w-[14%]" />
+            <col className="w-[8%]" />
           </colgroup>
           <thead className="bg-slate-100 text-slate-600">
             <tr>
@@ -47,10 +48,13 @@ export function GuideCprimeProfileAutofillSnapshot() {
                 <ProfileTableHeaderCell title="Sample Depth" unit="m" />
               </th>
               <th className={profileTableThClass}>
+                <ProfileTableHeaderCell title="Soil type" />
+              </th>
+              <th className={profileTableThClass}>
                 <ProfileTableHeaderCell title={<span>c<sub>u</sub></span>} unit="kPa" />
               </th>
               <th className={profileTableThClass}>
-                <ProfileTableHeaderCell title={<span>c′ = 0.1c<sub>u</sub></span>} unit="kPa" />
+                <ProfileTableHeaderCell title={<span>c′ default</span>} unit="kPa" />
               </th>
               <th className={profileTableThClass}>
                 <span className="block max-w-[4.5rem] leading-tight sm:max-w-none">Action</span>
@@ -68,6 +72,9 @@ export function GuideCprimeProfileAutofillSnapshot() {
                 <div className={cnProfileTableInput(true)}>0.75</div>
               </td>
               <td className="px-2 py-3">
+                <div className={cnProfileTableInput(true)}>NC clay</div>
+              </td>
+              <td className="px-2 py-3">
                 <div className="space-y-2">
                   <div className={cnProfileTableInput(true)}>58.5</div>
                   <span className="inline-flex max-w-full rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold leading-snug text-emerald-800 sm:text-xs">
@@ -76,7 +83,7 @@ export function GuideCprimeProfileAutofillSnapshot() {
                 </div>
               </td>
               <td className="px-2 py-3">
-                <div className={profileTableOutputCellClass}>5.85</div>
+                <div className={profileTableOutputCellClass}>5.00</div>
               </td>
               <td className="px-2 py-3">
                 <button type="button" className={profileTableRemoveButtonClass} tabIndex={-1}>
@@ -94,6 +101,9 @@ export function GuideCprimeProfileAutofillSnapshot() {
                 <div className={cnProfileTableInput(true)}>1.5</div>
               </td>
               <td className="px-2 py-3">
+                <div className={cnProfileTableInput(true)}>NC clay</div>
+              </td>
+              <td className="px-2 py-3">
                 <div className="space-y-2">
                   <div className={cnProfileTableInput(true)}>108.3</div>
                   <span className="inline-flex max-w-full rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold leading-snug text-emerald-800 sm:text-xs">
@@ -102,7 +112,7 @@ export function GuideCprimeProfileAutofillSnapshot() {
                 </div>
               </td>
               <td className="px-2 py-3">
-                <div className={profileTableOutputCellClass}>10.83</div>
+                <div className={profileTableOutputCellClass}>5.00</div>
               </td>
               <td className="px-2 py-3">
                 <button type="button" className={profileTableRemoveButtonClass} tabIndex={-1}>

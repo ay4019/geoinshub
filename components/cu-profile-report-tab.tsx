@@ -15,6 +15,12 @@ import {
   CPRIME_REPORT_FIGURE_2_CAPTION,
   CPRIME_REPORT_REFERENCE_ENTRIES,
   CPRIME_REPORT_TABLE_1_TITLE,
+  EOED_REPORT_FIGURE_2_CAPTION,
+  EOED_REPORT_FIGURE_3_CAPTION,
+  EOED_REPORT_PI_F2_FIGURE_CAPTION,
+  EOED_REPORT_PI_F2_FIGURE_PLACEHOLDER,
+  EOED_REPORT_REFERENCE_ENTRIES,
+  EOED_REPORT_TABLE_1_TITLE,
   CU_REPORT_FIGURE_2_CAPTION,
   CU_REPORT_REFERENCE_ENTRIES,
   CU_REPORT_STROUD_FIGURE_CAPTION,
@@ -68,6 +74,10 @@ interface CuProfileReportTabProps {
     boreholeDiameterLabel: string;
     samplerLabel: string;
   } | null;
+  /** c′ method selected in the Soil Profile Plot, embedded into the c′ report narrative. */
+  cprimeMethodNarrative?: string | null;
+  /** Eoed method selected in the Soil Profile Plot, embedded into the Eoed report narrative. */
+  eoedMethodNarrative?: string | null;
 }
 
 /** Gemini-backed AI interpretation is available through the server action. */
@@ -514,6 +524,8 @@ export function CuProfileReportTab({
   plotImageDataUrl2 = null,
   getFreshPlotImageDataUrl,
   sptReportEquipment = null,
+  cprimeMethodNarrative = null,
+  eoedMethodNarrative = null,
 }: CuProfileReportTabProps) {
   const { effectiveTier, loading: subscriptionLoading } = useSubscription();
   const reportsOk = tierAllowsReports(effectiveTier);
@@ -620,11 +632,31 @@ export function CuProfileReportTab({
         : toolSlug === "spt-corrections"
           ? "SPT equipment inputs (hammer type, hammer energy ratio ER, borehole diameter class, and sampler configuration) are taken from the Soil Profile Plot tab; configure them there before exporting the report."
           : "";
+    const cprimeMethodParagraph =
+      toolSlug === "cprime-from-cu"
+        ? cprimeMethodNarrative?.trim() ||
+          "In this report, the c′ selection method is taken from the Soil Profile Plot tab; configure the profile before exporting the report."
+        : "";
+    const eoedMethodParagraph =
+      toolSlug === "eoed-from-mv"
+        ? eoedMethodNarrative?.trim() ||
+          "In this report, the Eoed input method is taken from the Soil Profile Plot tab; configure the profile before exporting the report."
+        : "";
     return template.defaultNarrative
       .replaceAll("{{boreholes}}", boreholeText)
       .replaceAll("{{projectName}}", projectText)
-      .replaceAll("{{sptEquipmentParagraph}}", sptEquipmentParagraph);
-  }, [boreholeIds, projectName, sptReportEquipment, template.defaultNarrative, toolSlug]);
+      .replaceAll("{{sptEquipmentParagraph}}", sptEquipmentParagraph)
+      .replaceAll("{{cprimeMethodParagraph}}", cprimeMethodParagraph)
+      .replaceAll("{{eoedMethodParagraph}}", eoedMethodParagraph);
+  }, [
+    boreholeIds,
+    cprimeMethodNarrative,
+    eoedMethodNarrative,
+    projectName,
+    sptReportEquipment,
+    template.defaultNarrative,
+    toolSlug,
+  ]);
 
   const aiInterpretationShowing = Boolean(aiText.trim() && isAiPanelVisible && !isAiPanelDismissed);
 
@@ -673,6 +705,7 @@ export function CuProfileReportTab({
       valueUnit: resolvedStressUnit,
       resolvedNarrative: resolvedNarrative
         .replaceAll(CU_REPORT_STROUD_FIGURE_PLACEHOLDER, "")
+        .replaceAll(EOED_REPORT_PI_F2_FIGURE_PLACEHOLDER, "")
         .replaceAll(
           SPT_REPORT_EQ_N60_PLACEHOLDER,
           "Equation (1) states N60 equals N times C_r, C_s, C_b, and C_E.",
@@ -684,7 +717,7 @@ export function CuProfileReportTab({
         .replace(/\n{3,}/g, "\n\n"),
       tableRows: normalizedRows,
       plotImageDataUrl: currentPlot,
-      plotImageDataUrl2: toolSlug === "spt-corrections" ? plotImageDataUrl2 : null,
+      plotImageDataUrl2: toolSlug === "spt-corrections" || toolSlug === "eoed-from-mv" ? plotImageDataUrl2 : null,
       aiPromptHint: template.aiPromptHint,
     });
     const text = raw ? sanitizeAiInterpretationText(raw) : "";
@@ -727,7 +760,7 @@ export function CuProfileReportTab({
         columns: normalizedColumns,
         rows: normalizedRows,
         plotImageDataUrl: currentPlot,
-        plotImageDataUrl2: toolSlug === "spt-corrections" ? plotImageDataUrl2 : null,
+        plotImageDataUrl2: toolSlug === "spt-corrections" || toolSlug === "eoed-from-mv" ? plotImageDataUrl2 : null,
         aiParagraph: aiText.trim() || null,
       });
       setStatus("Report created — PDF downloaded.");
@@ -900,6 +933,20 @@ export function CuProfileReportTab({
                     </figure>
                   );
                 }
+                if (block.trim() === EOED_REPORT_PI_F2_FIGURE_PLACEHOLDER) {
+                  return (
+                    <figure key={`narr-${i}`} className="my-4">
+                      <img
+                        src="/images/pi-f2.png"
+                        alt={EOED_REPORT_PI_F2_FIGURE_CAPTION}
+                        className="mx-auto h-auto max-h-52 w-full max-w-lg rounded border border-slate-200 bg-white object-contain sm:max-h-56 sm:max-w-xl"
+                      />
+                      <figcaption className={`mt-2 ${CU_REPORT_CAPTION_TEXT_CLASS}`}>
+                        {formatNarrativeTextWithSubscripts(EOED_REPORT_PI_F2_FIGURE_CAPTION, "eoed-f2-cap")}
+                      </figcaption>
+                    </figure>
+                  );
+                }
                 if (toolSlug === "cprime-from-cu" && isCprimeEquationLine(block)) {
                   return <CprimeReportEquationDisplay key={`narr-${i}`} />;
                 }
@@ -930,7 +977,8 @@ export function CuProfileReportTab({
             {toolSlug === "cu-from-pi-and-spt" ||
             toolSlug === "cprime-from-cu" ||
             toolSlug === "friction-angle-from-pi" ||
-            toolSlug === "spt-corrections" ? (
+            toolSlug === "spt-corrections" ||
+            toolSlug === "eoed-from-mv" ? (
               <div className="mt-6">
                 <p className={`${CU_REPORT_CAPTION_TEXT_CLASS} mx-auto max-w-3xl`}>
                   {toolSlug === "spt-corrections"
@@ -940,7 +988,9 @@ export function CuProfileReportTab({
                           ? CPRIME_REPORT_TABLE_1_TITLE
                           : toolSlug === "friction-angle-from-pi"
                             ? PHI_PI_REPORT_TABLE_1_TITLE
-                            : CU_REPORT_TABLE_1_TITLE,
+                            : toolSlug === "eoed-from-mv"
+                              ? EOED_REPORT_TABLE_1_TITLE
+                              : CU_REPORT_TABLE_1_TITLE,
                         "tbl1-title",
                       )}
                 </p>
@@ -983,7 +1033,9 @@ export function CuProfileReportTab({
                               ? PHI_PI_REPORT_FIGURE_1_CAPTION
                               : toolSlug === "spt-corrections"
                                 ? SPT_REPORT_FIGURE_1_CAPTION
-                                : CU_REPORT_FIGURE_2_CAPTION
+                                : toolSlug === "eoed-from-mv"
+                                  ? EOED_REPORT_FIGURE_2_CAPTION
+                                  : CU_REPORT_FIGURE_2_CAPTION
                         }
                         className="h-auto max-h-[min(65vh,36rem)] w-full max-w-5xl rounded-lg border border-slate-200 bg-white object-contain object-center sm:max-h-[min(70vh,40rem)]"
                       />
@@ -996,7 +1048,9 @@ export function CuProfileReportTab({
                               ? CPRIME_REPORT_FIGURE_2_CAPTION
                               : toolSlug === "friction-angle-from-pi"
                                 ? PHI_PI_REPORT_FIGURE_1_CAPTION
-                                : CU_REPORT_FIGURE_2_CAPTION,
+                                : toolSlug === "eoed-from-mv"
+                                  ? EOED_REPORT_FIGURE_2_CAPTION
+                                  : CU_REPORT_FIGURE_2_CAPTION,
                             "fig2-cap",
                           )}
                     </figcaption>
@@ -1022,6 +1076,21 @@ export function CuProfileReportTab({
                   </figure>
                 ) : null}
 
+                {toolSlug === "eoed-from-mv" && plotImageDataUrl2 ? (
+                  <figure className="mt-10 w-full">
+                    <div className="flex w-full justify-center">
+                      <img
+                        src={plotImageDataUrl2}
+                        alt={EOED_REPORT_FIGURE_3_CAPTION}
+                        className="h-auto max-h-[min(65vh,36rem)] w-full max-w-5xl rounded-lg border border-slate-200 bg-white object-contain object-center sm:max-h-[min(70vh,40rem)]"
+                      />
+                    </div>
+                    <figcaption className={`mt-2 ${CU_REPORT_CAPTION_TEXT_CLASS}`}>
+                      {formatNarrativeTextWithSubscripts(EOED_REPORT_FIGURE_3_CAPTION, "eoed-fig3-cap")}
+                    </figcaption>
+                  </figure>
+                ) : null}
+
                 {aiInterpretationShowing ? <ReportAiInterpretationGold text={aiText} toolSlug={toolSlug} /> : null}
 
                 <div className="mt-10 border-t border-slate-200 pt-6">
@@ -1033,7 +1102,9 @@ export function CuProfileReportTab({
                         ? PHI_PI_REPORT_REFERENCE_ENTRIES
                         : toolSlug === "spt-corrections"
                           ? SPT_REPORT_REFERENCE_ENTRIES
-                          : CU_REPORT_REFERENCE_ENTRIES
+                          : toolSlug === "eoed-from-mv"
+                            ? EOED_REPORT_REFERENCE_ENTRIES
+                            : CU_REPORT_REFERENCE_ENTRIES
                     ).map(
                       (entry, idx) => (
                         <li key={idx} className="flex gap-2">
@@ -1053,7 +1124,8 @@ export function CuProfileReportTab({
               toolSlug === "cu-from-pi-and-spt" ||
               toolSlug === "cprime-from-cu" ||
               toolSlug === "friction-angle-from-pi" ||
-              toolSlug === "spt-corrections"
+              toolSlug === "spt-corrections" ||
+              toolSlug === "eoed-from-mv"
             ) && aiInterpretationShowing ? (
               <ReportAiInterpretationGold text={aiText} toolSlug={toolSlug} />
             ) : null}

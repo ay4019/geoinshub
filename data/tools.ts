@@ -245,21 +245,42 @@ const soilParameterTools: ToolDefinition[] = [
     shortDescription:
       "Oedometer constrained modulus is obtained from the standard one-dimensional compressibility relationship used in classical settlement interpretation.",
     tags: ["compressibility", "oedometer"],
-    keywords: ["mv", "Eoed", "M"],
+    keywords: ["mv", "Eoed", "M", "PI", "f2", "N60"],
     featured: false,
-    inputs: [num("mv", "Coefficient of volume compressibility, m_v", 0.4, "m2/MN", { min: 0.0001, step: 0.01 })],
+    inputs: [
+      select("eoedInputMode", "Input method", "mv", [
+        { label: "Use m_v directly", value: "mv" },
+        { label: "Estimate from PI-f2 chart and N60", value: "pi-f2" },
+      ]),
+      num("mv", "Coefficient of volume compressibility, m_v", 0.4, "m2/MN", { min: 0.0001, step: 0.01 }),
+      num("plasticityIndex", "Plasticity Index, PI", 30, "%", { min: 0, max: 100, step: 0.1 }),
+      num("n60", "Corrected SPT resistance, N60", 15, undefined, { min: 0.1, step: 0.1 }),
+    ],
     information: info({
       methodology:
-        "Uses the reciprocal relationship between constrained modulus and coefficient of volume compressibility.",
+        "Uses either the reciprocal relationship between constrained modulus and coefficient of volume compressibility, or an alternative PI-f2 chart interpretation where f2 is read from the plasticity index and Eoed is estimated as f2 × N60.",
       assumptions: [
-        "m_v is appropriate for the stress range under consideration.",
+        "m_v is appropriate for the stress range under consideration when the direct m_v method is used.",
+        "For the PI-f2 alternative, PI and corrected N60 are representative of the analysed layer.",
         "One-dimensional constrained deformation is the relevant idealisation.",
       ],
       limitations: [
         "The modulus is stress-level dependent.",
+        "The PI-f2 chart route is an empirical screening alternative and should not replace oedometer testing where project-specific data are available.",
         "Do not extrapolate a single oedometer modulus too broadly.",
       ],
-      equations: ["E<sub>oed</sub> = 1 / m<sub>v</sub>"],
+      equations: [
+        "E<sub>oed</sub> = 1 / m<sub>v</sub>",
+        "f<sub>2</sub> = f(PI)",
+        "E<sub>oed</sub> = f<sub>2</sub>N<sub>60</sub>",
+      ],
+      figures: [
+        {
+          src: "/images/pi-f2.png",
+          alt: "PI versus f2 chart for estimating oedometer constrained modulus",
+          caption: "PI-f2 chart used to select f2 for the empirical Eoed = f2N60 alternative.",
+        },
+      ],
       references: [
         "Das, B.M. and Sobhan, K. (2021). Principles of Geotechnical Engineering, 10th ed. Cengage Learning.",
         "Tomlinson, M.J. (2001). Foundation Design and Construction, 7th ed. Pearson Education.",
@@ -1797,22 +1818,40 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     title: "Effective Cohesion (c') from Undrained Shear Strength (cu)",
     category: "Shear Strength Tools",
     shortDescription:
-      "Uses the c' = 0.1cu correlation cited by Sorensen and Okkels (2013) for cohesive soils.",
-    tags: ["effective cohesion", "undrained strength", "cohesive soil"],
-    keywords: ["c'", "cu", "Sorensen", "Okkels", "2013"],
+      "Selects cautious soil-type defaults for c' and keeps c' = 0.1cu as an optional empirical alternative.",
+    tags: ["effective cohesion", "undrained strength", "cohesive soil", "cohesionless soil"],
+    keywords: ["c'", "cu", "NC clay", "sand", "gravel", "Sorensen", "Okkels", "2013"],
     featured: false,
-    inputs: [num("cu", "Undrained shear strength, cu", 120, "kPa", { min: 1, step: 0.1 })],
+    inputs: [
+      select("cprimeMethod", "c' selection method", "soil-default", [
+        { label: "Default by soil type", value: "soil-default" },
+        { label: "Use c' = 0.1cu empirical alternative", value: "cu-factor" },
+      ]),
+      select("soilType", "Soil type for default c'", "nc-clay", [
+        { label: "Normally consolidated clay (0-5 kPa)", value: "nc-clay" },
+        { label: "Sand / gravel (0 kPa)", value: "sand-gravel" },
+      ]),
+      num("ncClayCprime", "NC clay default c' within 0-5", 5, "kPa", { min: 0, max: 5, step: 0.1 }),
+      num("cu", "Undrained shear strength, cu", 120, "kPa", { min: 0.1, step: 0.1 }),
+    ],
     information: info({
       methodology:
-        "Applies the simplified cohesive-soil correlation c′ = 0.1c<sub>u</sub> as discussed in Sorensen and Okkels (2013). The Soil Profile Plot tab can load c<sub>u</sub> from saved project parameters or estimate c<sub>u</sub> as f<sub>1</sub> × N<sub>60</sub> when PI and N<sub>60</sub> are available for the sample, consistent with the Undrained Shear Strength (c<sub>u</sub>) from SPT (N<sub>60</sub>) and Plasticity Index (PI) tool.",
+        "Uses soil-type defaults as the primary interpretation: c′ is selected within 0-5 kPa for normally consolidated clays and taken as 0 kPa for sand / gravel. The c′ = 0.1c<sub>u</sub> correlation discussed by Sorensen and Okkels (2013) remains available as an explicit empirical alternative. The Soil Profile Plot tab can load c<sub>u</sub> from saved project parameters or estimate c<sub>u</sub> as f<sub>1</sub> × N<sub>60</sub> when PI and N<sub>60</sub> are available for the sample, consistent with the Undrained Shear Strength (c<sub>u</sub>) from SPT (N<sub>60</sub>) and Plasticity Index (PI) tool.",
       assumptions: [
-        "The deposit behaviour is sufficiently cohesive for this simplified cu-to-c' interpretation.",
+        "The selected soil type is representative of the analysed layer.",
+        "Normally consolidated clay defaults are treated as low effective cohesion values within 0-5 kPa.",
+        "Sand / gravel is treated as cohesionless in the default path.",
       ],
       limitations: [
-        "This conversion is empirical and should be calibrated with project-specific laboratory and field evidence.",
+        "The c′ = 0.1cu conversion is empirical and is not assumed valid for all clays.",
+        "Default values should be calibrated with project-specific laboratory and field evidence.",
         "Do not use this alone for final design parameter selection.",
       ],
-      equations: ["c′ = 0.1c<sub>u</sub>"],
+      equations: [
+        "c′ = 0-5 kPa for normally consolidated clay (default)",
+        "c′ = 0 kPa for sand / gravel (default)",
+        "c′ = 0.1c<sub>u</sub> (optional empirical alternative)",
+      ],
       references: [
         "Sorensen, K.K. and Okkels, N. (2013). Correlation between c'_oc and c_u for overconsolidated clays.",
         "Ladd, C.C. and Foott, R. (1974). New design procedure for stability of soft clays. Journal of the Geotechnical Engineering Division, ASCE.",
@@ -2116,6 +2155,4 @@ export const tools: ToolDefinition[] = [
   ...railwayTools,
   ...fieldAndEmpiricalTools,
 ];
-
-
 

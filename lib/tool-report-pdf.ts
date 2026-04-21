@@ -5,6 +5,12 @@ import {
   CPRIME_REPORT_FIGURE_2_CAPTION,
   CPRIME_REPORT_REFERENCE_ENTRIES,
   CPRIME_REPORT_TABLE_1_TITLE,
+  EOED_REPORT_FIGURE_2_CAPTION,
+  EOED_REPORT_FIGURE_3_CAPTION,
+  EOED_REPORT_PI_F2_FIGURE_CAPTION,
+  EOED_REPORT_PI_F2_FIGURE_PLACEHOLDER,
+  EOED_REPORT_REFERENCE_ENTRIES,
+  EOED_REPORT_TABLE_1_TITLE,
   CU_REPORT_FIGURE_2_CAPTION,
   CU_REPORT_REFERENCE_ENTRIES,
   CU_REPORT_STROUD_FIGURE_CAPTION,
@@ -111,6 +117,74 @@ async function embedCuStroudFigure1InNarrative(
   setProfilePdfFont(doc, "normal");
   doc.setFontSize(captionFontSize);
   const captionLines = doc.splitTextToSize(plainPdfCaptionFromMarkup(CU_REPORT_STROUD_FIGURE_CAPTION), contentWidth);
+  const captionBlockHeight = captionLines.length * captionLineHeight + 12;
+
+  try {
+    const dims = await getImageDimensions(dataUrl);
+    const ratio = dims.width / Math.max(dims.height, 1);
+    const maxW = contentWidth * 0.76;
+    let maxH = Math.min(260, pageHeight - cursorY - 48 - captionBlockHeight);
+    if (maxH < 120) {
+      doc.addPage();
+      cursorY = 48;
+      maxH = Math.min(260, pageHeight - cursorY - 48 - captionBlockHeight);
+    }
+    let imgW = maxW;
+    let imgH = imgW / ratio;
+    if (imgH > maxH) {
+      imgH = maxH;
+      imgW = imgH * ratio;
+    }
+    if (cursorY + imgH + captionBlockHeight > pageHeight - 36) {
+      doc.addPage();
+      cursorY = 48;
+      maxH = Math.min(260, pageHeight - cursorY - 48 - captionBlockHeight);
+      imgW = maxW;
+      imgH = imgW / ratio;
+      if (imgH > maxH) {
+        imgH = maxH;
+        imgW = imgH * ratio;
+      }
+    }
+    const imgX = marginX + (contentWidth - imgW) / 2;
+    doc.addImage(dataUrl, "PNG", imgX, cursorY, imgW, imgH);
+    cursorY += imgH + 10;
+
+    setProfilePdfFont(doc, "normal");
+    doc.setFontSize(captionFontSize);
+    doc.setTextColor(51, 65, 85);
+    for (const line of captionLines) {
+      const lw = doc.getTextWidth(line);
+      doc.text(line, marginX + (contentWidth - lw) / 2, cursorY, { baseline: "top" });
+      cursorY += captionLineHeight;
+    }
+    doc.setTextColor(15, 23, 42);
+    cursorY += 8;
+  } catch {
+    /* skip image */
+  }
+
+  return cursorY;
+}
+
+async function embedEoedPiF2FigureInNarrative(
+  doc: import("jspdf").jsPDF,
+  marginX: number,
+  contentWidth: number,
+  startY: number,
+  pageHeight: number,
+): Promise<number> {
+  let cursorY = startY;
+  const dataUrl = await loadSameOriginImageAsDataUrl("/images/pi-f2.png");
+  if (!dataUrl) {
+    return cursorY;
+  }
+
+  const captionFontSize = 10;
+  const captionLineHeight = 13;
+  setProfilePdfFont(doc, "normal");
+  doc.setFontSize(captionFontSize);
+  const captionLines = doc.splitTextToSize(plainPdfCaptionFromMarkup(EOED_REPORT_PI_F2_FIGURE_CAPTION), contentWidth);
   const captionBlockHeight = captionLines.length * captionLineHeight + 12;
 
   try {
@@ -1089,11 +1163,13 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
           ? "phi-pi"
           : options.toolSlug === "spt-corrections"
             ? "spt"
-            : null;
+            : options.toolSlug === "eoed-from-mv"
+              ? "eoed"
+              : null;
 
   if (profileReportKind) {
     activeProfilePdfFont = "helvetica";
-    if (profileReportKind === "phi-pi" || profileReportKind === "spt") {
+    if (profileReportKind === "phi-pi" || profileReportKind === "spt" || profileReportKind === "eoed") {
       await ensureNotoSansFonts(doc);
       activeProfilePdfFont = "NotoSans";
     }
@@ -1107,6 +1183,10 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
     for (const block of blocks) {
       if (profileReportKind === "cu" && block.trim() === CU_REPORT_STROUD_FIGURE_PLACEHOLDER) {
         cursorY = await embedCuStroudFigure1InNarrative(doc, marginX, contentWidth, cursorY, pageHeight);
+        continue;
+      }
+      if (profileReportKind === "eoed" && block.trim() === EOED_REPORT_PI_F2_FIGURE_PLACEHOLDER) {
+        cursorY = await embedEoedPiF2FigureInNarrative(doc, marginX, contentWidth, cursorY, pageHeight);
         continue;
       }
       if (profileReportKind === "cu" && isCuEquationLine(block)) {
@@ -1161,6 +1241,8 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
         ? PHI_PI_REPORT_TABLE_1_TITLE
         : profileReportKind === "spt"
           ? SPT_REPORT_TABLE_2_TITLE
+          : profileReportKind === "eoed"
+            ? EOED_REPORT_TABLE_1_TITLE
           : plainPdfCaptionFromMarkup(
               profileReportKind === "cu" ? CU_REPORT_TABLE_1_TITLE : CPRIME_REPORT_TABLE_1_TITLE,
             );
@@ -1213,6 +1295,8 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
           ? PHI_PI_REPORT_FIGURE_1_CAPTION
           : profileReportKind === "spt"
             ? SPT_REPORT_FIGURE_1_CAPTION
+            : profileReportKind === "eoed"
+              ? EOED_REPORT_FIGURE_2_CAPTION
             : plainPdfCaptionFromMarkup(
                 profileReportKind === "cu" ? CU_REPORT_FIGURE_2_CAPTION : CPRIME_REPORT_FIGURE_2_CAPTION,
               );
@@ -1255,11 +1339,12 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
       }
     }
 
-    if (options.plotImageDataUrl2 && profileReportKind === "spt") {
+    if (options.plotImageDataUrl2 && (profileReportKind === "spt" || profileReportKind === "eoed")) {
       setProfilePdfFont(doc, "normal");
       doc.setFontSize(10);
-      const sptFig2Caption = SPT_REPORT_FIGURE_2_CAPTION;
-      const sptFig2CaptionLines = doc.splitTextToSize(sptFig2Caption, contentWidth);
+      const secondFigureCaption =
+        profileReportKind === "eoed" ? EOED_REPORT_FIGURE_3_CAPTION : SPT_REPORT_FIGURE_2_CAPTION;
+      const sptFig2CaptionLines = doc.splitTextToSize(secondFigureCaption, contentWidth);
       const sptFig2CaptionBlockH = sptFig2CaptionLines.length * 13 + 14;
 
       try {
@@ -1281,11 +1366,13 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
         const imgX2 = marginX + (contentWidth - finalWidth2) / 2;
         doc.addImage(options.plotImageDataUrl2, "PNG", imgX2, cursorY, finalWidth2, finalHeight2);
         cursorY += finalHeight2 + 10;
-        cursorY = drawCuCenteredCaptionText(doc, marginX, contentWidth, cursorY, pageHeight, sptFig2Caption);
+        cursorY = drawCuCenteredCaptionText(doc, marginX, contentWidth, cursorY, pageHeight, secondFigureCaption);
       } catch {
         cursorY = addCuPlainParagraphHelvetica(
           doc,
-          "Figure 2 could not be embedded in this PDF. Regenerate the profile plot on the Soil Profile Plot tab and try again.",
+          profileReportKind === "eoed"
+            ? "Figure 3 could not be embedded in this PDF. Regenerate the profile plot on the Soil Profile Plot tab and try again."
+            : "Figure 2 could not be embedded in this PDF. Regenerate the profile plot on the Soil Profile Plot tab and try again.",
           marginX,
           contentWidth,
           cursorY,
@@ -1325,6 +1412,8 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
           ? PHI_PI_REPORT_REFERENCE_ENTRIES
           : profileReportKind === "spt"
             ? SPT_REPORT_REFERENCE_ENTRIES
+            : profileReportKind === "eoed"
+              ? EOED_REPORT_REFERENCE_ENTRIES
             : CPRIME_REPORT_REFERENCE_ENTRIES;
     for (const entry of referenceEntries) {
       cursorY = addCuPlainParagraphHelvetica(
