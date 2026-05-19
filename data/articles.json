@@ -1022,5 +1022,116 @@
         "text": "Geotechnical Engineer"
       }
     ]
+  },
+  {
+    "slug": "soil-liquefaction-mechanism-assessment-and-consequences",
+    "title": "Soil Liquefaction: Mechanism, Assessment, and Consequences",
+    "excerpt": "During an earthquake, certain saturated granular soils can lose strength entirely and begin to flow. This article explains the physics behind it, how engineers quantify the risk, and where standard methods reach their limits.",
+    "date": "2026-05-05",
+    "tags": ["Liquefaction", "Soil Dynamics", "Geotechnics", "Earthquakes"],
+    "thumbnail": "/images/insight-liquefaction.svg",
+    "featured": true,
+    "readTimeMinutes": 12,
+    "content": [],
+    "blocks": [
+      {
+        "type": "paragraph",
+        "text": "During an earthquake, certain saturated granular soils lose their strength entirely and begin to flow. The phenomenon — liquefaction — has destroyed port cities, swallowed buildings, and sent dams sliding downslope. This note summarises the mechanics behind it, how liquefaction triggering is screened in practice, and which parts of the problem the standard checks do (and do not) cover."
+      },
+      {
+        "type": "heading",
+        "text": "Effective stress governs everything"
+      },
+      {
+        "type": "paragraph",
+        "text": "In a saturated deposit below the groundwater table, mechanical behaviour is governed by effective stress (the portion of total stress transmitted through particle-to-particle contacts). If pore-water pressure rises toward the total stress, effective stress falls toward zero and so does shear strength."
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 1)",
+        "lines": [
+          "&sigma;&prime;<sub>v</sub> = &sigma;<sub>v</sub> - u",
+          "&tau; = &sigma;&prime;<sub>v</sub> tan(&phi;&prime;)"
+        ],
+        "caption": "If u increases, &sigma;&prime; decreases; liquefaction is the effective-stress collapse mechanism."
+      },
+      {
+        "type": "heading",
+        "text": "How liquefaction is triggered"
+      },
+      {
+        "type": "paragraph",
+        "text": "Earthquake shaking applies cyclic shear stresses. In loose saturated sands, the grain skeleton tends to contract under cyclic loading. Under undrained conditions, contraction cannot occur quickly, so the contraction tendency manifests as a rise in pore-water pressure. With each cycle, u climbs and &sigma;&prime; drops. When u approaches &sigma;<sub>v</sub>, effective stress (and strength) collapses and the soil behaves temporarily like a fluid."
+      },
+      {
+        "type": "paragraph",
+        "text": "After shaking stops, excess pore pressure dissipates as water drains and the soil reconsolidates into a denser fabric. This reconsolidation is a major driver of post-earthquake settlements and ground deformation."
+      },
+      {
+        "type": "heading",
+        "text": "Susceptibility screening"
+      },
+      {
+        "type": "paragraph",
+        "text": "Liquefaction triggering is primarily a concern for saturated, shallow, loose granular soils. Plasticity is critical: sand-like soils (PI < 7) can liquefy suddenly; clay-like soils (PI > 12) generally do not liquefy in the same sense and are instead assessed for cyclic softening using undrained shear strength (S<sub>u</sub>)."
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 2)",
+        "lines": [
+          "CRR<sub>7.5</sub> = 0.8 (S<sub>u</sub> / &sigma;&prime;<sub>v</sub>)"
+        ],
+        "caption": "Screening form commonly used for clay-like cyclic softening (PI &ge; 12)."
+      },
+      {
+        "type": "heading",
+        "text": "Standard triggering assessment (CSR vs CRR)"
+      },
+      {
+        "type": "paragraph",
+        "text": "The widely used simplified procedure compares cyclic stress demand (CSR) with cyclic resistance (CRR) and reports a factor of safety. In this framing, CSR represents the earthquake-imposed demand, while CRR represents the soil resistance corrected for magnitude and overburden effects."
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 3)",
+        "lines": [
+          "FS = CRR<sub>Mw,&sigma;</sub> / CSR",
+          "CSR = 0.65 (&sigma;<sub>v</sub>/&sigma;&prime;<sub>v</sub>) PGA r<sub>d</sub>",
+          "CRR<sub>Mw,&sigma;</sub> = CRR<sub>7.5</sub> MSF K<sub>&sigma;</sub>"
+        ]
+      },
+      {
+        "type": "note",
+        "text": "Engineering note: A triggering factor of safety check is not a full performance-based liquefaction assessment. Consequences (settlement, lateral spreading, post-liquefaction stability) must be checked separately."
+      },
+      {
+        "type": "heading",
+        "text": "Consequences: settlement, spreading, and flow failures"
+      },
+      {
+        "type": "paragraph",
+        "text": "Liquefaction can produce reconsolidation settlement and surface manifestations (sand boils), lateral spreading toward free faces (rivers, quay walls), uplift of buried structures, and severe slope failures. In particular, flow liquefaction on contractive sands can continue after shaking stops, driven by gravity alone; post-liquefaction residual strength governs this risk rather than the triggering FS alone."
+      },
+      {
+        "type": "heading",
+        "text": "Further questions"
+      },
+      {
+        "type": "paragraph",
+        "text": "Q1 — Fines corrections: Some procedures use an &alpha;+&beta; correction, others a &Delta; correction. These components are not interchangeable: each is calibrated together with its matching CRR curve, so mixing them introduces systematic error."
+      },
+      {
+        "type": "paragraph",
+        "text": "Q2 — Why FS can miss flow risk: A CSR/CRR FS answers whether shaking is expected to trigger liquefaction. It does not capture whether a soil is in a metastable contractive state where small triggers can initiate strain softening and gravity-driven runout; post-liquefaction stability checks remain essential on slopes."
+      },
+      {
+        "type": "author",
+        "text": "Arifcan Yilmaz, MSc"
+      },
+      {
+        "type": "author",
+        "text": "Geotechnical Engineer"
+      }
+    ]
   }
 ]
