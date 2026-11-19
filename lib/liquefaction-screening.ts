@@ -34,6 +34,8 @@ export interface LiquefactionScreeningResult {
   n160cs?: number;
   n160csCapped?: number;
   msf?: number;
+  /** Overburden correction factor K_sigma (Idriss & Boulanger 2008). */
+  kSigma?: number;
   csr?: number;
   crrMagnitudeCorrected?: number;
 }
@@ -79,6 +81,24 @@ export function getLiquefactionRd(sampleDepth: number): number {
   }
 
   return 0.5;
+}
+
+/** Idriss (1999) / Idriss & Boulanger (2008) stress reduction coefficient (depth z in m). */
+export function getIdrissBoulangerRd(sampleDepth: number, magnitude: number): number {
+  const z = Math.max(0, sampleDepth);
+  if (z > 34) {
+    return 0.12 * Math.exp(0.22 * magnitude);
+  }
+  const alpha = -1.012 - 1.126 * Math.sin(z / 11.73 + 5.133);
+  const beta = 0.106 + 0.118 * Math.sin(z / 11.28 + 5.142);
+  return Math.exp(alpha + beta * magnitude);
+}
+
+/** Idriss & Boulanger (2008) overburden correction K_sigma = 1 - C_sigma ln(sigma'_v / P_a) <= 1.1. */
+export function getIdrissBoulangerKSigma(sigmaV0Effective: number, n160cs: number): number {
+  const PA_KPA = 101.3;
+  const cSigma = Math.min(0.3, 1 / (18.9 - 2.55 * Math.sqrt(Math.max(0, Math.min(n160cs, 37)))));
+  return Math.min(1.1, 1 - cSigma * Math.log(Math.max(sigmaV0Effective, 1) / PA_KPA));
 }
 
 export function getTbdyMagnitudeFactor(magnitude: number): number {
@@ -149,10 +169,11 @@ function computeIdrissBoulangerScreening(inputs: LiquefactionScreeningInputs): L
       2.8,
   );
   const msf = getIdrissBoulangerMsf(magnitude);
-  const rd = getLiquefactionRd(sampleDepth);
+  const rd = getIdrissBoulangerRd(sampleDepth, magnitude);
   const { sigmaV0, sigmaV0Effective } = computeTotalAndEffectiveStress(sampleDepth, groundwaterDepth, unitWeight);
+  const kSigma = getIdrissBoulangerKSigma(sigmaV0Effective, n160csCapped);
   const csr = 0.65 * peakGroundAcceleration * (sigmaV0 / Math.max(sigmaV0Effective, 1)) * rd;
-  const crrMagnitudeCorrected = crr75 * msf;
+  const crrMagnitudeCorrected = crr75 * msf * kSigma;
   const fos = crrMagnitudeCorrected / Math.max(csr, 1e-6);
 
   return {
@@ -165,6 +186,7 @@ function computeIdrissBoulangerScreening(inputs: LiquefactionScreeningInputs): L
     sigmaV0Effective,
     crr75,
     msf,
+    kSigma,
     csr,
     crrMagnitudeCorrected,
     fos,

@@ -5,9 +5,39 @@ import type { InsightArticle } from "@/lib/types";
 
 interface ArticleCardProps {
   article: InsightArticle;
+  /** "open": image and text without a surrounding frame (used on the home page). */
+  variant?: "card" | "open";
 }
 
-export function ArticleCard({ article }: ArticleCardProps) {
+export function ArticleCard({ article, variant = "card" }: ArticleCardProps) {
+  if (variant === "open") {
+    return (
+      <article className="group flex h-full flex-col">
+        <Link href={`/blog/${article.slug}`} className="relative block h-44 w-full overflow-hidden rounded-md sm:h-52" tabIndex={-1}>
+          <Image
+            src={article.thumbnail}
+            alt={`${article.title} thumbnail`}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            sizes="(min-width: 768px) 33vw, 100vw"
+          />
+        </Link>
+        <h3 className="mt-3 text-base leading-snug font-semibold text-slate-900 sm:text-[1.05rem]">
+          <Link href={`/blog/${article.slug}`} className="transition-colors duration-200 hover:!text-amber-800">
+            {article.title}
+          </Link>
+        </h3>
+        <p className="mt-1.5 flex-1 text-sm leading-6 text-slate-600">{article.excerpt}</p>
+        <Link
+          href={`/blog/${article.slug}`}
+          className="mt-2 w-fit text-sm font-semibold !text-amber-800 underline-offset-4 hover:underline"
+        >
+          Read article →
+        </Link>
+      </article>
+    );
+  }
+
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="relative h-44 w-full sm:h-56">

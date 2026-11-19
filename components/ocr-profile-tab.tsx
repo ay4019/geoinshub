@@ -24,9 +24,12 @@ import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
 import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 
 interface OcrProfileTabProps {
   unitSystem: UnitSystem;
+  /** Emits data for the standard two-part report (Report tab). */
+  onReportDataChange?: (payload: StandardReportPayload) => void;
   importRows?: SelectedBoreholeSummary[];
   soilPolicyToolSlug?: string;
   globalGroundwaterDepth?: string;
@@ -526,6 +529,7 @@ export function OcrProfileTab({
   soilPolicyToolSlug,
   globalGroundwaterDepth = "",
   globalUnitWeight = "",
+  onReportDataChange,
 }: OcrProfileTabProps) {
   const [rows, setRows] = useState<OcrProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
@@ -731,6 +735,57 @@ export function OcrProfileTab({
         .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId) || a.sampleDepth - b.sampleDepth),
     [derivedRows, unitSystem, soilPolicyToolSlug, importRows],
   );
+
+  useEffect(() => {
+    if (!onReportDataChange) return;
+    const items = derivedRows
+      .filter((item) => !profileRowSoilRestricted(soilPolicyToolSlug, importRows, item.row.boreholeId, item.row.sampleDepth, unitSystem, parse))
+      .map((item) => ({
+        boreholeId: item.row.boreholeId || "BH not set",
+        depth: parse(item.row.sampleDepth),
+        gwt: item.row.gwtDepth,
+        gamma: item.row.unitWeight,
+        sigmaP: item.row.preconsolidationStress,
+        sigmaV0: item.sigmaV0EffDisplay,
+        ocr: item.ocr,
+      }))
+      .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId, undefined, { numeric: true }) || a.depth - b.depth);
+    const below1 = items.filter((p) => p.ocr !== null && p.ocr < 1).length;
+    onReportDataChange({
+      depthUnit,
+      columns: [
+        { header: "Borehole", key: "Borehole" },
+        { header: `Depth (${depthUnit})`, key: "Depth" },
+        { header: `GWT (${depthUnit})`, key: "gwt" },
+        { header: `γ (${unitWeightUnit})`, key: "gamma" },
+        { header: `σ′ᵥ₀ (${stressUnit})`, key: "sigmaV0" },
+        { header: `σ′ₚ (${stressUnit})`, key: "sigmaP" },
+        { header: "OCR", key: "ocr" },
+      ],
+      rows: items.map((p) => ({
+        Borehole: p.boreholeId,
+        Depth: p.depth.toFixed(2),
+        gwt: p.gwt,
+        gamma: p.gamma,
+        sigmaV0: p.sigmaV0.toFixed(1),
+        sigmaP: p.sigmaP.trim() ? Number(p.sigmaP).toFixed(1) : "—",
+        ocr: p.ocr === null ? "—" : p.ocr.toFixed(2),
+      })),
+      points: items.map((p) => ({ boreholeId: p.boreholeId, depth: p.depth, values: { sigmaV0: p.sigmaV0, ocr: p.ocr } })),
+      series: [
+        { key: "sigmaV0", label: "σ′ᵥ₀", unit: stressUnit },
+        { key: "ocr", label: "OCR", unit: "", referenceLine: { value: 1, label: "OCR = 1" } },
+      ],
+      methodNotes: [
+        "σ′ᵥ₀ was calculated at each sample depth from the bulk unit weight and groundwater depth entered for that sample (Equation 1), and OCR from the preconsolidation stress entered by the user (Equation 2). The origin of σ′ₚ (oedometer interpretation method or in-situ correlation) is not recorded by the tool.",
+        ...(below1 ? [`${below1} sample(s) give OCR < 1, which is physically implausible for a stable deposit and should be checked (sample disturbance, groundwater level, or unit weight).`] : []),
+      ],
+      exclusions:
+        derivedRows.length > items.length
+          ? [`${derivedRows.length - items.length} sample(s) excluded by the project soil classification.`]
+          : undefined,
+    });
+  }, [depthUnit, derivedRows, importRows, onReportDataChange, soilPolicyToolSlug, stressUnit, unitSystem, unitWeightUnit]);
 
   const sigmaChartImgSrc = useMemo(
     () =>

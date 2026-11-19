@@ -5,9 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import type { MouseEvent } from "react";
 import { useEffect, useEffectEvent, useState } from "react";
 
+import { StrataStrip } from "@/components/field/field-graphics";
 import { useSubscription } from "@/components/subscription-context";
-import { isGuideCapturePath } from "@/lib/guide-capture";
 import { tierUi } from "@/lib/subscription";
+import { isGuideCapturePath } from "@/lib/guide-capture";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -50,7 +51,6 @@ export function Header() {
   const guideCapture = isGuideCapturePath(pathname);
   const supabaseReady = isSupabaseConfigured();
   const { isAdmin: isSubscriptionAdmin, loading: subscriptionLoading, tier } = useSubscription();
-  const tierForNav = guideCapture ? "gold" : tier;
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const showSignedInChrome = guideCapture || (supabaseReady && isAuthenticated);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -111,17 +111,23 @@ export function Header() {
     const active = navItemActive(item);
     const inlineRow = Boolean(options?.inlineRow && dense);
     const base = inlineRow
-      ? "inline-flex rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base"
+      ? "inline-flex border-l-2 px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base"
       : dense
-        ? "block rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base"
-        : "rounded-md px-2.5 py-1.5 text-sm font-medium transition-all duration-200 md:px-3 md:py-2 md:text-[15px] lg:px-3.5 lg:py-2.5";
+        ? "block border-l-2 px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base"
+        : "border-b-2 px-1 py-1.5 text-sm font-medium transition-colors duration-200 md:text-[15px]";
     const showAccountChrome = options?.accountExtras && item.href === "/account";
-    const activeCls =
-      active
-        ? showAccountChrome
-          ? `nav-link-active ${tierUi(tierForNav, guideCapture ? false : isSubscriptionAdmin).tabActiveClass} hover:font-bold`
-          : "nav-link-active bg-slate-800 text-white hover:font-bold"
-        : "text-slate-800 hover:font-bold hover:text-slate-950";
+    // Signed in: the Account link gets a thin frame in the membership-tier colour (bronze / silver / gold).
+    const tierFrame = Boolean(showAccountChrome && showSignedInChrome);
+    const tierFrameStyle = tierFrame
+      ? tierUi(guideCapture ? "gold" : tier, guideCapture ? false : isSubscriptionAdmin).ringStyle
+      : undefined;
+    // Active item: brown rule (underline on desktop, left rule in the mobile list) instead of a filled box.
+    // A framed Account link shows "active" by weight only, so the rule doesn't fight the frame.
+    const activeCls = tierFrame
+      ? `rounded-md !px-3 border-transparent ${active ? "nav-link-active !text-slate-950" : "!text-slate-600 hover:!text-slate-950"}`
+      : active
+        ? "nav-link-active border-amber-800 !text-slate-950"
+        : "border-transparent !text-slate-600 hover:border-slate-300 hover:!text-slate-950";
     return (
       <Link
         key={item.href}
@@ -136,6 +142,7 @@ export function Header() {
                 : undefined
         }
         className={`${base} ${activeCls}`}
+        style={tierFrameStyle}
         onClick={(event: MouseEvent<HTMLAnchorElement>) => {
           setMenuOpen(false);
           if (item.href === "/projects" && !showSignedInChrome) {
@@ -174,7 +181,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-sm backdrop-blur">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-2 px-2 py-1.5 sm:gap-3 sm:px-4 sm:py-2 md:gap-4 lg:px-6 lg:py-2.5">
         <Link
           href="/"
@@ -184,13 +191,13 @@ export function Header() {
           <img
             src="/images/logo-kahve-header.png"
             alt="Geotechnical Insights Hub"
-            className="block h-[72px] w-auto max-w-full object-contain object-left sm:h-[78px] md:h-[82px] lg:h-[86px]"
+            className="block h-[72px] w-auto max-w-full object-contain object-left mix-blend-multiply sm:h-[78px] md:h-[82px] lg:h-[86px]"
           />
         </Link>
 
         <button
           type="button"
-          className="inline-flex shrink-0 items-center justify-center self-center rounded-lg border border-slate-200 bg-white p-2.5 text-slate-800 shadow-sm md:hidden"
+          className="inline-flex shrink-0 items-center justify-center self-center p-2.5 text-slate-800 transition-colors hover:text-amber-800 md:hidden"
           aria-expanded={menuOpen}
           aria-controls="mobile-primary-nav"
           onClick={() => setMenuOpen((open) => !open)}
@@ -199,9 +206,9 @@ export function Header() {
           {menuOpen ? <CloseIcon /> : <MenuIcon />}
         </button>
 
-        <nav aria-label="Primary" className="hidden items-center gap-1 md:flex md:gap-2 lg:gap-3.5">
+        <nav aria-label="Primary" className="hidden items-center gap-4 md:flex lg:gap-6">
           {navItems.map((item) => renderNavLink(item, false))}
-          <div className="flex items-center gap-1.5 lg:gap-2">
+          <div className="flex items-center gap-2 lg:gap-3">
             {renderNavLink(accountNav, false, { accountExtras: true })}
             <span className="select-none text-slate-400" aria-hidden="true">
               |
@@ -211,10 +218,10 @@ export function Header() {
           {supabaseReady && isAuthenticated && isSubscriptionAdmin && !subscriptionLoading ? (
             <Link
               href="/admin"
-              className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-all duration-200 md:px-3 md:py-2 md:text-[15px] lg:px-3.5 lg:py-2.5 ${
+              className={`border-b-2 px-1 py-1.5 text-sm font-medium transition-colors duration-200 md:text-[15px] ${
                 pathname.startsWith("/admin")
-                  ? "nav-link-active bg-amber-800 text-white hover:font-bold"
-                  : "text-amber-900 hover:font-bold hover:text-amber-950"
+                  ? "nav-link-active border-amber-800 !text-amber-900"
+                  : "border-transparent !text-amber-900 hover:!text-amber-950"
               }`}
             >
               Admin
@@ -226,7 +233,7 @@ export function Header() {
       {menuOpen ? (
         <div
           id="mobile-primary-nav"
-          className="border-t border-slate-200 bg-white shadow-[0_12px_24px_-12px_rgba(15,23,42,0.2)] md:hidden"
+          className="border-t border-slate-200 bg-white md:hidden"
         >
           <nav aria-label="Primary mobile" className="mx-auto flex max-w-[1600px] flex-col px-3 py-2">
             {navItems.map((item) => renderNavLink(item, true))}
@@ -240,10 +247,10 @@ export function Header() {
             {supabaseReady && isAuthenticated && isSubscriptionAdmin && !subscriptionLoading ? (
               <Link
                 href="/admin"
-                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base ${
+                className={`block border-l-2 px-3 py-2 text-sm font-medium transition-colors duration-200 sm:py-2.5 sm:text-base ${
                   pathname.startsWith("/admin")
-                    ? "nav-link-active bg-amber-800 text-white hover:font-bold"
-                    : "text-amber-900 hover:font-bold hover:text-amber-950"
+                    ? "nav-link-active border-amber-800 !text-amber-900"
+                    : "border-transparent !text-amber-900 hover:!text-amber-950"
                 }`}
                 onClick={() => setMenuOpen(false)}
               >
@@ -253,6 +260,7 @@ export function Header() {
           </nav>
         </div>
       ) : null}
+      <StrataStrip />
     </header>
   );
 }

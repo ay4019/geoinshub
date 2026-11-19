@@ -141,11 +141,23 @@ export default function TermsPage() {
         </div>
 
         <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-slate-900">10A. Generated Reports and AI Features</h2>
+          <p>
+            Generated reports and AI interpretations are automated outputs based solely on your inputs. You may use them
+            for your own preliminary work, but you must not represent them as having been prepared, verified, or
+            endorsed by the operator, and you must independently analyse and verify every result before relying on it.
+            AI interpretations are produced by a third-party model and may be wrong. By using an AI feature you instruct
+            us to send the related report data to that provider for processing, as described in the Privacy Policy.
+          </p>
+        </div>
+
+        <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">11. Indemnity</h2>
           <p>
             You agree to indemnify and hold harmless the operator from claims, liabilities, damages, and costs arising
-            from your misuse of the site, from data you were not entitled to enter, or from your project use of site
-            outputs.
+            from your misuse of the site, from data you were not entitled to enter, from your project use of site outputs,
+            generated reports, or AI interpretations, or from any representation that such outputs were reviewed or
+            endorsed by the operator.
           </p>
         </div>
 
@@ -189,7 +201,7 @@ export default function TermsPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Last updated: 12 April 2026. This page is general information and is not legal advice.
+          Last updated: 18 November 2026. This page is general information and is not legal advice.
         </p>
       </section>
     </div>

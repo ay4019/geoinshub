@@ -5,6 +5,7 @@ import { AiReportingLink } from "@/components/ai-reporting-link";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { ToolCard } from "@/components/tool-card";
 import { VisitTracker } from "@/components/visit-tracker";
+import { ContourBackdrop } from "@/components/field/field-graphics";
 import { getFeaturedArticles, getFeaturedTools } from "@/lib/data-layer";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,13 @@ export default async function HomePage() {
   const featuredInsights = getFeaturedArticles(3);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] space-y-10 px-3 py-6 sm:space-y-16 sm:px-6 sm:py-12">
+    <div className="mx-auto w-full max-w-[1600px] space-y-12 px-4 py-8 sm:space-y-20 sm:px-6 sm:py-14">
       <VisitTracker />
       <OnboardingTour />
 
-      <section className="flex flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:gap-8 sm:p-10">
+      <section className="relative isolate flex flex-col gap-6 sm:gap-8">
+        {/* Faint topographic contours, faded out toward the text on the left. */}
+        <ContourBackdrop className="pointer-events-none absolute -top-10 right-0 -z-10 h-[calc(100%+5rem)] w-full text-slate-400 opacity-30 [mask-image:linear-gradient(to_right,transparent_15%,black_60%,black_90%,transparent),linear-gradient(to_bottom,transparent,black_15%,black_65%,transparent)] [mask-composite:intersect] lg:w-4/5" />
         <div className="flex flex-col gap-4 sm:gap-5">
           <h1 className="pb-0.5 text-3xl font-bold leading-tight text-slate-900 sm:pb-1 sm:text-5xl sm:leading-[1.12] lg:text-6xl">
             Geotechnical Insights Hub
@@ -76,9 +79,9 @@ export default async function HomePage() {
             View more
           </Link>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+        <div className="grid gap-8 sm:grid-cols-2 sm:gap-x-10 lg:grid-cols-3">
           {featuredTools.map((tool) => (
-            <ToolCard key={tool.slug} tool={tool} />
+            <ToolCard key={tool.slug} tool={tool} variant="open" />
           ))}
         </div>
       </section>
@@ -102,9 +105,9 @@ export default async function HomePage() {
             View more
           </Link>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+        <div className="grid gap-8 sm:grid-cols-2 sm:gap-x-10 lg:grid-cols-3">
           {featuredInsights.map((article) => (
-            <ArticleCard key={article.slug} article={article} />
+            <ArticleCard key={article.slug} article={article} variant="open" />
           ))}
         </div>
       </section>

@@ -14,6 +14,8 @@ interface ProfileReportAiRequest {
   /** Second profile figure (e.g. SPT (N1)60 vs depth). Sent after the first image to Gemini. */
   plotImageDataUrl2?: string | null;
   aiPromptHint?: string;
+  /** Exact table column keys holding the reported parameter(s); overrides the per-tool heuristics. */
+  primaryValueKeys?: string[];
 }
 
 interface GeminiGenerateContentResponse {
@@ -43,33 +45,159 @@ interface TableSummaryResult {
 
 function buildSystemPrompt(): string {
   return [
-    "You are a geotechnical engineering reporting assistant.",
+    "You are a senior geotechnical engineer writing the interpretation section of a preliminary parameter report.",
     "",
-    "Return exactly one concise technical paragraph between 300 and 350 words.",
-    "Absolute maximum: 400 words.",
+    "OUTPUT FORMAT",
+    "- Exactly three paragraphs separated by one blank line; 230-320 words in total, at most about 110 words per paragraph. Finish every sentence; never stop mid-sentence.",
+    "- No headings, bullet points, tables, or markdown. Objective, technical British English.",
+    "- Paragraph 1 (interpretation): describe the profile using the statistics supplied — range, central value, and depth trend (cite the slope and r2 when given).",
+    "- Paragraph 2 (variability and data quality): compare boreholes, comment on scatter (CoV), flagged outliers, refusals, and whether the number of records supports the observed trend; state whether apparent changes are more likely stratigraphic or test variability.",
+    "- Paragraph 3 (design relevance): explain how the results should inform the selection of a cautious representative value for preliminary design (qualitatively, or as a range drawn only from the supplied statistics), state the main limitation of the correlation described in the base report text, and recommend review by a qualified geotechnical engineer and any specific verification testing that would reduce uncertainty.",
     "",
-    "The tone must be objective, technical, and suitable for preliminary engineering assessment.",
+    "EVIDENCE RULES (mandatory)",
+    "- Use only numbers that appear in the input (statistics, table rows, base report text); you may round them. Do not calculate new parameters or introduce other correlations.",
+    "- Do not cite standards, codes, papers, or authors that are not named in the base report text.",
+    "- If there are fewer than 5 records or only one borehole, say explicitly that the dataset is too small for a statistically meaningful trend.",
+    "- If a plot appears to disagree with the table, rely on the table and mention the discrepancy.",
+    "- Never claim code compliance or final design adequacy.",
     "",
-    "Base your interpretation strictly on the provided data. Do not invent values or trends not supported by the input.",
-    "",
-    "Where uncertainty exists, state it clearly using cautious engineering language.",
-    "",
-    "Include:",
-    "",
-    "* a clear interpretation of the results,",
-    "* a brief comment on variability, trends, or anomalies if present,",
-    "* a short design-oriented remark explaining how the results may influence parameter selection.",
-    "",
-    "Do not claim regulatory compliance or final design suitability.",
-    "",
-    "Include at least one cautionary statement recommending review by a qualified engineer.",
-    "",
-    "Avoid repetition and unnecessary verbosity. Prioritise technical clarity over length.",
-    "",
-    "Use plain ASCII for symbols where relevant: c_u, N60, N1_60 or (N1)60, and f1 (avoid Unicode subscripts and markdown formatting).",
+    "NOTATION",
+    "- Plain ASCII only: c_u, c', phi', N60, (N1)60, f1, sigma'_v0, Eoed, m_v, kPa, m. No Unicode subscripts.",
     "",
     "When two profile plots are provided (e.g. SPT N60-depth and normalised (N1)60-depth), compare both: comment on energy-corrected blow count versus stress-normalised trends and any divergence between them.",
+    "",
+    "SINGLE-CALCULATION RESULTS",
+    "- If the table has no depth column (e.g. a bearing capacity calculation), there is no profile: paragraph 1 interprets the result and the governing terms, paragraph 2 discusses sensitivity to the input parameters and data quality, paragraph 3 covers design relevance and limitations.",
   ].join("\n");
+}
+
+const BOREHOLE_KEY_PATTERN = /^(borehole(\s*id)?|boreholeid|bh(\s*id)?)$/i;
+
+function detectBoreholeKey(rows: Array<Record<string, string>>): string | null {
+  const keys = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
+  return keys.find((key) => BOREHOLE_KEY_PATTERN.test(key.trim())) ?? null;
+}
+
+/** Column keys that carry the reported parameter for each tool (falls back to all numeric columns). */
+const TOOL_PRIMARY_KEY_HINTS: Record<string, RegExp[]> = {
+  "spt-corrections": [/^n60$/i, /^n160$/i],
+  "cu-from-pi-and-spt": [/^cu\s*\(/i],
+  "cprime-from-cu": [/^c′|^c'/i],
+  "friction-angle-from-pi": [/^φ′|^phi/i],
+  "eoed-from-mv": [/eoed/i, /^m_?v/i],
+};
+
+function describe(values: number[]) {
+  const n = values.length;
+  const mean = values.reduce((s, v) => s + v, 0) / n;
+  const sd = n > 1 ? Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1)) : 0;
+  return { n, mean, sd, cov: mean !== 0 ? sd / Math.abs(mean) : 0, min: Math.min(...values), max: Math.max(...values) };
+}
+
+function linearTrend(points: Array<{ x: number; y: number }>) {
+  const n = points.length;
+  if (n < 3) return null;
+  const mx = points.reduce((s, p) => s + p.x, 0) / n;
+  const my = points.reduce((s, p) => s + p.y, 0) / n;
+  const sxx = points.reduce((s, p) => s + (p.x - mx) ** 2, 0);
+  const syy = points.reduce((s, p) => s + (p.y - my) ** 2, 0);
+  const sxy = points.reduce((s, p) => s + (p.x - mx) * (p.y - my), 0);
+  if (sxx === 0 || syy === 0) return null;
+  return { slope: sxy / sxx, r2: (sxy * sxy) / (sxx * syy) };
+}
+
+const fmt = (v: number) => new Intl.NumberFormat("en-GB", { maximumFractionDigits: 3 }).format(v);
+
+/** Per-parameter, per-borehole, trend, and outlier statistics so the model does not have to infer them from sampled rows. */
+function buildEngineeringStatistics(toolData: ProfileReportAiRequest): string[] {
+  const rows = toolData.tableRows;
+  const depthKey = detectDepthKey(rows, toolData.depthUnit);
+  if (!depthKey) {
+    // Single-calculation tables (Parameter / Value) have no comparable numeric column to summarise.
+    return [];
+  }
+  const boreholeKey = detectBoreholeKey(rows);
+  const numericColumns = getNumericColumnValues(rows);
+  const hints = TOOL_PRIMARY_KEY_HINTS[toolData.toolSlug];
+  const candidateKeys = Array.from(numericColumns.keys()).filter((key) => key !== depthKey && key !== boreholeKey);
+  const explicit = (toolData.primaryValueKeys ?? []).filter((key) => candidateKeys.includes(key));
+  const primaryKeys = explicit.length
+    ? explicit
+    : hints
+      ? candidateKeys.filter((key) => hints.some((pattern) => pattern.test(key.trim())))
+      : candidateKeys.slice(-2);
+  const lines: string[] = [];
+  const fieldNKey = Array.from(numericColumns.keys()).find((key) => /^(n|nfield|field n)$/i.test(key.trim()));
+  const isRefusalRow = (rowIndex: number) =>
+    toolData.toolSlug === "spt-corrections" && fieldNKey !== undefined && (parseNumericValue(rows[rowIndex]?.[fieldNKey]) ?? 0) >= 50;
+
+  for (const key of primaryKeys.length ? primaryKeys : candidateKeys.slice(-1)) {
+    // Refusal blow counts are lower bounds; keep them out of the statistics and report them separately.
+    const entries = (numericColumns.get(key) ?? []).filter((e) => !isRefusalRow(e.rowIndex));
+    if (!entries.length) continue;
+    const d = describe(entries.map((e) => e.value));
+    lines.push(
+      `* ${key}: n = ${d.n}, min ${fmt(d.min)}, max ${fmt(d.max)}, mean ${fmt(d.mean)}, standard deviation ${fmt(d.sd)}, CoV ${fmt(d.cov)}`,
+    );
+
+    if (depthKey) {
+      const pts = entries
+        .map((e) => ({ x: parseNumericValue(rows[e.rowIndex]?.[depthKey]), y: e.value }))
+        .filter((p): p is { x: number; y: number } => p.x !== null);
+      const trend = linearTrend(pts);
+      if (trend) {
+        lines.push(`  - depth trend (all boreholes): slope ${fmt(trend.slope)} per ${toolData.depthUnit}, r2 ${fmt(trend.r2)}`);
+      }
+    }
+
+    if (boreholeKey) {
+      const byBh = new Map<string, number[]>();
+      entries.forEach((e) => {
+        const bh = (rows[e.rowIndex]?.[boreholeKey] ?? "").trim() || "unlabelled";
+        byBh.set(bh, [...(byBh.get(bh) ?? []), e.value]);
+      });
+      if (byBh.size > 1) {
+        const parts = Array.from(byBh.entries()).map(([bh, vals]) => {
+          const s = describe(vals);
+          return `${bh} (n ${s.n}, mean ${fmt(s.mean)}, range ${fmt(s.min)}-${fmt(s.max)})`;
+        });
+        lines.push(`  - by borehole: ${parts.join("; ")}`);
+      }
+    }
+
+    if (d.n >= 5 && d.sd > 0) {
+      const outliers = entries.filter((e) => Math.abs(e.value - d.mean) / d.sd > 2);
+      if (outliers.length) {
+        lines.push(
+          `  - values more than 2 standard deviations from the mean: ${outliers
+            .map((e) => `${fmt(e.value)} at row ${e.rowIndex + 1}`)
+            .join(", ")}`,
+        );
+      }
+    }
+  }
+
+  if (toolData.toolSlug === "spt-corrections") {
+    const refusals = rows.map((_, i) => i).filter(isRefusalRow);
+    lines.push(
+      `* SPT refusals (field N = 50, excluded from the statistics above, lower-bound resistance): ${refusals.length}${
+        refusals.length && depthKey ? ` at depths ${refusals.map((i) => rows[i]?.[depthKey] ?? "?").join(", ")} ${toolData.depthUnit}` : ""
+      }`,
+    );
+  }
+
+  return lines;
+}
+
+/** Drops a trailing partial sentence when the model hit the token limit. */
+function trimToLastCompleteSentence(text: string): string {
+  const trimmed = text.trim();
+  const lastStop = Math.max(
+    trimmed.lastIndexOf(". "),
+    trimmed.lastIndexOf(".\n"),
+    trimmed.endsWith(".") ? trimmed.length - 1 : -1,
+  );
+  return lastStop > 0 ? trimmed.slice(0, lastStop + 1).trim() : trimmed;
 }
 
 function extractGeminiText(payload: GeminiGenerateContentResponse): string {
@@ -241,12 +369,10 @@ function buildTableSummary(toolData: ProfileReportAiRequest): TableSummaryResult
     ? primaryValueEntries.reduce((sum, entry) => sum + entry.value, 0) / primaryValueEntries.length
     : null;
 
-  const boreholeCount = new Set(
-    rows
-      .map((row) => row.Borehole ?? row["Borehole ID"] ?? row["BoreholeId"] ?? row["BH"] ?? "")
-      .map((value) => value.trim())
-      .filter(Boolean),
-  ).size;
+  const boreholeKey = detectBoreholeKey(rows);
+  const boreholeCount = boreholeKey
+    ? new Set(rows.map((row) => (row[boreholeKey] ?? "").trim()).filter(Boolean)).size
+    : 0;
 
   const representativeRowIndexes = buildRepresentativeRowIndexes(rows, primaryValueEntries, 16);
   const representativeRows = representativeRowIndexes.map((rowIndex) => formatRow(rows[rowIndex] ?? {}, rowIndex));
@@ -317,8 +443,15 @@ function buildPlotSummary(toolData: ProfileReportAiRequest, tableSummary: TableS
   return parts.join(" ");
 }
 
-function buildUserPrompt(toolData: ProfileReportAiRequest): string {
+/** SPT tables carry blow counts, not stresses; the generic stress unit would mislabel them. */
+function withValueUnit(toolData: ProfileReportAiRequest): ProfileReportAiRequest {
+  return toolData.toolSlug === "spt-corrections" ? { ...toolData, valueUnit: "blows/0.3 m" } : toolData;
+}
+
+function buildUserPrompt(rawToolData: ProfileReportAiRequest): string {
+  const toolData = withValueUnit(rawToolData);
   const tableSummary = buildTableSummary(toolData);
+  const engineeringStatistics = buildEngineeringStatistics(toolData);
   const plotSummary = buildPlotSummary(toolData, tableSummary);
   const projectHint = toolData.aiPromptHint?.trim() || "No project hint provided.";
   const resolvedNarrative = toolData.resolvedNarrative.trim() || "No base report text provided.";
@@ -345,8 +478,18 @@ function buildUserPrompt(toolData: ProfileReportAiRequest): string {
     "Table Data Summary:",
     "",
     `* Number of records: ${tableSummary.recordCount}`,
-    `* Value range: ${tableSummary.minLabel} - ${tableSummary.maxLabel}`,
-    `* Mean value: ${tableSummary.meanLabel}`,
+    `* Number of boreholes: ${tableSummary.boreholeCount || "not identified"}`,
+    ...(tableSummary.depthMin !== null && tableSummary.depthMax !== null
+      ? [`* Depth range: ${fmt(tableSummary.depthMin)}-${fmt(tableSummary.depthMax)} ${toolData.depthUnit}`]
+      : []),
+    // The per-parameter statistics below supersede the generic single-column range (which cannot exclude refusals).
+    ...(engineeringStatistics.length || !tableSummary.depthKey
+      ? []
+      : [`* Value range: ${tableSummary.minLabel} - ${tableSummary.maxLabel}`, `* Mean value: ${tableSummary.meanLabel}`]),
+    ...(tableSummary.depthKey ? [] : ["* This is a single-calculation result table (no depth profile)."]),
+    "",
+    "Engineering statistics (computed server-side from the full table; quote these rather than estimating):",
+    ...(engineeringStatistics.length ? engineeringStatistics : ["* not applicable (see the detailed table below)"]),
     "",
     "Detailed table:",
     detailedTable || "No representative rows could be derived from the current table.",
@@ -361,8 +504,8 @@ function buildUserPrompt(toolData: ProfileReportAiRequest): string {
           "Both SPT profile plots are attached: relate N60 trends to (N1)60 after overburden normalisation where the data supports it.",
         ]
       : []),
-    "Use the base report text only as supporting context and avoid repetition.",
-    "Focus on engineering interpretation, variability, and design relevance.",
+    "Use the base report text only as supporting context (method, correlation, references) and do not repeat it.",
+    "Write the three paragraphs defined in the system instructions: interpretation, variability and data quality, design relevance.",
     "If the data is inconsistent or limited, explicitly state uncertainty.",
   ].join("\n");
 }
@@ -449,7 +592,7 @@ export async function interpretProfileReportAction(request: ProfileReportAiReque
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt(request);
 
-    let response = await requestGeminiInterpretation(apiKey, model, systemPrompt, userPrompt, imageParts, 640, 0);
+    let response = await requestGeminiInterpretation(apiKey, model, systemPrompt, userPrompt, imageParts, 1000, 0);
     if (!response.ok) {
       return `Gemini AI request failed (${response.status}).`;
     }
@@ -459,10 +602,13 @@ export async function interpretProfileReportAction(request: ProfileReportAiReque
     const finishReason = payload.candidates?.[0]?.finishReason;
 
     if (!isSuccessfulAiInterpretationBody(text) || finishReason === "MAX_TOKENS") {
-      response = await requestGeminiInterpretation(apiKey, model, systemPrompt, userPrompt, imageParts, 760, 0);
+      response = await requestGeminiInterpretation(apiKey, model, systemPrompt, userPrompt, imageParts, 1400, 0);
       if (response.ok) {
         payload = (await response.json()) as GeminiGenerateContentResponse;
         text = extractGeminiText(payload);
+        if (payload.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+          text = trimToLastCompleteSentence(text);
+        }
       }
     }
 

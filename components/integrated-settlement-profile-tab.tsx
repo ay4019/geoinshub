@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ProfileTableScroll, profileTableScrollableMinClass } from "@/components/profile-table-mobile";
 import type { UnitSystem } from "@/lib/types";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 
 interface IntegratedSettlementProfileTabProps {
   unitSystem: UnitSystem;
+  /** Emits data for the standard two-part report (Report tab). */
+  onReportDataChange?: (payload: StandardReportPayload) => void;
 }
 
 type LoadCase = "embankment" | "structure";
@@ -26,6 +29,8 @@ interface LayerRow {
   mv: string;
   cc: string;
   cr: string;
+  /** Overconsolidation ratio σ′p/σ′v0 at layer mid-depth (1 = normally consolidated). */
+  ocr: string;
   e0: string;
   es: string;
   nu: string;
@@ -60,6 +65,7 @@ const initialRows: LayerRow[] = [
     mv: "0.35",
     cc: "0.32",
     cr: "0.06",
+    ocr: "1.0",
     e0: "1.0",
     es: "14000",
     nu: "0.30",
@@ -74,6 +80,7 @@ const initialRows: LayerRow[] = [
     mv: "0.15",
     cc: "0.18",
     cr: "0.03",
+    ocr: "1.0",
     e0: "0.80",
     es: "28000",
     nu: "0.30",
@@ -114,17 +121,29 @@ function rectangularElasticStress(q: number, width: number, length: number, z: n
   return Math.max(sigma, 0);
 }
 
-function normalConsolidationSettlement(
+/**
+ * One-dimensional primary consolidation with stress history:
+ *   σ′f <= σ′p : s = H C_r/(1+e0) log(σ′f/σ′0)
+ *   σ′0 <  σ′p < σ′f : s = H/(1+e0) [C_r log(σ′p/σ′0) + C_c log(σ′f/σ′p)]
+ *   σ′p = σ′0 (OCR = 1): s = H C_c/(1+e0) log(σ′f/σ′0)
+ */
+export function consolidationSettlement(
   thickness: number,
   sigmaV0Eff: number,
   deltaSigma: number,
   cc: number,
+  cr: number,
   e0: number,
+  ocr: number,
 ): number {
   const s0 = Math.max(sigmaV0Eff, 1);
   const sf = Math.max(s0 + deltaSigma, s0 + 0.001);
-  const e = Math.max(e0, 0.05);
-  return thickness * (cc / (1 + e)) * Math.log10(sf / s0);
+  const sp = s0 * Math.max(ocr, 1);
+  const factor = thickness / (1 + Math.max(e0, 0.05));
+  if (sf <= sp) {
+    return factor * cr * Math.log10(sf / s0);
+  }
+  return factor * (cr * Math.log10(sp / s0) + cc * Math.log10(sf / sp));
 }
 
 function tvFromU(targetPercent: number): number {
@@ -494,7 +513,7 @@ function FoundationSoilIllustration({
   );
 }
 
-export function IntegratedSettlementProfileTab({ unitSystem }: IntegratedSettlementProfileTabProps) {
+export function IntegratedSettlementProfileTab({ unitSystem, onReportDataChange }: IntegratedSettlementProfileTabProps) {
   const [loadCase, setLoadCase] = useState<LoadCase>("structure");
   const [q0, setQ0] = useState("120");
   const [excavationDepth, setExcavationDepth] = useState("0");
@@ -506,7 +525,10 @@ export function IntegratedSettlementProfileTab({ unitSystem }: IntegratedSettlem
   const [rows, setRows] = useState<LayerRow[]>(initialRows);
   const [groundwaterDepth, setGroundwaterDepth] = useState("1.5");
 
-  const loadUnitLabel = unitSystem === "american" ? "ksf" : "kPa";
+  // This tab computes in SI units throughout (layer inputs and B, L, depths are in m and kPa), so the load label
+  // must stay in kPa; showing "ksf" while computing in kPa would silently mis-scale the load.
+  const loadUnitLabel = "kPa";
+  void unitSystem;
 
   const geometry = useMemo<LayerGeometry[]>(
     () =>
@@ -552,13 +574,21 @@ export function IntegratedSettlementProfileTab({ unitSystem }: IntegratedSettlem
     const foundationB = Math.max(num(width), 0.1);
     const foundationL = Math.max(num(length), 0.1);
 
-    return geometry.map((layer) => {
-      const influence = rectangularElasticStress(1, foundationB, foundationL, layer.midDepth);
+    const foundationLevel = Math.max(num(excavationDepth), 0);
+    const gwtDepth = Math.max(num(groundwaterDepth, 0), 0);
+
+    return geometry.map((layer, index) => {
+      // Boussinesq depth is measured below the foundation base; material above the base is excavated and carries no Δσ.
+      const zBelowBase = layer.midDepth - foundationLevel;
+      const influence = zBelowBase > 0 ? rectangularElasticStress(1, foundationB, foundationL, zBelowBase) : 0;
       const deltaSigma = influence * qApplied;
 
+      // Total overburden accumulates the unit weights of all overlying layers.
       const gamma = Math.max(num(layer.unitWeight, 18), 0);
-      const gwtDepth = Math.max(num(groundwaterDepth, 0), 0);
-      const sigmaV0 = gamma * layer.midDepth;
+      const sigmaAbove = geometry
+        .slice(0, index)
+        .reduce((sum, upper) => sum + Math.max(num(upper.unitWeight, 18), 0) * upper.thicknessValue, 0);
+      const sigmaV0 = sigmaAbove + gamma * (layer.midDepth - layer.top);
       const sigmaV0Eff = Math.max(sigmaV0 - gammaWater * Math.max(layer.midDepth - gwtDepth, 0), 1);
 
       const es = Math.max(num(layer.es), 1);
@@ -569,12 +599,14 @@ export function IntegratedSettlementProfileTab({ unitSystem }: IntegratedSettlem
         layer.soilType === "clay"
           ? layer.clayInputMode === "mv"
             ? Math.max(num(layer.mv), 0) * (deltaSigma / 1000) * layer.thicknessValue
-            : normalConsolidationSettlement(
+            : consolidationSettlement(
                 layer.thicknessValue,
                 sigmaV0Eff,
                 deltaSigma,
                 Math.max(num(layer.cc, 0), 0),
+                Math.max(num(layer.cr, 0), 0),
                 Math.max(num(layer.e0, 0.7), 0.05),
+                Math.max(num(layer.ocr, 1), 1),
               )
           : 0;
 
@@ -589,7 +621,7 @@ export function IntegratedSettlementProfileTab({ unitSystem }: IntegratedSettlem
         total: immediate + consolidation,
       };
     });
-  }, [geometry, groundwaterDepth, length, qApplied, width]);
+  }, [excavationDepth, geometry, groundwaterDepth, length, qApplied, width]);
 
   const totals = useMemo(() => {
     const immediate = results.reduce((sum, layer) => sum + layer.immediate, 0);
@@ -616,6 +648,76 @@ export function IntegratedSettlementProfileTab({ unitSystem }: IntegratedSettlem
       clayLayers,
     };
   }, [cvInput, drainageMode, geometry, targetU]);
+
+  useEffect(() => {
+    if (!onReportDataChange) return;
+    if (loadCase !== "structure") {
+      onReportDataChange({ depthUnit: "m", columns: [], rows: [], points: [], series: [] });
+      return;
+    }
+    const mm = (m: number) => (m * 1000).toFixed(1);
+    onReportDataChange({
+      depthUnit: "m",
+      columns: [
+        { header: "Layer", key: "Borehole" },
+        { header: "Soil", key: "soil" },
+        { header: "Mid-depth (m)", key: "Depth" },
+        { header: "Thickness (m)", key: "h" },
+        { header: "σ′ᵥ₀ (kPa)", key: "sigmaV0" },
+        { header: "I_z", key: "iz" },
+        { header: "Δσ_z (kPa)", key: "deltaSigma" },
+        { header: "sᵢ (mm)", key: "immediate" },
+        { header: "s_c (mm)", key: "consolidation" },
+        { header: "s_total (mm)", key: "total" },
+      ],
+      rows: results.map((r, i) => {
+        const g = geometry[i];
+        return {
+          Borehole: g?.name || `L${i + 1}`,
+          soil: g?.soilType === "clay" ? (g.clayInputMode === "mv" ? "Clay (mᵥ)" : "Clay (C_c/C_r)") : "Sand",
+          Depth: r.depth.toFixed(2),
+          h: (g?.thicknessValue ?? 0).toFixed(2),
+          sigmaV0: r.sigmaV0Eff.toFixed(1),
+          iz: r.influence.toFixed(3),
+          deltaSigma: r.deltaSigma.toFixed(1),
+          immediate: mm(r.immediate),
+          consolidation: mm(r.consolidation),
+          total: mm(r.total),
+        };
+      }),
+      points: results.map((r, i) => ({
+        boreholeId: "Foundation centre",
+        depth: r.depth,
+        values: { total: r.total * 1000, deltaSigma: r.deltaSigma, layer: i },
+      })),
+      series: [
+        { key: "deltaSigma", label: "Δσ_z", unit: "kPa" },
+        { key: "total", label: "Layer settlement", unit: "mm" },
+      ],
+      inputs: [
+        { label: "Load case", value: "Structure (rectangular foundation)" },
+        { label: "Applied pressure q₀", value: `${num(q0).toFixed(1)} kPa` },
+        { label: "Foundation B × L", value: `${num(width).toFixed(2)} m × ${num(length).toFixed(2)} m` },
+        { label: "Excavation depth D_exc", value: `${Math.max(num(excavationDepth), 0).toFixed(2)} m` },
+        { label: "Net pressure q_net", value: `${qApplied.toFixed(1)} kPa` },
+        { label: "Groundwater depth", value: `${Math.max(num(groundwaterDepth, 0), 0).toFixed(2)} m` },
+        { label: "c_v / drainage / target U", value: `${consolidationTime.cv} m²/year / ${drainageMode} / ${consolidationTime.uTarget}%` },
+      ],
+      keyResults: [
+        { label: "Immediate settlement", value: `${mm(totals.immediate)} mm` },
+        { label: "Primary consolidation settlement", value: `${mm(totals.consolidation)} mm` },
+        { label: "Total settlement", value: `${mm(totals.total)} mm` },
+        {
+          label: `Time to U = ${consolidationTime.uTarget}%`,
+          value: consolidationTime.hdr > 0 ? `${consolidationTime.years.toFixed(2)} years (H_dr = ${consolidationTime.hdr.toFixed(2)} m)` : "No clay layers",
+        },
+      ],
+      methodNotes: [
+        "Stresses are evaluated at the mid-depth of each layer below the centre of the foundation; layers above the foundation base receive no stress increase. Clay layers entered with C_c/C_r use the layer OCR to separate recompression and virgin compression.",
+        "The consolidation time treats all clay layers as one layer with a single c_v and the selected drainage condition; it is indicative only.",
+      ],
+    });
+  }, [consolidationTime, drainageMode, excavationDepth, geometry, groundwaterDepth, length, loadCase, onReportDataChange, q0, qApplied, results, totals, width]);
 
   const updateRow = (id: number, patch: Partial<LayerRow>) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -866,6 +968,16 @@ export function IntegratedSettlementProfileTab({ unitSystem }: IntegratedSettlem
                               <input
                                 value={row.cr}
                                 onChange={(event) => updateRow(row.id, { cr: event.target.value })}
+                                className={paramInputClassName()}
+                              />
+                            </label>
+                            <label>
+                              <span className={paramLabelClassName()} title="σ′p / σ′v0 at layer mid-depth; 1.0 = normally consolidated">
+                                OCR
+                              </span>
+                              <input
+                                value={row.ocr ?? "1.0"}
+                                onChange={(event) => updateRow(row.id, { ocr: event.target.value })}
                                 className={paramInputClassName()}
                               />
                             </label>

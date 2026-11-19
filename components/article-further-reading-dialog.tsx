@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef } from "react";
 
 import { HardeningSoilFurtherQuestionsContent } from "@/components/hardening-soil-further-questions-content";
+import { LiquefactionFurtherQuestionsContent } from "@/components/liquefaction-further-questions-content";
 import { useSubscription } from "@/components/subscription-context";
 import type { InsightArticleBlock } from "@/lib/types";
 import { tierAllowsBlogFurtherQuestions } from "@/lib/subscription";
@@ -86,6 +87,24 @@ export function ArticleFurtherReadingDialog({ block }: { block: DialogBlock }) {
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {subscriptionLoading ? (
               <p className="text-sm text-slate-600">Loading…</p>
+            ) : !canViewFurtherQuestions && effectiveTier === "none" ? (
+              <div className="space-y-4 text-sm text-slate-700">
+                <p>
+                  The detailed further questions for this article are available to registered members. Creating an
+                  account is free.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Link href="/signup" className="btn-base btn-md text-sm">
+                    Create a free account
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition-colors hover:border-slate-400 hover:bg-slate-50"
+                  >
+                    Log in
+                  </Link>
+                </div>
+              </div>
             ) : !canViewFurtherQuestions ? (
               <div className="space-y-3 text-sm text-slate-700">
                 <p>
@@ -104,6 +123,8 @@ export function ArticleFurtherReadingDialog({ block }: { block: DialogBlock }) {
               </div>
             ) : block.preset === "hardening-soil-further-questions" ? (
               <HardeningSoilFurtherQuestionsContent />
+            ) : block.preset === "liquefaction-further-questions" ? (
+              <LiquefactionFurtherQuestionsContent />
             ) : null}
           </div>
         </div>

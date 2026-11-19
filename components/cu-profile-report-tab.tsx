@@ -12,6 +12,12 @@ import { tierAllowsAiAnalysis, tierAllowsReports } from "@/lib/subscription";
 import { createToolReportPdf } from "@/lib/tool-report-pdf";
 import { AI_ANALYZE_BUTTON_CLASS } from "@/lib/report-button-styles";
 import {
+  AI_DATA_SHARING_NOTICE,
+  AI_INTERPRETATION_NOTICE,
+  REPORT_RESPONSIBILITY_PARAGRAPHS,
+  REPORT_STATUS_BANNER,
+} from "@/lib/legal/report-disclaimer";
+import {
   CPRIME_REPORT_FIGURE_2_CAPTION,
   CPRIME_REPORT_REFERENCE_ENTRIES,
   CPRIME_REPORT_TABLE_1_TITLE,
@@ -354,6 +360,7 @@ function ReportAiInterpretationGold({ text, toolSlug }: { text: string; toolSlug
             Analyse with AI
           </span>
         </div>
+        <p className="mt-2 text-xs italic leading-5 text-amber-900">{AI_INTERPRETATION_NOTICE}</p>
         <div className="mt-3 space-y-3 text-sm leading-7 text-slate-800">
           {blocks.map((para, idx) => (
             <p key={`ai-p-${idx}`} className="text-justify">
@@ -428,11 +435,11 @@ function SptN60ReportEquationDisplay() {
           <span className="italic">N</span>
           <span className="mx-0.5 translate-y-px font-serif not-italic">×</span>
           <span>
-            C<sub className={SUB_CLASS}>R</sub>
+            C<sub className={SUB_CLASS}>r</sub>
           </span>
           <span className="mx-0.5 translate-y-px font-serif not-italic">×</span>
           <span>
-            C<sub className={SUB_CLASS}>S</sub>
+            C<sub className={SUB_CLASS}>s</sub>
           </span>
           <span className="mx-0.5 translate-y-px font-serif not-italic">×</span>
           <span>
@@ -472,11 +479,11 @@ function SptN160ReportEquationDisplay() {
           </span>
           <span className="mx-0.5 translate-y-px font-serif not-italic">×</span>
           <span>
-            C<sub className={SUB_CLASS}>R</sub>
+            C<sub className={SUB_CLASS}>r</sub>
           </span>
           <span className="mx-0.5 translate-y-px font-serif not-italic">×</span>
           <span>
-            C<sub className={SUB_CLASS}>S</sub>
+            C<sub className={SUB_CLASS}>s</sub>
           </span>
           <span className="mx-0.5 translate-y-px font-serif not-italic">×</span>
           <span>
@@ -762,6 +769,8 @@ export function CuProfileReportTab({
         plotImageDataUrl: currentPlot,
         plotImageDataUrl2: toolSlug === "spt-corrections" || toolSlug === "eoed-from-mv" ? plotImageDataUrl2 : null,
         aiParagraph: aiText.trim() || null,
+        projectName: projectName ?? null,
+        boreholeIds: Array.from(new Set((boreholeIds ?? []).map((item) => String(item).trim()).filter(Boolean))),
       });
       setStatus("Report created — PDF downloaded.");
     } finally {
@@ -894,6 +903,7 @@ export function CuProfileReportTab({
             >
               {isPending ? "Analysing..." : "Analyse with AI"}
             </button>
+            <p className="text-center text-[11px] leading-4 text-slate-500">{AI_DATA_SHARING_NOTICE}</p>
           </div>
 
           {status ? (
@@ -910,6 +920,9 @@ export function CuProfileReportTab({
             role="region"
             aria-label="Report preview"
           >
+            <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">
+              {REPORT_STATUS_BANNER}
+            </p>
             <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">Report narrative</h3>
             <div className="mt-4 space-y-4 pr-0.5 text-left text-sm leading-7 text-slate-800 sm:mt-5 sm:text-[15px] sm:leading-8">
               {narrativeBlocks.map((block, i) => {
@@ -1116,6 +1129,15 @@ export function CuProfileReportTab({
                       ),
                     )}
                   </ul>
+                </div>
+
+                <div className="mt-8 border-t border-slate-200 pt-6">
+                  <h3 className="text-base font-bold text-slate-900">3. Limitations and Responsibility</h3>
+                  <div className="mt-3 space-y-2 text-[13px] leading-6 text-slate-700">
+                    {REPORT_RESPONSIBILITY_PARAGRAPHS.map((p) => (
+                      <p key={p.slice(0, 24)}>{p}</p>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : null}

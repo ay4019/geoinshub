@@ -10,6 +10,9 @@ import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
 import { CprimeFromCuProfileTab, type CprimeFromCuReportPayload } from "@/components/cprime-from-cu-profile-tab";
 import { CuProfileReportTab, type CuProfileReportPoint } from "@/components/cu-profile-report-tab";
 import { ReportGuestPanel } from "@/components/report-guest-panel";
+import { StandardToolReport } from "@/components/report/standard-tool-report";
+import { getStandardReportContent } from "@/lib/reports/standard-report-content";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 import { CuFromPressuremeterProfileTab } from "@/components/cu-from-pressuremeter-profile-tab";
 import { CuFromSptProfileTab } from "@/components/cu-from-spt-profile-tab";
 import { EarthPressureProfileTab } from "@/components/earth-pressure-profile-tab";
@@ -201,7 +204,7 @@ function buildLiquefactionInformation(
     return {
       ...baseInformation,
       methodology:
-        "This route follows an Idriss and Boulanger (2008) SPT-based triggering workflow. The tool starts with corrected SPT resistance, applies a fines-correction increment to obtain the clean-sand equivalent resistance (N1)60,cs, forms CSR from Peak Ground Acceleration and overburden stress ratio, evaluates CRR_7.5 from the Idriss-Boulanger base curve, and then applies MSF to reach the final factor of safety.",
+        "This route follows an Idriss and Boulanger (2008) SPT-based triggering workflow. The tool starts with corrected SPT resistance, applies a fines-correction increment to obtain the clean-sand equivalent resistance (N1)60,cs, forms CSR from Peak Ground Acceleration and overburden stress ratio, evaluates CRR_7.5 from the Idriss-Boulanger base curve, and then applies MSF and the overburden correction K_sigma to reach the final factor of safety. The depth reduction factor r_d follows the magnitude-dependent Idriss (1999) expression adopted by Idriss and Boulanger (2008).",
       assumptions: [
         "Input (N1)60 already includes the standard field, energy, and overburden corrections before the fines correction increment is added.",
         "The user-supplied Peak Ground Acceleration is treated as the representative seismic demand input at the site surface for this screening calculation.",
@@ -217,8 +220,10 @@ function buildLiquefactionInformation(
         "(N<sub>1</sub>)<sub>60,cs</sub> = (N<sub>1</sub>)<sub>60</sub> + &Delta;N<sub>(1,60)</sub>",
         "CSR = 0.65(a<sub>max</sub>/g)(&sigma;<sub>v0</sub> / &sigma;'<sub>v0</sub>)r<sub>d</sub>",
         "CRR<sub>7.5</sub> = exp[N/14.1 + (N/126)<sup>2</sup> - (N/23.6)<sup>3</sup> + (N/25.4)<sup>4</sup> - 2.8]",
-        "MSF = 6.9e<sup>-M<sub>w</sub>/4</sup> - 0.058",
-        "FS = (CRR<sub>7.5</sub>MSF) / CSR",
+        "r<sub>d</sub> = exp[&alpha;(z) + &beta;(z)M<sub>w</sub>], &alpha;(z) = -1.012 - 1.126sin(z/11.73 + 5.133), &beta;(z) = 0.106 + 0.118sin(z/11.28 + 5.142) (z &le; 34 m)",
+        "MSF = 6.9e<sup>-M<sub>w</sub>/4</sup> - 0.058 &le; 1.8",
+        "K<sub>&sigma;</sub> = 1 - C<sub>&sigma;</sub>ln(&sigma;'<sub>v0</sub>/P<sub>a</sub>) &le; 1.1, C<sub>&sigma;</sub> = 1/(18.9 - 2.55&radic;(N<sub>1</sub>)<sub>60,cs</sub>) &le; 0.3",
+        "FS = (CRR<sub>7.5</sub>MSF K<sub>&sigma;</sub>) / CSR",
       ],
       tables: [
         {
@@ -259,6 +264,11 @@ function buildLiquefactionInformation(
               "MSF",
               "Calculated from earthquake magnitude M_w.",
               "It adjusts the reference resistance for magnitudes other than 7.5.",
+            ],
+            [
+              "K_sigma",
+              "Calculated from vertical effective stress and (N1)60,cs.",
+              "It reduces cyclic resistance at overburden stresses above about one atmosphere.",
             ],
             [
               "FS",
@@ -406,6 +416,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const [frictionAngleFromPiProfileReportData, setFrictionAngleFromPiProfileReportData] =
     useState<FrictionAngleFromPiReportPayload | null>(null);
   const [sptProfileReportData, setSptProfileReportData] = useState<SptCorrectionsReportPayload | null>(null);
+  /** Data for the standard two-part report used by every tool without a bespoke report tab. */
+  const [standardReportData, setStandardReportData] = useState<StandardReportPayload | null>(null);
   const [eoedProfileReportData, setEoedProfileReportData] = useState<EoedProfileReportPayload | null>(null);
   const [reportSessionUserId, setReportSessionUserId] = useState<string | null>(null);
   const [genericProfileReportData, setGenericProfileReportData] = useState<{
@@ -457,6 +469,10 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   const isPostLiquefactionSettlement = tool.slug === "post-liquefaction-settlement";
   const isIntegratedSettlement = tool.slug === "integrated-settlement-analysis";
   const isSiteCharacterizationTool = SITE_CHARACTERIZATION_CATEGORIES.has(tool.category);
+  const hasStandardReport = Boolean(getStandardReportContent(tool.slug));
+  const hasReportTab = isSiteCharacterizationTool || hasStandardReport;
+  const isCalculationReportTool =
+    tool.slug === "traditional-bearing-capacity-methods" || tool.slug === "eurocode-7-bearing-resistance";
   const isProjectIndependentTool = tool.category === "Bearing Capacity" || tool.category === "Settlement";
   const canUseProjectIntegration = !isProjectIndependentTool;
   const liquefactionMethod =
@@ -470,6 +486,45 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     return buildLiquefactionInformation(tool.information, liquefactionMethod);
   }, [isLiquefactionScreening, liquefactionMethod, tool.information]);
   const displayResult = useMemo(() => getDisplayResult(tool, result, unitSystem), [tool, result, unitSystem]);
+  const calculationReportPayload = useMemo<StandardReportPayload | null>(() => {
+    if (!isCalculationReportTool || !displayResult) return null;
+    // Result labels use ASCII names (phi_d, N_gamma, gamma_R,v); show engineering symbols in the report.
+    const pretty = (text: string) =>
+      text
+        .replace(/(^|[^A-Za-z])phi'?/g, "$1φ′")
+        .replace(/(^|[^A-Za-z])gamma'/g, "$1γ′")
+        .replace(/(^|[^A-Za-z])gamma/g, "$1γ")
+        .replace(/(^|[^A-Za-z])sigma'/g, "$1σ′")
+        .replace(/(^|[^A-Za-z])sigma/g, "$1σ")
+        .replace(/->|→/g, " to ");
+    const inputRows = tool.inputs.map((input) => {
+      const raw = formValues[input.name] ?? "";
+      const value =
+        input.type === "select" ? (input.options?.find((o) => o.value === raw)?.label ?? raw) : raw;
+      const unit = input.type === "number" ? getDisplayUnit(input.unit, unitSystem) : undefined;
+      return { label: input.label.replace(/<[^>]+>/g, ""), value: unit ? `${value} ${unit}` : String(value) };
+    });
+    const resultRows = displayResult.items.map((item) => ({
+      label: pretty(item.label),
+      value: `${item.value}${item.unit ? ` ${item.unit}` : ""}`,
+    }));
+    return {
+      depthUnit: getDisplayUnit("m", unitSystem) ?? "m",
+      columns: [
+        { header: "Quantity", key: "Parameter" },
+        { header: "Value", key: "Value" },
+      ],
+      rows: resultRows.map((r) => ({ Parameter: r.label, Value: r.value })),
+      points: [],
+      series: [],
+      inputs: inputRows,
+      methodNotes: [
+        ...(displayResult.summary ? [pretty(displayResult.summary)] : []),
+        ...displayResult.notes.map(pretty),
+        ...displayResult.warnings.map((w) => `Warning: ${pretty(w)}`),
+      ],
+    };
+  }, [displayResult, formValues, isCalculationReportTool, tool.inputs, unitSystem]);
   const equationDescriptions = useMemo(
     () =>
       getEquationDescriptions(
@@ -1334,7 +1389,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           ...(isLiquefactionScreening ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isPostLiquefactionSettlement ? [{ id: "profile", label: "Layered Samples Plot" }] : []),
           ...(isIntegratedSettlement ? [{ id: "profile", label: "Soil Profile" }] : []),
-          ...(isSiteCharacterizationTool ? [{ id: "report", label: "Report" }] : []),
+          ...(hasReportTab ? [{ id: "report", label: "Report" }] : []),
           { id: "information", label: "Information" },
         ]}
         activeTab={activeTab}
@@ -1641,6 +1696,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <div ref={profileContainerRef} className="space-y-4">
           <GmaxProfileTab
             key={profileProjectImportKey}
+            onReportDataChange={setStandardReportData}
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
@@ -1663,6 +1719,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <div ref={profileContainerRef} className="space-y-4">
           <EuFromSptProfileTab
             key={profileProjectImportKey}
+            onReportDataChange={setStandardReportData}
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
@@ -1674,6 +1731,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <div ref={profileContainerRef} className="space-y-4">
           <EprimeFromSptCohesionlessProfileTab
             key={profileProjectImportKey}
+            onReportDataChange={setStandardReportData}
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
@@ -1685,6 +1743,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <div ref={profileContainerRef} className="space-y-4">
           <EprimeFromEuProfileTab
             key={profileProjectImportKey}
+            onReportDataChange={setStandardReportData}
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
@@ -1696,6 +1755,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <div ref={profileContainerRef} className="space-y-4">
           <OcrProfileTab
             key={profileProjectImportKey}
+            onReportDataChange={setStandardReportData}
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
@@ -1738,7 +1798,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
           />
           {renderProfileSavePanel()}
         </div>
-      ) : activeTab === "report" && isSiteCharacterizationTool ? (
+      ) : activeTab === "report" && hasReportTab ? (
         <section className="space-y-4">
           {isCuFromPiAndSpt ? (
             <CuProfileReportTab
@@ -1868,6 +1928,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                       { header: "C_E", key: "ce" },
                       { header: "C_b", key: "cb" },
                       { header: "C_r", key: "cr" },
+                      { header: "C_s", key: "cs" },
                       { header: "N60", key: "n60" },
                       { header: "C_N", key: "cn" },
                       { header: "(N1)60", key: "n160" },
@@ -1924,6 +1985,18 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             />
           ) : !isAuthenticated ? (
             <ReportGuestPanel />
+          ) : hasStandardReport ? (
+            <StandardToolReport
+              toolSlug={tool.slug}
+              toolTitle={tool.title}
+              assumptions={tool.information.assumptions}
+              limitations={tool.information.limitations}
+              unitSystem={unitSystem}
+              projectName={isCalculationReportTool ? null : (activeProjectBorehole?.projectName ?? null)}
+              boreholeIds={isCalculationReportTool ? [] : activeImportBoreholes.map((item) => item.boreholeLabel).filter(Boolean)}
+              payload={isCalculationReportTool ? calculationReportPayload : standardReportData}
+              sourceTabLabel={isCalculationReportTool ? "Calculation" : isIntegratedSettlement ? "Soil Profile" : isLiquefactionScreening ? "Layered Samples Plot" : "Soil Profile Plot"}
+            />
           ) : (
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Report</p>
@@ -1938,6 +2011,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <div ref={profileContainerRef} className="space-y-4">
           <FrictionAngleProfileTab
             key={profileProjectImportKey}
+            onReportDataChange={setStandardReportData}
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
@@ -1972,6 +2046,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         <div ref={profileContainerRef} className="space-y-4">
           <LiquefactionProfileTab
             key={profileProjectImportKey}
+            onReportDataChange={setStandardReportData}
             unitSystem={unitSystem}
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
@@ -1991,7 +2066,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         </div>
       ) : activeTab === "profile" && isIntegratedSettlement ? (
         <div ref={profileContainerRef} className="space-y-4">
-          <IntegratedSettlementProfileTab unitSystem={unitSystem} />
+          <IntegratedSettlementProfileTab unitSystem={unitSystem} onReportDataChange={setStandardReportData} />
         </div>
       ) : (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

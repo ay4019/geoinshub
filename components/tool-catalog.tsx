@@ -14,7 +14,13 @@ const TOOL_SUPERGROUPS = [
   {
     id: "site-characterization",
     title: "Site Characterisation Tools",
-    categories: ["Shear Strength Tools", "Rigidity / Deformation Tools", "Stress Related Tools"],
+    categories: [
+      "Shear Strength Tools",
+      "Rigidity / Deformation Tools",
+      "Stress Related Tools",
+      "Field & In-Situ Testing",
+      "Soil Parameters",
+    ],
   },
   {
     id: "geotechnical-analysis",
@@ -25,6 +31,7 @@ const TOOL_SUPERGROUPS = [
       "Liquefaction",
       "Earth Pressure & Retaining Structures",
       "Pile Foundations",
+      "Slope Stability",
       "Ground Improvement",
       "Railway Geotechnics",
     ],

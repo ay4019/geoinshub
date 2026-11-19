@@ -24,9 +24,12 @@ import {
 } from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 
 interface EuFromSptProfileTabProps {
   unitSystem: UnitSystem;
+  /** Emits data for the standard two-part report (Report tab). */
+  onReportDataChange?: (payload: StandardReportPayload) => void;
   importRows?: SelectedBoreholeSummary[];
   soilPolicyToolSlug?: string;
   projectParameters?: Array<{
@@ -50,6 +53,8 @@ interface PlotPoint {
   boreholeId: string;
   depth: number;
   eu: number;
+  n60: number;
+  ratio: number;
 }
 
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
@@ -226,6 +231,7 @@ export function EuFromSptProfileTab({
   importRows,
   soilPolicyToolSlug,
   projectParameters,
+  onReportDataChange,
 }: EuFromSptProfileTabProps) {
   const [rows, setRows] = useState<EuFromSptRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
@@ -351,11 +357,41 @@ export function EuFromSptProfileTab({
             boreholeId: row.boreholeId?.trim() || "BH not set",
             depth: depthDisplay,
             eu: euDisplay,
+            n60,
+            ratio: Number(convertInputValueBetweenSystems(String(ratioMetricClamped), "kPa", "metric", unitSystem)),
           };
         })
         .filter((point): point is PlotPoint => point !== null),
     [rows, soilPolicyToolSlug, importRows, unitSystem],
   );
+
+  useEffect(() => {
+    if (!onReportDataChange) return;
+    const sorted = [...plotPoints].sort((a, b) => a.boreholeId.localeCompare(b.boreholeId, undefined, { numeric: true }) || a.depth - b.depth);
+    const autoFilled = rows.filter((r) => r.n60Source === "auto-spt-corrections").length;
+    const excluded = rows.length - plotPoints.length;
+    onReportDataChange({
+      depthUnit,
+      columns: [
+        { header: "Borehole", key: "Borehole" },
+        { header: `Depth (${depthUnit})`, key: "Depth" },
+        { header: "N₆₀", key: "n60" },
+        { header: `Eᵤ/N₆₀ (${stressUnit})`, key: "ratio" },
+        { header: `Eᵤ (${stressUnit})`, key: "eu" },
+      ],
+      rows: sorted.map((p) => ({ Borehole: p.boreholeId, Depth: p.depth.toFixed(2), n60: p.n60.toFixed(1), ratio: p.ratio.toFixed(0), eu: p.eu.toFixed(0) })),
+      points: sorted.map((p) => ({ boreholeId: p.boreholeId, depth: p.depth, values: { eu: p.eu } })),
+      series: [{ key: "eu", label: "Eᵤ", unit: stressUnit }],
+      methodNotes: [
+        `Eᵤ was calculated for each sample with Equation (1), using the Eᵤ/N₆₀ ratio entered for that sample (limited to the 1000–1200 kPa range of Butler, 1975). ${
+          autoFilled
+            ? `${autoFilled} of ${rows.length} N₆₀ values were taken from SPT Corrections results saved to the project.`
+            : "All N₆₀ values were entered manually by the user."
+        }`,
+      ],
+      exclusions: excluded > 0 ? [`${excluded} sample(s) excluded: classified as cohesionless in the project data, or missing/invalid N₆₀ or depth.`] : undefined,
+    });
+  }, [depthUnit, onReportDataChange, plotPoints, rows, stressUnit]);
 
   return (
     <section className="space-y-5">

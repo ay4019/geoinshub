@@ -55,6 +55,33 @@ export default function DisclaimerPage() {
         </div>
 
         <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-slate-900">3A. Generated Reports</h2>
+          <p>
+            Reports, tables, figures, and PDF files produced by the Service are generated automatically from the data
+            you enter. They are not prepared, reviewed, checked, approved, or signed by the operator or by any qualified
+            engineer, and they are not professional engineering reports, design calculations, certifications, or
+            contractual deliverables, whatever their layout or wording.
+          </p>
+          <p>
+            Before using any result from a generated report, you and your responsible engineer must perform your own
+            independent analysis: verify the input data, confirm that each method is applicable, repeat the calculations
+            by independent means, and confirm compliance with the governing codes and contract. You must not present a
+            generated report, or any part of it, as work reviewed or endorsed by Geotechnical Insights Hub or its operator.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-slate-900">3B. AI-Generated Interpretations</h2>
+          <p>
+            Optional &quot;Analyse with AI&quot; features use a third-party large language model (currently Google
+            Gemini) to draft interpretive text from your tabulated data and figures. AI output can be incomplete,
+            inconsistent, or factually and technically wrong, including invented trends, values, or references. It is
+            provided for orientation only, is not engineering advice, and must never be relied upon without independent
+            verification by a qualified engineer.
+          </p>
+        </div>
+
+        <div className="space-y-2">
           <h2 className="text-xl font-semibold text-slate-900">4. No Professional Duty of Care</h2>
           <p>
             Use of this website does not establish professional engagement, advisory duty, or consultant-client
@@ -122,7 +149,7 @@ export default function DisclaimerPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Last updated: 12 April 2026. This page is general information and is not legal advice.
+          Last updated: 18 November 2026. This page is general information and is not legal advice.
         </p>
       </section>
     </div>

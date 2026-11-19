@@ -39,11 +39,20 @@
   "N<sub>c</sub> = (N<sub>q</sub> - 1) / tan&phi;'": [
     "This equation gives the cohesion bearing-capacity factor Nc once Nq has been established.",
   ],
-  "N<sub>&gamma;,Terzaghi</sub> = 1.5(N<sub>q</sub> - 1)tan&phi;'": [
-    "This equation gives the Terzaghi form of the unit-weight bearing-capacity factor Nγ.",
+  "N<sub>q,Terzaghi</sub> = a<sup>2</sup> / [2cos<sup>2</sup>(45 + &phi;'/2)], a = e<sup>(0.75&pi; - &phi;'/2)tan&phi;'</sup>": [
+    "This equation gives Terzaghi's original surcharge bearing-capacity factor Nq (used only by the Terzaghi route).",
   ],
-  "N<sub>&gamma;,Meyerhof/Hansen</sub> = (N<sub>q</sub> - 1)tan(1.4&phi;')": [
-    "This equation gives the Meyerhof and Hansen form of the unit-weight bearing-capacity factor Nγ.",
+  "N<sub>&gamma;,Terzaghi</sub> &asymp; 2(N<sub>q</sub> + 1)tan&phi;' / (1 + 0.4sin4&phi;') (Coduto, 2001)": [
+    "This closed-form fit reproduces Terzaghi's tabulated unit-weight bearing-capacity factor Nγ.",
+  ],
+  "N<sub>&gamma;,Meyerhof</sub> = (N<sub>q</sub> - 1)tan(1.4&phi;')": [
+    "This equation gives the Meyerhof (1963) form of the unit-weight bearing-capacity factor Nγ.",
+  ],
+  "N<sub>&gamma;,Hansen</sub> = 1.5(N<sub>q</sub> - 1)tan&phi;'": [
+    "This equation gives the Hansen (1970) form of the unit-weight bearing-capacity factor Nγ.",
+  ],
+  "N<sub>&gamma;</sub> = 2(N<sub>q</sub> - 1)tan&phi;'<sub>d</sub>": [
+    "This equation gives the EN 1997-1 Annex D unit-weight bearing-capacity factor for a rough base, using the design friction angle.",
   ],
   "N<sub>&gamma;,Vesic</sub> = 2(N<sub>q</sub> + 1)tan&phi;'": [
     "This equation gives the Vesic form of the unit-weight bearing-capacity factor Nγ.",

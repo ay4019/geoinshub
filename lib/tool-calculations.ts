@@ -1,4 +1,5 @@
 ﻿import { computeLiquefactionScreening } from "@/lib/liquefaction-screening";
+import { designToolCalculators } from "@/lib/design-tools/registry";
 import { computePostLiquefactionSettlement } from "@/lib/post-liquefaction-settlement";
 import type { CalculationResult } from "@/lib/types";
 
@@ -294,6 +295,97 @@ function cohesionlessCorrelationLabel(correlation: string): string {
   }
 }
 
+type ClassicalBearingMethod = "terzaghi" | "meyerhof" | "hansen" | "vesic";
+
+interface BearingFactorSet {
+  nc: number;
+  nq: number;
+  ngamma: number;
+  sc: number;
+  sq: number;
+  sgamma: number;
+  dc: number;
+  dq: number;
+  dgamma: number;
+}
+
+const CLASSICAL_BEARING_NOTES: Record<ClassicalBearingMethod, string> = {
+  terzaghi:
+    "Terzaghi (1943): original N_q and N_c, N_gamma from the Coduto (2001) fit, shape factors s_c = 1 + 0.3B/L and s_gamma = 1 - 0.2B/L (1.3 / 0.8 for a square); no depth factors.",
+  meyerhof:
+    "Meyerhof (1963): N_gamma = (N_q - 1)tan(1.4 phi'), shape and depth factors in terms of K_p = tan^2(45 + phi'/2).",
+  hansen:
+    "Hansen (1970): N_gamma = 1.5(N_q - 1)tan phi', s_q = 1 + (B/L)sin phi', d_q = 1 + 2tan phi'(1 - sin phi')^2 k with k = D/B (D/B <= 1) or arctan(D/B).",
+  vesic:
+    "Vesic (1973, 1975): N_gamma = 2(N_q + 1)tan phi', s_q = 1 + (B/L)tan phi', depth factors as Hansen.",
+};
+
+/** Bearing capacity, shape, and depth factors per classical method (phi in radians, ratio = B/L <= 1). */
+export function classicalBearingFactors(
+  method: ClassicalBearingMethod,
+  phi: number,
+  ratio: number,
+  dOverB: number,
+): BearingFactorSet {
+  const tanPhi = Math.tan(phi);
+  const sinPhi = Math.sin(phi);
+  const isUndrained = phi < 1e-6;
+  const nqReissner = Math.exp(Math.PI * tanPhi) * Math.tan(Math.PI / 4 + phi / 2) ** 2;
+  const ncFrom = (nq: number, fallback: number) => (isUndrained ? fallback : (nq - 1) / tanPhi);
+
+  if (method === "terzaghi") {
+    const a = Math.exp((0.75 * Math.PI - phi / 2) * tanPhi);
+    const nq = a ** 2 / (2 * Math.cos(Math.PI / 4 + phi / 2) ** 2);
+    const nc = ncFrom(nq, 5.7);
+    const ngamma = (2 * (nq + 1) * tanPhi) / (1 + 0.4 * Math.sin(4 * phi));
+    return {
+      nc,
+      nq,
+      ngamma,
+      sc: 1 + 0.3 * ratio,
+      sq: 1,
+      sgamma: 1 - 0.2 * ratio,
+      dc: 1,
+      dq: 1,
+      dgamma: 1,
+    };
+  }
+
+  const nq = nqReissner;
+  const nc = ncFrom(nq, 5.14);
+
+  if (method === "meyerhof") {
+    const kp = Math.tan(Math.PI / 4 + phi / 2) ** 2;
+    const frictional = phi > degToRad(10);
+    return {
+      nc,
+      nq,
+      ngamma: (nq - 1) * Math.tan(1.4 * phi),
+      sc: 1 + 0.2 * kp * ratio,
+      sq: frictional ? 1 + 0.1 * kp * ratio : 1,
+      sgamma: frictional ? 1 + 0.1 * kp * ratio : 1,
+      dc: 1 + 0.2 * Math.sqrt(kp) * dOverB,
+      dq: frictional ? 1 + 0.1 * Math.sqrt(kp) * dOverB : 1,
+      dgamma: frictional ? 1 + 0.1 * Math.sqrt(kp) * dOverB : 1,
+    };
+  }
+
+  // Hansen (1970) and Vesic (1973/1975) share the depth-factor form.
+  const k = dOverB <= 1 ? dOverB : Math.atan(dOverB);
+  const ngamma = method === "hansen" ? 1.5 * (nq - 1) * tanPhi : 2 * (nq + 1) * tanPhi;
+  return {
+    nc,
+    nq,
+    ngamma,
+    sc: 1 + (nq / nc) * ratio,
+    sq: 1 + ratio * (method === "hansen" ? sinPhi : tanPhi),
+    sgamma: Math.max(0.6, 1 - 0.4 * ratio),
+    dc: 1 + 0.4 * k,
+    dq: 1 + 2 * tanPhi * (1 - sinPhi) ** 2 * k,
+    dgamma: 1,
+  };
+}
+
 function bearingCapacityCore(
   method: "terzaghi" | "meyerhof" | "hansen" | "vesic",
   values: FormValues,
@@ -317,26 +409,9 @@ function bearingCapacityCore(
   }
 
   const phi = degToRad(phiDeg);
-  const tanPhi = Math.tan(phi);
-  const nq = Math.exp(Math.PI * tanPhi) * Math.tan(Math.PI / 4 + phi / 2) ** 2;
-  const nc = phiDeg === 0 ? 5.14 : (nq - 1) / Math.max(tanPhi, 1e-6);
-
-  let ngamma = 0;
-  if (method === "vesic") {
-    ngamma = 2 * (nq + 1) * tanPhi;
-  } else if (method === "meyerhof" || method === "hansen") {
-    ngamma = (nq - 1) * Math.tan(1.4 * phi);
-  } else {
-    ngamma = 1.5 * (nq - 1) * tanPhi;
-  }
-
   const ratio = Math.min(b / l, 1);
-  const sc = 1 + 0.2 * ratio;
-  const sq = 1 + 0.1 * ratio;
-  const sgamma = Math.max(0.6, 1 - 0.4 * ratio);
-  const dc = method === "terzaghi" ? 1 : 1 + 0.2 * Math.min(df / b, 5);
-  const dq = method === "terzaghi" ? 1 : 1 + 0.1 * Math.min(df / b, 5);
-  const dgamma = 1;
+  const dOverB = Math.max(df, 0) / b;
+  const { nc, nq, ngamma, sc, sq, sgamma, dc, dq, dgamma } = classicalBearingFactors(method, phi, ratio, dOverB);
 
   const gammaSub = Math.max(gamma - GAMMA_W, 0.1);
   const effectiveStressAtDepth = (z: number): number => Math.max(gamma * z - GAMMA_W * Math.max(z - gwt, 0), 0);
@@ -372,13 +447,15 @@ function bearingCapacityCore(
       { label: "N_c", value: round(nc, 3) },
       { label: "N_q", value: round(nq, 3) },
       { label: "N_gamma", value: round(ngamma, 3) },
+      { label: "s_c / s_q / s_gamma", value: `${round(sc, 3)} / ${round(sq, 3)} / ${round(sgamma, 3)}` },
+      { label: "d_c / d_q / d_gamma", value: `${round(dc, 3)} / ${round(dq, 3)} / ${round(dgamma, 3)}` },
       { label: "q (effective surcharge @ Df)", value: round(surcharge, 2), unit: "kPa" },
       { label: "gamma' used (avg over Df→Df+B)", value: round(gammaForNgamma, 3), unit: "kN/m3" },
       { label: "q_ult", value: round(qult, 2), unit: "kPa" },
       { label: "q_all", value: round(qall, 2), unit: "kPa" },
     ],
     notes: [
-      `Shape factors were simplified with B/L = ${round(ratio, 2)}.`,
+      CLASSICAL_BEARING_NOTES[method],
       `GWT correction uses gamma' = gamma - ${GAMMA_W} below the water table (simplified).`,
       "Inclination, base inclination, and eccentricity are not included in this check.",
     ],
@@ -399,32 +476,35 @@ function ec7BearingCapacity(values: FormValues): CalculationResult {
 
   const factorSets: Record<
     string,
-    { actionSet: string; gammaMphi: number; gammaMc: number; gammaR: number; ngammaMethod: "meyerhof" | "vesic" }
+    { actionSet: string; gammaMphi: number; gammaMc: number; gammaR: number }
   > = {
-    "da1-combination-1": { actionSet: "A1 + M1 + R1", gammaMphi: 1, gammaMc: 1, gammaR: 1, ngammaMethod: "meyerhof" },
-    "da1-combination-2": { actionSet: "A2 + M2 + R1", gammaMphi: 1.25, gammaMc: 1.25, gammaR: 1, ngammaMethod: "meyerhof" },
-    da2: { actionSet: "A1 + M1 + R2", gammaMphi: 1, gammaMc: 1, gammaR: 1.4, ngammaMethod: "meyerhof" },
-    da3: { actionSet: "(A1 or A2) + M2 + R3", gammaMphi: 1.25, gammaMc: 1.25, gammaR: 1.4, ngammaMethod: "vesic" },
+    // EN 1997-1 Annex A: M2 gives gamma_phi' = gamma_c' = 1.25; R2 spread-foundation bearing gamma_R,v = 1.4; R1 = R3 = 1.0.
+    "da1-combination-1": { actionSet: "A1 + M1 + R1", gammaMphi: 1, gammaMc: 1, gammaR: 1 },
+    "da1-combination-2": { actionSet: "A2 + M2 + R1", gammaMphi: 1.25, gammaMc: 1.25, gammaR: 1 },
+    da2: { actionSet: "A1 + M1 + R2", gammaMphi: 1, gammaMc: 1, gammaR: 1.4 },
+    da3: { actionSet: "(A1 or A2) + M2 + R3", gammaMphi: 1.25, gammaMc: 1.25, gammaR: 1 },
   };
 
   const factors = factorSets[designApproach] ?? factorSets["da1-combination-1"];
   const phi = degToRad(phiDeg);
   const tanPhiD = Math.tan(phi) / factors.gammaMphi;
-  const phiDegD = (Math.atan(tanPhiD) * 180) / Math.PI;
+  const phiD = Math.atan(tanPhiD);
+  const phiDegD = (phiD * 180) / Math.PI;
   const cDesign = c / factors.gammaMc;
-  const nq = Math.exp(Math.PI * tanPhiD) * Math.tan(Math.PI / 4 + Math.atan(tanPhiD) / 2) ** 2;
-  const nc = Math.abs(tanPhiD) < 1e-6 ? 5.14 : (nq - 1) / tanPhiD;
-  const ngamma =
-    factors.ngammaMethod === "vesic"
-      ? 2 * (nq + 1) * tanPhiD
-      : (nq - 1) * Math.tan(1.4 * Math.atan(tanPhiD));
+  const isUndrainedLimit = Math.abs(tanPhiD) < 1e-6;
+  // EN 1997-1 Annex D.4 (drained): N_gamma = 2(N_q - 1)tan(phi'_d) for a rough base.
+  const nq = Math.exp(Math.PI * tanPhiD) * Math.tan(Math.PI / 4 + phiD / 2) ** 2;
+  const nc = isUndrainedLimit ? Math.PI + 2 : (nq - 1) / tanPhiD;
+  const ngamma = isUndrainedLimit ? 0 : 2 * (nq - 1) * tanPhiD;
 
   const ratio = Math.min(b / l, 1);
-  const sc = 1 + 0.2 * ratio;
-  const sq = 1 + 0.1 * ratio;
-  const sgamma = Math.max(0.6, 1 - 0.4 * ratio);
-  const dc = 1 + 0.2 * Math.min(df / b, 5);
-  const dq = 1 + 0.1 * Math.min(df / b, 5);
+  // Annex D shape factors (rectangular): s_q = 1 + (B'/L')sin(phi'), s_gamma = 1 - 0.3(B'/L'), s_c = (s_q N_q - 1)/(N_q - 1).
+  const sq = 1 + ratio * Math.sin(phiD);
+  const sgamma = 1 - 0.3 * ratio;
+  const sc = isUndrainedLimit ? 1 + 0.2 * ratio : (sq * nq - 1) / (nq - 1);
+  // Annex D contains no depth factors; embedment contributes only through the overburden term q.
+  const dc = 1;
+  const dq = 1;
 
   const gammaSub = Math.max(gamma - GAMMA_W, 0.1);
   const effectiveStressAtDepth = (z: number): number => Math.max(gamma * z - GAMMA_W * Math.max(z - gwt, 0), 0);
@@ -464,6 +544,7 @@ function ec7BearingCapacity(values: FormValues): CalculationResult {
     ],
     notes: [
       `Material factors applied: gamma_M,phi = ${factors.gammaMphi}, gamma_M,c = ${factors.gammaMc}.`,
+      "Bearing, shape, and inclination-free factors follow EN 1997-1 Annex D (drained, vertical central load, no depth factors).",
       "This tool screens the resistance side only; full Eurocode 7 verification also requires factored action effects and National Annex choices.",
     ],
     warnings: [
@@ -777,19 +858,18 @@ const calculators: Record<string, Calculator> = {
     if (loadCase === "embankment") {
       const a = ensurePositive(parseNumber(values.a, "Embankment parameter a"), "Embankment parameter a");
       const b = ensurePositive(parseNumber(values.b, "Embankment parameter b"), "Embankment parameter b");
-      const az = Math.max(a / zRef, 0);
-      const bz = Math.max(b / zRef, 0);
-      // Osterberg-inspired screening interpolation (v1).
-      const azTerm = 1 - Math.exp(-0.55 * az);
-      const bzTerm = 1 - Math.exp(-0.35 * Math.pow(bz, 0.85));
-      influence = Math.max(0, Math.min(0.5, 0.5 * azTerm * (0.45 + 0.55 * bzTerm)));
+      // Osterberg (1957) influence factor for one half of a symmetric embankment (a = slope width, b = half crest width).
+      const alpha2 = Math.atan(b / zRef);
+      const alpha1 = Math.atan((a + b) / zRef) - alpha2;
+      influence = Math.max(0, Math.min(0.5, (((a + b) / a) * (alpha1 + alpha2) - (b / a) * alpha2) / Math.PI));
     } else {
       const width = ensurePositive(parseNumber(values.width, "Structure width B"), "Structure width B");
       const length = ensurePositive(parseNumber(values.length, "Structure length L"), "Structure length L");
       influence = (width * length) / ((width + zRef) * (length + zRef));
     }
 
-    const deltaSigma = qApplied * influence;
+    // Embankment: both halves contribute at the centreline (2I); structure: 2:1 spread factor applies directly.
+    const deltaSigma = qApplied * influence * (loadCase === "embankment" ? 2 : 1);
 
     return {
       title: "Integrated Settlement Screening",
@@ -803,8 +883,15 @@ const calculators: Record<string, Calculator> = {
               { label: "Net surface load, q_net", value: round(qApplied, 2), unit: "kPa" },
             ]
           : []),
-        { label: "Reference influence factor, I", value: round(influence, 4) },
-        { label: "Reference stress increase, Δσ", value: round(deltaSigma, 2), unit: "kPa" },
+        {
+          label: loadCase === "embankment" ? "Osterberg influence factor (half embankment), I" : "2:1 influence factor, I",
+          value: round(influence, 4),
+        },
+        {
+          label: loadCase === "embankment" ? "Centreline stress increase at z = 3 m, Δσ = 2Iq" : "Stress increase at z = 3 m, Δσ",
+          value: round(deltaSigma, 2),
+          unit: "kPa",
+        },
       ],
       notes: [
         "This Calculation tab gives a compact stress-screening preview only.",
@@ -1205,11 +1292,12 @@ const calculators: Record<string, Calculator> = {
             { label: "(N1)60,cs", value: round(screening.n160cs ?? 0, 2) },
             { label: "CRR_7.5", value: round(screening.crr75, 3) },
             { label: "MSF", value: round(screening.msf ?? 0, 3) },
+            { label: "K_sigma", value: round(screening.kSigma ?? 1, 3) },
             { label: "r_d", value: round(screening.rd, 3) },
             { label: "σ_v0", value: round(screening.sigmaV0, 2), unit: "kPa" },
             { label: "σ'_v0", value: round(screening.sigmaV0Effective, 2), unit: "kPa" },
             { label: "CSR", value: round(screening.csr ?? 0, 3) },
-            { label: "CRR_M", value: round(screening.crrMagnitudeCorrected ?? 0, 3) },
+            { label: "CRR_M,σ = CRR_7.5 · MSF · K_σ", value: round(screening.crrMagnitudeCorrected ?? 0, 3) },
             { label: "Factor of safety", value: round(screening.fos, 3) },
             { label: "Minimum required FS", value: round(threshold, 2) },
           ],
@@ -1438,7 +1526,7 @@ const calculators: Record<string, Calculator> = {
           : []),
         "Vertical effective stress is computed from sample depth, groundwater depth, and bulk unit weight.",
         "C_r is assigned automatically from sample depth ranges (<3: 0.75, 3-4: 0.80, 4-6: 0.85, 6-10: 0.95, 10-30: 1.00, >30 m: 0.95 screening default).",
-        "C_N uses Idriss and Boulanger (2008): C_N = 9.78(1/sigma'_v0)^0.5 with bounds 0.40 to 1.70.",
+        "C_N uses Liao and Whitman (1986), as adopted by Youd et al. (2001): C_N = 9.78(1/sigma'_v0)^0.5 with bounds 0.40 to 1.70.",
         "Further fines correction may still be needed for liquefaction work.",
         "The tool enforces the practical screening cap (N1)60 <= 2N60.",
       ],
@@ -1742,7 +1830,7 @@ const calculators: Record<string, Calculator> = {
 };
 
 export function calculateBySlug(slug: string, values: FormValues): CalculationResult {
-  const calculator = calculators[slug];
+  const calculator = calculators[slug] ?? designToolCalculators[slug];
 
   if (!calculator) {
     throw new Error("No calculator configured for this tool yet.");

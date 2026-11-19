@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
@@ -19,9 +19,12 @@ import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
 import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 
 interface GmaxProfileTabProps {
   unitSystem: UnitSystem;
+  /** Emits data for the standard two-part report (Report tab). */
+  onReportDataChange?: (payload: StandardReportPayload) => void;
   importRows?: SelectedBoreholeSummary[];
   /** Passed from tools; Gmax has no soil-based row lock (all samples used). */
   soilPolicyToolSlug?: string;
@@ -628,7 +631,7 @@ function ProfileChart({
   );
 }
 
-export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) {
+export function GmaxProfileTab({ unitSystem, importRows, onReportDataChange }: GmaxProfileTabProps) {
   const [rows, setRows] = useState<GmaxProfileRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
   const exportTableRef = useRef<HTMLDivElement | null>(null);
@@ -707,6 +710,50 @@ export function GmaxProfileTab({ unitSystem, importRows }: GmaxProfileTabProps) 
   const removeRow = (id: number) => {
     setRows((current) => (current.length > 1 ? current.filter((row) => row.id !== id) : current));
   };
+
+  const reportPayload = useMemo<StandardReportPayload>(() => {
+    const items = rows
+      .map((row) => {
+        const depth = parse(row.sampleDepth);
+        const vsMetric = parse(convertInputValueBetweenSystems(row.vs, "m/s", unitSystem, "metric"));
+        const gammaMetric = parse(convertInputValueBetweenSystems(row.unitWeight, "kN/m3", unitSystem, "metric"));
+        const rho = (gammaMetric * 1000) / GRAVITY;
+        const gmaxMetric = rho > 0 && vsMetric > 0 ? (rho * vsMetric ** 2) / 1_000_000 : Number.NaN;
+        return {
+          boreholeId: row.boreholeId || "BH not set",
+          depth,
+          vs: Number(convertInputValueBetweenSystems(String(vsMetric), "m/s", "metric", unitSystem)),
+          gamma: Number(convertInputValueBetweenSystems(String(gammaMetric), "kN/m3", "metric", unitSystem)),
+          gmax: Number(convertInputValueBetweenSystems(String(gmaxMetric), "MPa", "metric", unitSystem)),
+        };
+      })
+      .filter((p) => Number.isFinite(p.depth) && p.depth >= 0 && Number.isFinite(p.gmax))
+      .sort((a, b) => a.boreholeId.localeCompare(b.boreholeId, undefined, { numeric: true }) || a.depth - b.depth);
+    return {
+      depthUnit,
+      columns: [
+        { header: "Borehole", key: "Borehole" },
+        { header: `Depth (${depthUnit})`, key: "Depth" },
+        { header: `γ (${unitWeightUnit})`, key: "gamma" },
+        { header: `Vₛ (${velocityUnit})`, key: "vs" },
+        { header: `Gₘₐₓ (${gmaxUnit})`, key: "gmax" },
+      ],
+      rows: items.map((p) => ({ Borehole: p.boreholeId, Depth: p.depth.toFixed(2), gamma: p.gamma.toFixed(2), vs: p.vs.toFixed(0), gmax: p.gmax.toFixed(1) })),
+      points: items.map((p) => ({ boreholeId: p.boreholeId, depth: p.depth, values: { vs: p.vs, gmax: p.gmax } })),
+      series: [
+        { key: "vs", label: "Vₛ", unit: velocityUnit },
+        { key: "gmax", label: "Gₘₐₓ", unit: gmaxUnit },
+      ],
+      methodNotes: [
+        "Gₘₐₓ was calculated for each sample from the shear-wave velocity and bulk unit weight entered by the user, using Equations (1) and (2). The source of the Vₛ values (in-situ measurement or correlation) was not recorded by the tool and must be confirmed by the user.",
+      ],
+      exclusions: rows.length > items.length ? [`${rows.length - items.length} sample(s) excluded because of missing or invalid depth, Vₛ, or unit weight.`] : undefined,
+    };
+  }, [depthUnit, gmaxUnit, rows, unitSystem, unitWeightUnit, velocityUnit]);
+
+  useEffect(() => {
+    onReportDataChange?.(reportPayload);
+  }, [onReportDataChange, reportPayload]);
   const exportRows = rows.map((row) => {
     const sampleDepth = parse(row.sampleDepth);
     const vsMetric = parse(convertInputValueBetweenSystems(row.vs, "m/s", unitSystem, "metric"));

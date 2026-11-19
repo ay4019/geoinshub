@@ -171,10 +171,7 @@ a {
   }
 }
 
-/* Header nav: aktif sekme kirli beyaz, hover'da bir ton koyu */
+/* Header nav: aktif sekme kahverengi alt çizgiyle belirtilir (kutu yok). */
 header nav a.nav-link-active {
-  color: #f1f5f9 !important;
-}
-header nav a.nav-link-active:hover {
-  color: #e2e8f0 !important;
+  font-weight: 600;
 }

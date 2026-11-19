@@ -16,6 +16,7 @@ import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
 import { exportProfileExcelFromSection } from "@/lib/profile-excel-export";
 import { computeLiquefactionScreening, type LiquefactionMethod } from "@/lib/liquefaction-screening";
 import type { UnitSystem } from "@/lib/types";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 
 interface LiquefactionProfileTabProps {
@@ -23,6 +24,8 @@ interface LiquefactionProfileTabProps {
   importRows?: SelectedBoreholeSummary[];
   soilPolicyToolSlug?: string;
   initialMethod?: LiquefactionMethod;
+  /** Emits data for the standard two-part report (Report tab). */
+  onReportDataChange?: (payload: StandardReportPayload) => void;
 }
 
 interface LiquefactionProfileRow {
@@ -44,10 +47,57 @@ function parse(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export type LiquefactionCheckStatus =
+  | "Invalid sample depth"
+  | "Outside sample depth range"
+  | "Above GWT"
+  | "(N1)60 > 30"
+  | "Analysis";
+
+/**
+ * Evaluates one profile row. Inputs are held in display units (ft / pcf in the American system), so depth,
+ * groundwater depth, and unit weight are converted to metric before the screening equations are applied.
+ */
+export function evaluateLiquefactionRow(
+  row: Pick<LiquefactionProfileRow, "sampleDepth" | "unitWeight" | "finesContent" | "n160">,
+  ctx: { method: LiquefactionMethod; magnitude: string; peakGroundAcceleration: string; groundwaterDepth: string; unitSystem: UnitSystem },
+) {
+  const toMetric = (value: string, unit: "m" | "kN/m3") =>
+    parse(String(convertInputValueBetweenSystems(value, unit, ctx.unitSystem, "metric")));
+  const sampleDepth = parse(row.sampleDepth);
+  const sampleDepthM = toMetric(row.sampleDepth, "m");
+  const groundwaterDepthM = toMetric(ctx.groundwaterDepth, "m");
+  const hasDepthIssue = !Number.isFinite(sampleDepthM) || sampleDepthM <= 0;
+  const rawResult =
+    !hasDepthIssue && parse(ctx.magnitude) > 0
+      ? computeLiquefactionScreening({
+          method: ctx.method,
+          magnitude: parse(ctx.magnitude),
+          peakGroundAcceleration: parse(ctx.peakGroundAcceleration),
+          groundwaterDepth: groundwaterDepthM,
+          unitWeight: toMetric(row.unitWeight, "kN/m3"),
+          finesContent: parse(row.finesContent),
+          sampleDepth: sampleDepthM,
+          n160: parse(row.n160),
+        })
+      : null;
+  const checkStatus: LiquefactionCheckStatus = hasDepthIssue
+    ? "Invalid sample depth"
+    : sampleDepthM > 20
+      ? "Outside sample depth range"
+      : sampleDepthM <= groundwaterDepthM
+        ? "Above GWT"
+        : parse(row.n160) > 30
+          ? "(N1)60 > 30"
+          : "Analysis";
+  return { sampleDepth, hasDepthIssue, rawResult, checkStatus, result: checkStatus === "Analysis" ? rawResult : null };
+}
+
 export function LiquefactionProfileTab({
   unitSystem,
   importRows,
   initialMethod = "idriss-boulanger-2008",
+  onReportDataChange,
 }: LiquefactionProfileTabProps) {
   const [method, setMethod] = useState<LiquefactionMethod>(initialMethod);
   const [magnitude, setMagnitude] = useState("7.5");
@@ -59,35 +109,15 @@ export function LiquefactionProfileTab({
   const unitWeightUnit = getDisplayUnit("kN/m3", unitSystem) ?? "kN/m3";
 
   const fosPlot = useMemo(() => {
-    const gwt = parse(groundwaterDepth);
     const points = rows
       .map((row) => {
-        const sampleDepth = parse(row.sampleDepth);
-        const hasDepthIssue = !Number.isFinite(sampleDepth) || sampleDepth <= 0;
-        const rawResult =
-          !hasDepthIssue && parse(magnitude) > 0
-            ? computeLiquefactionScreening({
-                method,
-                magnitude: parse(magnitude),
-                peakGroundAcceleration: parse(peakGroundAcceleration),
-                groundwaterDepth: parse(groundwaterDepth),
-                unitWeight: parse(row.unitWeight),
-                finesContent: parse(row.finesContent),
-                sampleDepth,
-                n160: parse(row.n160),
-              })
-            : null;
-
-        const checkStatus = hasDepthIssue
-          ? "Invalid sample depth"
-          : sampleDepth > 20
-            ? "Outside sample depth range"
-            : sampleDepth <= gwt
-              ? "Above GWT"
-              : parse(row.n160) > 30
-                ? "(N1)60 > 30"
-                : "Analysis";
-        const result = checkStatus === "Analysis" ? rawResult : null;
+        const { sampleDepth, result } = evaluateLiquefactionRow(row, {
+          method,
+          magnitude,
+          peakGroundAcceleration,
+          groundwaterDepth,
+          unitSystem,
+        });
         const fos = result ? result.fos : null;
 
         return {
@@ -104,7 +134,7 @@ export function LiquefactionProfileTab({
     const maxFoS = Math.max(1.6, ...points.map((p) => p.fos ?? 0));
 
     return { points, maxDepth, maxFoS, boreholes };
-  }, [groundwaterDepth, magnitude, method, peakGroundAcceleration, rows]);
+  }, [groundwaterDepth, magnitude, method, peakGroundAcceleration, rows, unitSystem]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
@@ -135,6 +165,63 @@ export function LiquefactionProfileTab({
   useEffect(() => {
     setMethod(initialMethod);
   }, [initialMethod]);
+
+  useEffect(() => {
+    if (!onReportDataChange) return;
+    const ctx = { method, magnitude, peakGroundAcceleration, groundwaterDepth, unitSystem };
+    const evaluated = rows.map((row) => ({ row, ...evaluateLiquefactionRow(row, ctx) }));
+    const analysed = evaluated.filter((e) => e.result);
+    const isTbdy = method === "tbdy-2018";
+    const threshold = analysed[0]?.result?.minimumRequiredFos ?? (isTbdy ? 1.1 : 1.0);
+    const below = analysed.filter((e) => (e.result?.fos ?? 99) < threshold).length;
+    onReportDataChange({
+      depthUnit,
+      columns: [
+        { header: "Borehole", key: "Borehole" },
+        { header: `Depth (${depthUnit})`, key: "Depth" },
+        { header: "FC (%)", key: "fc" },
+        { header: "(N₁)₆₀", key: "n160" },
+        { header: isTbdy ? "(N₁)₆₀f" : "(N₁)₆₀cs", key: "ncs" },
+        { header: "σ′ᵥ₀ (kPa)", key: "sigma" },
+        { header: "r_d", key: "rd" },
+        { header: isTbdy ? "τ_eq (kPa)" : "CSR", key: "demand" },
+        { header: isTbdy ? "τ_R (kPa)" : "CRR_M,σ", key: "resistance" },
+        { header: "FS", key: "fs" },
+        { header: "Outcome", key: "outcome" },
+      ],
+      rows: analysed.map((e) => {
+        const r = e.result!;
+        return {
+          Borehole: (e.row.boreholeId || "").trim() || "—",
+          Depth: e.sampleDepth.toFixed(2),
+          fc: Number(e.row.finesContent).toFixed(0),
+          n160: Number(e.row.n160).toFixed(1),
+          ncs: (isTbdy ? r.n160f : r.n160cs)?.toFixed(1) ?? "—",
+          sigma: r.sigmaV0Effective.toFixed(1),
+          rd: r.rd.toFixed(3),
+          demand: r.demandValue.toFixed(isTbdy ? 1 : 3),
+          resistance: r.resistanceValue.toFixed(isTbdy ? 1 : 3),
+          fs: r.fos.toFixed(2),
+          outcome: r.fos < threshold ? "Triggering likely" : "Not triggered",
+        };
+      }),
+      points: analysed.map((e) => ({ boreholeId: (e.row.boreholeId || "").trim() || "—", depth: e.sampleDepth, values: { fs: e.result!.fos } })),
+      series: [{ key: "fs", label: "FS", unit: "", referenceLine: { value: threshold, label: `FS = ${threshold.toFixed(2)}` } }],
+      inputs: [
+        { label: "Procedure", value: isTbdy ? "TBDY 2018 (Section 16)" : "Idriss & Boulanger (2008)" },
+        { label: "Earthquake magnitude Mw", value: magnitude },
+        { label: isTbdy ? "Design acceleration 0.4 S_DS (g)" : "Peak ground acceleration aₘₐₓ (g)", value: peakGroundAcceleration },
+        { label: "Groundwater depth", value: `${groundwaterDepth} ${depthUnit}` },
+        { label: "Acceptance criterion", value: `FS >= ${threshold.toFixed(2)}` },
+      ],
+      methodNotes: [
+        `${analysed.length} sample(s) were analysed; ${below} of them give FS below the acceptance criterion of ${threshold.toFixed(2)} under the stated design earthquake.`,
+      ],
+      exclusions: evaluated
+        .filter((e) => !e.result)
+        .map((e) => `${(e.row.boreholeId || "").trim() || "—"} at ${e.sampleDepth.toFixed(2)} ${depthUnit}: ${e.checkStatus}`),
+    });
+  }, [depthUnit, groundwaterDepth, magnitude, method, onReportDataChange, peakGroundAcceleration, rows, unitSystem]);
 
   useEffect(() => {
     if (previousUnitSystem.current === unitSystem) {
@@ -361,33 +448,13 @@ export function LiquefactionProfileTab({
             </thead>
             <tbody>
               {rows.map((row) => {
-                const sampleDepth = parse(row.sampleDepth);
-                const hasDepthIssue = !Number.isFinite(sampleDepth) || sampleDepth <= 0;
-                const rawResult =
-                  !hasDepthIssue && parse(magnitude) > 0
-                    ? computeLiquefactionScreening({
-                        method,
-                        magnitude: parse(magnitude),
-                        peakGroundAcceleration: parse(peakGroundAcceleration),
-                        groundwaterDepth: parse(groundwaterDepth),
-                        unitWeight: parse(row.unitWeight),
-                        finesContent: parse(row.finesContent),
-                        sampleDepth,
-                        n160: parse(row.n160),
-                      })
-                    : null;
-
-                const checkStatus = hasDepthIssue
-                  ? "Invalid sample depth"
-                  : sampleDepth > 20
-                    ? "Outside sample depth range"
-                    : sampleDepth <= parse(groundwaterDepth)
-                      ? "Above GWT"
-                      : parse(row.n160) > 30
-                        ? "(N1)60 > 30"
-                        : "Analysis";
-
-                const result = checkStatus === "Analysis" ? rawResult : null;
+                const { sampleDepth, hasDepthIssue, rawResult, checkStatus, result } = evaluateLiquefactionRow(row, {
+                  method,
+                  magnitude,
+                  peakGroundAcceleration,
+                  groundwaterDepth,
+                  unitSystem,
+                });
                 const statusTone =
                   checkStatus === "Analysis"
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700"

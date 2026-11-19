@@ -1,8 +1,12 @@
 import { ArticleCard } from "@/components/article-card";
+import { FieldBlogIndex } from "@/components/field/field-blog-index";
 import { getAllArticles } from "@/lib/data-layer";
+import { isFieldDesign } from "@/lib/site-design";
 
 export default function BlogPage() {
   const articles = getAllArticles();
+
+  if (isFieldDesign()) return <FieldBlogIndex articles={articles} />;
 
   return (
     <div className="space-y-6 sm:space-y-8">

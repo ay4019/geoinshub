@@ -965,7 +965,12 @@
     "title": "The Hardening Soil Model: Stiffness, Stress Dependency, and Calibration",
     "excerpt": "Why HS uses separate stiffness branches (E50, Eoed, Eur), how stress-level scaling and reference pressure work, and why calibration matters in settlement-dominated problems.",
     "date": "2026-04-10",
-    "tags": ["Hardening Soil", "PLAXIS", "Stiffness", "Numerical modelling"],
+    "tags": [
+      "Hardening Soil",
+      "PLAXIS",
+      "Stiffness",
+      "Numerical modelling"
+    ],
     "thumbnail": "/images/blog-consolidation-cover.png",
     "featured": true,
     "readTimeMinutes": 10,
@@ -1026,34 +1031,44 @@
   {
     "slug": "soil-liquefaction-mechanism-assessment-and-consequences",
     "title": "Soil Liquefaction: Mechanism, Assessment, and Consequences",
-    "excerpt": "During an earthquake, certain saturated granular soils can lose strength entirely and begin to flow. This article explains the physics behind it, how engineers quantify the risk, and where standard methods reach their limits.",
+    "excerpt": "Why saturated loose sands lose strength during earthquakes, how CSR/CRR triggering is screened in practice, and where the standard checks stop — flow liquefaction, slopes, and post-liquefaction settlement.",
     "date": "2026-05-05",
-    "tags": ["Liquefaction", "Soil Dynamics", "Geotechnics", "Earthquakes"],
-    "thumbnail": "/images/insight-liquefaction.svg",
+    "tags": [
+      "Liquefaction",
+      "Soil Dynamics",
+      "Geotechnics",
+      "Earthquakes"
+    ],
+    "thumbnail": "/images/blog-liquefaction-cover.png",
     "featured": true,
-    "readTimeMinutes": 12,
+    "readTimeMinutes": 14,
     "content": [],
     "blocks": [
       {
         "type": "paragraph",
-        "text": "During an earthquake, certain saturated granular soils lose their strength entirely and begin to flow. The phenomenon — liquefaction — has destroyed port cities, swallowed buildings, and sent dams sliding downslope. This note summarises the mechanics behind it, how liquefaction triggering is screened in practice, and which parts of the problem the standard checks do (and do not) cover."
+        "text": "During an earthquake, certain saturated granular soils lose their strength entirely and begin to flow. The phenomenon — liquefaction — has destroyed port cities, swallowed buildings, and sent dams sliding downslope. This article explains the physics behind it, how engineers quantify the risk, and where the standard methods reach their limits."
       },
       {
         "type": "heading",
-        "text": "Effective stress governs everything"
+        "text": "Effective stress and why it governs everything"
       },
       {
         "type": "paragraph",
-        "text": "In a saturated deposit below the groundwater table, mechanical behaviour is governed by effective stress (the portion of total stress transmitted through particle-to-particle contacts). If pore-water pressure rises toward the total stress, effective stress falls toward zero and so does shear strength."
+        "text": "Soil is a three-phase material: solid particles, water, and air. In a saturated deposit below the water table, the voids between particles are completely filled with water. The mechanical behaviour of that deposit is not governed by total stress — the full weight of everything above — but by effective stress, which is the portion of that weight actually transmitted through particle-to-particle contacts."
       },
       {
         "type": "equation",
         "label": "(Eq. 1)",
         "lines": [
-          "&sigma;&prime;<sub>v</sub> = &sigma;<sub>v</sub> - u",
-          "&tau; = &sigma;&prime;<sub>v</sub> tan(&phi;&prime;)"
+          "&sigma;&prime;<sub>v</sub> = &sigma;<sub>v</sub> &minus; u",
+          "u = &gamma;<sub>w</sub> (z &minus; z<sub>GWT</sub>)",
+          "&tau; = &sigma;&prime;<sub>v</sub> tan &phi;&prime;"
         ],
-        "caption": "If u increases, &sigma;&prime; decreases; liquefaction is the effective-stress collapse mechanism."
+        "caption": "σv = total vertical stress [kPa]; u = pore-water pressure [kPa]; τ = drained shear strength."
+      },
+      {
+        "type": "paragraph",
+        "text": "The consequence is immediate: if pore pressure u rises toward σv, effective stress falls toward zero, and with it shear strength falls toward zero. The soil can no longer resist any applied force. It flows. This is the physical core of liquefaction — not the earthquake itself, but what the earthquake does to pore pressure in a saturated granular deposit."
       },
       {
         "type": "heading",
@@ -1061,19 +1076,60 @@
       },
       {
         "type": "paragraph",
-        "text": "Earthquake shaking applies cyclic shear stresses. In loose saturated sands, the grain skeleton tends to contract under cyclic loading. Under undrained conditions, contraction cannot occur quickly, so the contraction tendency manifests as a rise in pore-water pressure. With each cycle, u climbs and &sigma;&prime; drops. When u approaches &sigma;<sub>v</sub>, effective stress (and strength) collapses and the soil behaves temporarily like a fluid."
+        "text": "Earthquake shaking applies cyclic shear stresses to the soil. In a loose saturated sand, those stresses tend to compact the grain skeleton — particles want to rearrange toward a denser packing. Under undrained conditions, however, this compression cannot occur: the water has nowhere to go on the timescale of shaking. The compression tendency instead manifests as rising pore-water pressure. With every cycle of shaking, u climbs a little higher and σ′v drops a little lower. When pore pressure equals total stress — when the water is carrying the full overburden — effective stress reaches zero and so does strength."
       },
       {
         "type": "paragraph",
-        "text": "After shaking stops, excess pore pressure dissipates as water drains and the soil reconsolidates into a denser fabric. This reconsolidation is a major driver of post-earthquake settlements and ground deformation."
+        "text": "After shaking stops, the excess pore pressure begins to dissipate through drainage. The process is slow relative to the earthquake itself and may take minutes to hours depending on layer thickness and permeability. As water drains upward, particles resettle into a denser configuration. This post-earthquake reconsolidation is what produces the characteristic surface settlements seen after liquefaction events — fissures, sand boils, and the sinking or tilting of structures."
       },
       {
         "type": "heading",
-        "text": "Susceptibility screening"
+        "text": "Susceptibility: which soils and why"
       },
       {
         "type": "paragraph",
-        "text": "Liquefaction triggering is primarily a concern for saturated, shallow, loose granular soils. Plasticity is critical: sand-like soils (PI < 7) can liquefy suddenly; clay-like soils (PI > 12) generally do not liquefy in the same sense and are instead assessed for cyclic softening using undrained shear strength (S<sub>u</sub>)."
+        "text": "Four conditions must coincide for liquefaction to be a credible hazard:"
+      },
+      {
+        "type": "list",
+        "items": [
+          {
+            "term": "Below the water table.",
+            "text": "Pore-pressure build-up requires saturation. The seasonally highest groundwater level governs — not the depth measured at the time of drilling."
+          },
+          {
+            "term": "Shallow depth, typically less than 20 m.",
+            "text": "Deeper liquefaction cannot propagate surface damage through the overlying mass."
+          },
+          {
+            "term": "Loose granular material.",
+            "text": "Clean sands and non-plastic silts with (N₁)₆₀ below roughly 15 are the primary concern. Above 30, the soil is dense enough that cyclic resistance comfortably exceeds cyclic demand under realistic loading."
+          },
+          {
+            "term": "Low plasticity (PI < 7).",
+            "text": "Clay minerals carry surface electrical charges that bind pore-water molecules. This suppresses the rapid pore-pressure build-up that drives liquefaction. Soils with PI ≥ 12 behave in a fundamentally different way — see below."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Fines content (FC) is sometimes confused with plasticity as a screening criterion. It is not. FC modifies the analysis through a correction to (N₁)₆₀, but only after PI has confirmed that the soil is sand-like. A fine-grained soil with high PI is not screened out by its fines content — it is screened out by its plasticity, and subjected to a different analysis entirely."
+      },
+      {
+        "type": "heading",
+        "text": "Sand-like and clay-like: two mechanisms"
+      },
+      {
+        "type": "paragraph",
+        "text": "Boulanger & Idriss (2008) formalised the distinction between sand-like and clay-like behaviour under cyclic loading. The boundary sits at PI ≈ 7, with a transitional zone from 7 to 12."
+      },
+      {
+        "type": "paragraph",
+        "text": "In sand-like soils (PI < 7), the failure mode is sudden. Pore pressure builds rapidly over a small number of cycles and can reach total stress within the duration of the earthquake. The result is a complete and abrupt loss of shear strength — the soil liquefies."
+      },
+      {
+        "type": "paragraph",
+        "text": "In clay-like soils (PI > 12), the clay mineral bonds suppress rapid pore-pressure build-up. Instead, cyclic loading progressively degrades those bonds. Strength decreases cycle by cycle but never reaches zero in the same sudden way. The correct term for this is cyclic softening, not liquefaction. The analysis is structurally similar — CSR on the demand side, CRR on the resistance side — but CRR is derived from the undrained shear strength Su measured in the laboratory rather than from SPT blow counts."
       },
       {
         "type": "equation",
@@ -1081,48 +1137,202 @@
         "lines": [
           "CRR<sub>7.5</sub> = 0.8 (S<sub>u</sub> / &sigma;&prime;<sub>v</sub>)"
         ],
-        "caption": "Screening form commonly used for clay-like cyclic softening (PI &ge; 12)."
-      },
-      {
-        "type": "heading",
-        "text": "Standard triggering assessment (CSR vs CRR)"
+        "caption": "Clay-like soils, PI ≥ 12."
       },
       {
         "type": "paragraph",
-        "text": "The widely used simplified procedure compares cyclic stress demand (CSR) with cyclic resistance (CRR) and reports a factor of safety. In this framing, CSR represents the earthquake-imposed demand, while CRR represents the soil resistance corrected for magnitude and overburden effects."
+        "text": "The 0.8 factor reflects that cyclic resistance is approximately 80% of the static undrained strength, derived from cyclic triaxial test data. Applying the liquefaction formula to a plastic clay is not conservative — it addresses the wrong mechanism entirely and can produce results that appear acceptable while the soil actually experiences significant strength degradation."
+      },
+      {
+        "type": "heading",
+        "text": "The standard triggering assessment"
+      },
+      {
+        "type": "paragraph",
+        "text": "The simplified procedure of Seed & Idriss (1971), as updated by Boulanger & Idriss (2014), is the standard method for evaluating liquefaction triggering. It compares cyclic stress demand (CSR) against cyclic resistance (CRR), producing a factor of safety:"
       },
       {
         "type": "equation",
         "label": "(Eq. 3)",
         "lines": [
           "FS = CRR<sub>Mw,&sigma;</sub> / CSR",
-          "CSR = 0.65 (&sigma;<sub>v</sub>/&sigma;&prime;<sub>v</sub>) PGA r<sub>d</sub>",
-          "CRR<sub>Mw,&sigma;</sub> = CRR<sub>7.5</sub> MSF K<sub>&sigma;</sub>"
-        ]
+          "CSR = 0.65 (&sigma;<sub>v</sub> / &sigma;&prime;<sub>v</sub>) PGA r<sub>d</sub>",
+          "CRR<sub>7.5</sub> = exp[ (N<sub>1</sub>)<sub>60cs</sub>/14.1 + ((N<sub>1</sub>)<sub>60cs</sub>/126)<sup>2</sup> &minus; ((N<sub>1</sub>)<sub>60cs</sub>/23.6)<sup>3</sup> + ((N<sub>1</sub>)<sub>60cs</sub>/25.4)<sup>4</sup> &minus; 2.8 ]",
+          "CRR<sub>Mw,&sigma;</sub> = CRR<sub>7.5</sub> &middot; MSF &middot; K<sub>&sigma;</sub>"
+        ],
+        "caption": "rd = depth reduction factor (Idriss 1999); MSF = magnitude scaling factor; Kσ = overburden correction factor; (N₁)₆₀cs = clean-sand equivalent normalised blow count."
+      },
+      {
+        "type": "paragraph",
+        "text": "The 0.65 factor in the CSR formula converts the irregular amplitude of a real earthquake record into an equivalent uniform amplitude that produces the same cumulative pore-pressure damage. Seed & Idriss derived it from analysis of fourteen accelerograms and found that the average effective amplitude is approximately 65% of the peak. PGA alone does not describe a complete loading — it says nothing about how many times that peak was approximately reached. The 0.65 factor implicitly assumes a certain number of equivalent cycles, and the MSF adjusts for the actual number."
+      },
+      {
+        "type": "paragraph",
+        "text": "The magnitude scaling factor corrects for earthquake duration. A Mw 5.5 earthquake produces roughly two to three equivalent shaking cycles; a Mw 8.5 earthquake produces forty or more. Two sites with identical PGA but different magnitude will experience fundamentally different levels of pore-pressure accumulation. MSF exceeds 1.0 for magnitudes below 7.5 (fewer cycles, less damage than the reference case) and falls below 1.0 for magnitudes above 7.5."
+      },
+      {
+        "type": "paragraph",
+        "text": "The overburden correction Kσ accounts for the fact that the CRR formula was calibrated at shallow depths where σ′v is close to atmospheric pressure (101.3 kPa). At greater depths, high confining stress reduces the unit cyclic resistance. Kσ falls below 1.0 when σ′v exceeds Pa, typically at depths beyond about 10 m."
+      },
+      {
+        "type": "paragraph",
+        "text": "The depth reduction factor rd corrects the rigid-body assumption in the CSR derivation. In a flexible soil column, ground acceleration decreases with depth — the surface moves more than the deeper layers. Without rd, CSR would overestimate seismic demand at depth. rd is always ≤ 1.0 and is a function of depth alone."
       },
       {
         "type": "note",
-        "text": "Engineering note: A triggering factor of safety check is not a full performance-based liquefaction assessment. Consequences (settlement, lateral spreading, post-liquefaction stability) must be checked separately."
+        "text": "Engineering note: FS < 1.0 indicates that liquefaction is expected under the design ground motion. Acceptance thresholds above 1.0 are set by the governing code and the consequence class — TBDY 2018, for example, requires FS ≥ 1.1, while many guidelines adopt 1.2–1.5 for important structures. A triggering FS check is not a full performance-based assessment; consequences must be checked separately."
       },
       {
         "type": "heading",
-        "text": "Consequences: settlement, spreading, and flow failures"
+        "text": "The fines content correction: Δ vs. α+β"
       },
       {
         "type": "paragraph",
-        "text": "Liquefaction can produce reconsolidation settlement and surface manifestations (sand boils), lateral spreading toward free faces (rivers, quay walls), uplift of buried structures, and severe slope failures. In particular, flow liquefaction on contractive sands can continue after shaking stops, driven by gravity alone; post-liquefaction residual strength governs this risk rather than the triggering FS alone."
+        "text": "Fine-grained particles occupying the void space of a sand matrix tend to increase cyclic resistance — they stiffen the grain contacts and modify the pore-pressure response. The standard procedure corrects (N₁)₆₀ to a clean-sand equivalent (N₁)₆₀cs before entering the CRR formula. Two correction systems exist and they are not interchangeable."
+      },
+      {
+        "type": "paragraph",
+        "text": "The Youd et al. (2001) α+β method uses empirical coefficients that depend on FC to produce a corrected blow count directly:"
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 4)",
+        "lines": [
+          "(N<sub>1</sub>)<sub>60cs</sub> = &alpha; + &beta; (N<sub>1</sub>)<sub>60</sub>"
+        ],
+        "caption": "α and β are tabulated functions of FC — FC < 5%: α = 0, β = 1.0; FC ≥ 35%: α = 5.0, β = 1.2."
+      },
+      {
+        "type": "paragraph",
+        "text": "The Boulanger & Idriss (2014) Δ method adds an increment to (N₁)₆₀:"
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 5)",
+        "lines": [
+          "(N<sub>1</sub>)<sub>60cs</sub> = (N<sub>1</sub>)<sub>60</sub> + &Delta;(N<sub>1</sub>)<sub>60</sub>",
+          "&Delta;(N<sub>1</sub>)<sub>60</sub> = exp[ 1.63 + 9.7/(FC + 0.01) &minus; (15.7/(FC + 0.01))<sup>2</sup> ]"
+        ],
+        "caption": "FC in percent. The increment grows with FC and approaches its upper bound of about 5.5 blows at high fines contents."
+      },
+      {
+        "type": "paragraph",
+        "text": "These systems produce different numerical results for the same FC and (N₁)₆₀ because they were calibrated against different datasets and paired with different CRR curves. Each must be used exclusively with its own CRR formulation. Mixing the Δ correction with the Youd et al. CRR curve — or vice versa — introduces systematic errors with no physical basis. In practice this distinction matters most in the 10–30% FC range, where the two corrections diverge most significantly."
       },
       {
         "type": "heading",
-        "text": "Further questions"
+        "text": "Flow liquefaction and the critical state"
       },
       {
         "type": "paragraph",
-        "text": "Q1 — Fines corrections: Some procedures use an &alpha;+&beta; correction, others a &Delta; correction. These components are not interchangeable: each is calibrated together with its matching CRR curve, so mixing them introduces systematic error."
+        "text": "Cyclic liquefaction is triggered by repeated shaking, bounded by shaking duration, and reversible once drainage restores effective stress. Flow liquefaction is different in every one of those respects."
       },
       {
         "type": "paragraph",
-        "text": "Q2 — Why FS can miss flow risk: A CSR/CRR FS answers whether shaking is expected to trigger liquefaction. It does not capture whether a soil is in a metastable contractive state where small triggers can initiate strain softening and gravity-driven runout; post-liquefaction stability checks remain essential on slopes."
+        "text": "The critical state line (CSL) is a unique curve in e–p′ space (void ratio versus mean effective stress) along which a soil can undergo unlimited shear deformation at constant volume and constant stress. Every sand has its own CSL. The state parameter ψ = e − e_CSL(p′) quantifies a soil's position relative to this line. When ψ > 0, the soil is on the contractive side — loose of critical. When ψ < 0, it is on the dilative side — dense of critical."
+      },
+      {
+        "type": "paragraph",
+        "text": "A contractive soil (ψ > 0) subjected to undrained shearing does not simply lose strength cyclically. It undergoes strain softening: as deformation increases, strength falls. The falling strength allows more deformation, which causes more strength loss. This positive feedback loop can be triggered by a disturbance far smaller than a design earthquake — construction vibration, erosion, or even a change in boundary stress. Once started, it continues under gravity alone until the soil reaches a new equilibrium. Displacements of tens or hundreds of metres are possible; the 1971 Lower San Fernando Dam failure is a canonical example."
+      },
+      {
+        "type": "paragraph",
+        "text": "The post-liquefaction residual strength Su(residual) governs whether a slope can survive after liquefaction is triggered. The Idriss & Boulanger (2007) correlation estimates the residual strength ratio from SPT data:"
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 6)",
+        "lines": [
+          "S<sub>u,res</sub> / &sigma;&prime;<sub>v</sub> = exp[ (N<sub>1</sub>)<sub>60cs-Sr</sub>/16 + (((N<sub>1</sub>)<sub>60cs-Sr</sub> &minus; 16)/21.2)<sup>3</sup> &minus; 3.0 ] &middot; [1 + exp((N<sub>1</sub>)<sub>60cs-Sr</sub>/2.4 &minus; 6.6)] tan &phi;&prime;"
+        ],
+        "caption": "Case without void redistribution; the ratio is capped at tan φ′. Where void redistribution is possible, a lower-bound curve should be used."
+      },
+      {
+        "type": "paragraph",
+        "text": "For a loose sand with (N₁)₆₀cs ≈ 10 at σ′v = 100 kPa, the residual strength ratio is only about 0.10 without void redistribution and roughly half that where void redistribution can occur — i.e. Su,res ≈ 5–10 kPa. The static driving shear stress on a moderately inclined slope at that depth is commonly of the same order or larger. This is why post-liquefaction slope stability is so often critical for loose contractive soils, and why ground improvement on slopes is usually sized to prevent triggering rather than to rely on residual strength."
+      },
+      {
+        "type": "heading",
+        "text": "Slopes and the Kα correction"
+      },
+      {
+        "type": "paragraph",
+        "text": "The standard CSR/CRR procedure assumes level ground: no static shear stress acts on horizontal planes before the earthquake. On a slope of angle β, that assumption fails. Gravity imposes a permanent static shear stress on every horizontal plane within the slope:"
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 7)",
+        "lines": [
+          "&tau;<sub>static</sub> &asymp; &sigma;&prime;<sub>v</sub> sin &beta; cos &beta;",
+          "&alpha; = &tau;<sub>static</sub> / &sigma;&prime;<sub>v</sub>",
+          "CRR<sub>slope</sub> = CRR<sub>7.5</sub> &middot; MSF &middot; K<sub>&sigma;</sub> &middot; K<sub>&alpha;</sub>"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "The Kα factor (Boulanger & Idriss 2003) captures how that pre-existing shear stress modifies cyclic resistance. Its behaviour is not intuitive. For loose soils, Kα < 1.0 — the static shear stress pre-loads the soil toward failure, so less additional cyclic energy is needed to trigger liquefaction. For dense soils, Kα > 1.0 — the pre-existing shear induces dilation during cyclic loading, stiffening the soil and increasing its resistance. The crossover occurs at intermediate relative densities, where Kα is approximately 1.0 regardless of α."
+      },
+      {
+        "type": "paragraph",
+        "text": "The practical implication is significant: for a loose soil on a moderately steep slope, Kα can reduce cyclic resistance by a third or more compared with level ground — before the earthquake has even started. A site that passes the level-ground FS check may fail the slope-adjusted check purely because of geometry."
+      },
+      {
+        "type": "heading",
+        "text": "Post-liquefaction settlement"
+      },
+      {
+        "type": "paragraph",
+        "text": "When excess pore pressure dissipates after an earthquake, the soil reconsolidates. Particles settle into a denser arrangement, and the resulting volumetric strain produces surface settlement. The Ishihara & Yoshimine (1992) framework, as implemented for SPT data, estimates the volumetric strain from (N₁)₆₀cs and the factor of safety:"
+      },
+      {
+        "type": "equation",
+        "label": "(Eq. 8)",
+        "lines": [
+          "FS &lt; 1.0: &epsilon;<sub>v</sub> = &epsilon;<sub>v,max</sub>",
+          "1.0 &le; FS &lt; 2.0: &epsilon;<sub>v</sub> = &epsilon;<sub>v,max</sub> (2.0 &minus; FS)",
+          "FS &ge; 2.0: &epsilon;<sub>v</sub> = 0",
+          "S = &Sigma; (&epsilon;<sub>v,i</sub> / 100) H<sub>i</sub>"
+        ],
+        "caption": "Indicative εv,max: (N₁)₆₀cs = 5 → 10%; 10 → 5.5%; 15 → 3.0%; 20 → 1.5%; 30 → 0.2%."
+      },
+      {
+        "type": "paragraph",
+        "text": "Settlements above about 15 cm are generally expected to produce significant structural damage. Differential settlement — where different parts of a structure settle by different amounts — is typically more damaging than uniform settlement, because it induces bending in structural elements not designed for that loading."
+      },
+      {
+        "type": "heading",
+        "text": "What liquefaction does"
+      },
+      {
+        "type": "list",
+        "items": [
+          {
+            "term": "Settlement and sand boils.",
+            "text": "Reconsolidation produces surface subsidence. Excess pore water, carrying fine particles, vents upward through cracks — the characteristic sand boils of post-earthquake photographs. The ejected material represents permanent volume loss in the liquefied layer."
+          },
+          {
+            "term": "Lateral spreading.",
+            "text": "On gentle slopes of 1–3°, liquefied layers allow the overlying crust to translate horizontally toward free faces: riverbanks, coastlines, bridge abutments. Displacements of 1–5 m are typical. Buried pipelines, bridge foundations, and quay walls are the primary casualties."
+          },
+          {
+            "term": "Flow slides.",
+            "text": "On steeper slopes with contractive soils, flow liquefaction produces runout that continues after shaking stops, driven by gravity alone. The 1964 Alaska earthquake triggered flow slides that displaced entire hillside neighbourhoods. Embankment dams on loose foundation soils are at particular risk."
+          },
+          {
+            "term": "Structure uplift and tilt.",
+            "text": "Buried structures — manholes, underground tanks, basements — are less dense than liquefied soil and float upward. Heavy surface structures sink and tilt. The 1964 Niigata earthquake left the Kawagishi-cho apartment buildings tilted by up to about 80° while remaining structurally intact."
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Selected further questions from the extended note are discussed in detail in the window below so the main article stays readable."
+      },
+      {
+        "type": "further_reading_dialog",
+        "triggerLabel": "Further questions — open detailed discussion",
+        "dialogTitle": "Further questions",
+        "preset": "liquefaction-further-questions"
       },
       {
         "type": "author",

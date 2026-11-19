@@ -97,15 +97,29 @@ const equationParameterMap: Record<string, string[]> = {
     "N_q = surcharge bearing-capacity factor",
     "φ′ = effective friction angle",
   ],
-  "N<sub>&gamma;,Terzaghi</sub> = 1.5(N<sub>q</sub> - 1)tan&phi;'": [
-    "N_gamma,Terzaghi = Terzaghi form of the unit-weight bearing-capacity factor",
+  "N<sub>q,Terzaghi</sub> = a<sup>2</sup> / [2cos<sup>2</sup>(45 + &phi;'/2)], a = e<sup>(0.75&pi; - &phi;'/2)tan&phi;'</sup>": [
+    "N_q,Terzaghi = Terzaghi surcharge bearing-capacity factor",
+    "φ′ = effective friction angle (radians inside the exponent)",
+  ],
+  "N<sub>&gamma;,Terzaghi</sub> &asymp; 2(N<sub>q</sub> + 1)tan&phi;' / (1 + 0.4sin4&phi;') (Coduto, 2001)": [
+    "N_gamma,Terzaghi = Terzaghi unit-weight bearing-capacity factor (closed-form fit)",
+    "N_q = Terzaghi surcharge bearing-capacity factor",
+    "φ′ = effective friction angle",
+  ],
+  "N<sub>&gamma;,Meyerhof</sub> = (N<sub>q</sub> - 1)tan(1.4&phi;')": [
+    "N_gamma,Meyerhof = Meyerhof form of the unit-weight bearing-capacity factor",
     "N_q = surcharge bearing-capacity factor",
     "φ′ = effective friction angle",
   ],
-  "N<sub>&gamma;,Meyerhof/Hansen</sub> = (N<sub>q</sub> - 1)tan(1.4&phi;')": [
-    "N_gamma,Meyerhof/Hansen = Meyerhof and Hansen form of the unit-weight bearing-capacity factor",
+  "N<sub>&gamma;,Hansen</sub> = 1.5(N<sub>q</sub> - 1)tan&phi;'": [
+    "N_gamma,Hansen = Hansen form of the unit-weight bearing-capacity factor",
     "N_q = surcharge bearing-capacity factor",
     "φ′ = effective friction angle",
+  ],
+  "N<sub>&gamma;</sub> = 2(N<sub>q</sub> - 1)tan&phi;'<sub>d</sub>": [
+    "N_gamma = EN 1997-1 Annex D unit-weight bearing-capacity factor (rough base)",
+    "N_q = surcharge bearing-capacity factor at the design friction angle",
+    "φ′_d = design effective friction angle",
   ],
   "N<sub>&gamma;,Vesic</sub> = 2(N<sub>q</sub> + 1)tan&phi;'": [
     "N_gamma,Vesic = Vesic form of the unit-weight bearing-capacity factor",
@@ -530,7 +544,7 @@ const equationParameterMap: Record<string, string[]> = {
   "C<sub>N</sub> = 9.78 (1 / &sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70": [
     "C_N = overburden correction factor",
     "sigma'_v0 = effective vertical overburden stress in kPa (kN/m2)",
-    "9.78 = coefficient used in the Idriss and Boulanger (2008) screening expression",
+    "9.78 = coefficient of the Liao and Whitman (1986) expression (as adopted by Youd et al., 2001) with stress in kPa",
     "C_N is bounded between 0.40 and 1.70 in this tool",
   ],
   "(N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub> N<sub>60</sub> &le; 2 N<sub>60</sub>": [
@@ -602,9 +616,9 @@ const equationParameterMap: Record<string, string[]> = {
     "PI = plasticity index (%)",
     "PI &le; 15: f_1 = 6.5; PI &gt; 40: f_1 = 4.4; between 15 and 40: linear between consecutive anchors in the methodology table",
   ],
-  "φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀²": [
+  "φ′ ≈ 27.1 + 0.3(N₁)₆₀ − 0.00054(N₁)₆₀²": [
     "φ′ = approximate effective friction angle",
-    "N_60 = corrected SPT resistance",
+    "(N_1)_60 = energy- and overburden-corrected SPT resistance",
   ],
   "φ′ = 45 − 14 log₁₀(PI)": [
     "φ′ = estimated effective friction angle",
@@ -710,10 +724,12 @@ const equationParameterMap: Record<string, string[]> = {
     "Delta sigma_z = stress increment used for consolidation",
     "H = layer thickness",
   ],
-  "s<sub>c</sub> = [H C<sub>c</sub> / (1 + e<sub>0</sub>)] log<sub>10</sub> [(&sigma;'<sub>v0</sub> + &Delta;&sigma;<sub>z</sub>) / &sigma;'<sub>v0</sub>]": [
-    "s_c = primary consolidation settlement (C_c path)",
+  "s<sub>c</sub> = [H / (1 + e<sub>0</sub>)] [C<sub>r</sub> log<sub>10</sub>(&sigma;'<sub>p</sub>/&sigma;'<sub>v0</sub>) + C<sub>c</sub> log<sub>10</sub>((&sigma;'<sub>v0</sub> + &Delta;&sigma;<sub>z</sub>)/&sigma;'<sub>p</sub>)], &sigma;'<sub>p</sub> = OCR &sigma;'<sub>v0</sub> (C<sub>r</sub> term only when the final stress stays below &sigma;'<sub>p</sub>)": [
+    "s_c = primary consolidation settlement (C_c / C_r path)",
     "H = layer thickness",
-    "C_c = compression index",
+    "C_c = compression index (virgin compression)",
+    "C_r = recompression index (applies up to sigma'_p)",
+    "OCR = overconsolidation ratio at layer mid-depth; sigma'_p = OCR sigma'_v0",
     "e_0 = initial void ratio",
     "sigma'_v0 = initial vertical effective stress at mid-depth",
     "Delta sigma_z = stress increment applied in the consolidation term",

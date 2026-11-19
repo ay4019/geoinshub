@@ -137,6 +137,22 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
               );
             }
 
+            if (block.type === "list") {
+              return (
+                <ul key={`${block.type}-${index}`} className="list-disc space-y-2 pl-5 sm:pl-6">
+                  {block.items.map((item, itemIndex) =>
+                    typeof item === "string" ? (
+                      <li key={`${index}-${itemIndex}`}>{item}</li>
+                    ) : (
+                      <li key={`${index}-${itemIndex}`}>
+                        <span className="font-semibold text-slate-900">{item.term}</span> {item.text}
+                      </li>
+                    ),
+                  )}
+                </ul>
+              );
+            }
+
             if (block.type === "further_reading_dialog") {
               return <ArticleFurtherReadingDialog key={`${block.type}-${index}`} block={block} />;
             }

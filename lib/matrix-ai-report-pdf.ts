@@ -1,6 +1,8 @@
 "use client";
 
 import { sanitizeMatrixAiMarkdown } from "@/lib/matrix-ai-markdown";
+import { toPdfSafeText } from "@/lib/pdf-safe-text";
+import { drawAiNotice, drawResponsibilitySection, drawStatusBanner, stampReportFooters } from "@/lib/reports/pdf-chrome";
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -82,12 +84,13 @@ function isSeparatorRow(cells: string[]): boolean {
 }
 
 function stripInlineMarkdown(text: string): string {
-  return (text ?? "")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
-    .replace(/`(.+?)`/g, "$1")
-    .replace(/\[(.+?)\]\([^)]+\)/g, "$1")
-    .trim();
+  return toPdfSafeText(
+    (text ?? "")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/`(.+?)`/g, "$1")
+      .replace(/\[(.+?)\]\([^)]+\)/g, "$1"),
+  ).trim();
 }
 
 type PdfBlock =
@@ -297,11 +300,13 @@ export async function createIntegratedMatrixAiReportPdf(options: {
   doc.setFont("NotoSans", "normal");
   doc.setFontSize(10);
   doc.setTextColor(71, 85, 105);
-  doc.text(`Project: ${options.projectName} | Generated: ${new Date().toLocaleString("en-GB")}`, marginX, cursorY, {
+  doc.text(toPdfSafeText(`Project: ${options.projectName}`) + ` | Generated: ${new Date().toLocaleString("en-GB")}`, marginX, cursorY, {
     baseline: "top",
   });
   doc.setTextColor(15, 23, 42);
   cursorY += 20;
+  cursorY = drawStatusBanner(doc, marginX, contentWidth, cursorY);
+  cursorY = drawAiNotice(doc, marginX, contentWidth, cursorY, pageHeight) + 6;
 
   const blocks = parseMarkdownToBlocks(options.markdown);
   for (const block of blocks) {
@@ -346,6 +351,9 @@ export async function createIntegratedMatrixAiReportPdf(options: {
       cursorY = (lastTable?.finalY ?? cursorY) + 18;
     }
   }
+
+  cursorY = drawResponsibilitySection(doc, marginX, contentWidth, cursorY + 8, pageHeight, "Limitations and Responsibility");
+  stampReportFooters(doc);
 
   const slug = sanitizeFilenamePart(options.projectName || "project");
   const stamp = formatDateTimeStamp();

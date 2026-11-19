@@ -24,9 +24,12 @@ import {
 } from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 
 interface FrictionAngleProfileTabProps {
   unitSystem: UnitSystem;
+  /** Emits data for the standard two-part report (Report tab). */
+  onReportDataChange?: (payload: StandardReportPayload) => void;
   importRows?: SelectedBoreholeSummary[];
   soilPolicyToolSlug?: string;
   projectParameters?: Array<{
@@ -231,6 +234,7 @@ export function FrictionAngleProfileTab({
   importRows,
   soilPolicyToolSlug,
   projectParameters,
+  onReportDataChange,
 }: FrictionAngleProfileTabProps) {
   const [rows, setRows] = useState<FrictionAngleRow[]>(initialRows);
   const [isProjectLocked, setIsProjectLocked] = useState(() =>
@@ -246,7 +250,7 @@ export function FrictionAngleProfileTab({
   const n60ByBoreholeDepth = useMemo(() => {
     const map = new Map<string, number>();
     (projectParameters ?? []).forEach((parameter) => {
-      if (parameter.parameterCode.toLowerCase() !== "n60" || !Number.isFinite(parameter.value)) {
+      if (parameter.parameterCode.toLowerCase() !== "n160" || !Number.isFinite(parameter.value)) {
         return;
       }
       const key = `${normaliseBoreholeLabelKey(parameter.boreholeLabel)}|${depthKey(parameter.sampleDepth)}`;
@@ -365,17 +369,47 @@ export function FrictionAngleProfileTab({
     [rows, soilPolicyToolSlug, importRows, unitSystem],
   );
 
+  useEffect(() => {
+    if (!onReportDataChange) return;
+    const sorted = [...plotPoints].sort((a, b) => a.boreholeId.localeCompare(b.boreholeId, undefined, { numeric: true }) || a.depth - b.depth);
+    const autoFilled = rows.filter((r) => r.n60Source === "auto-spt-corrections").length;
+    const excluded = rows.length - plotPoints.length;
+    onReportDataChange({
+      depthUnit,
+      columns: [
+        { header: "Borehole", key: "Borehole" },
+        { header: `Depth (${depthUnit})`, key: "Depth" },
+        { header: "(N₁)₆₀", key: "n160" },
+        { header: "φ′ (deg)", key: "phi" },
+      ],
+      rows: sorted.map((p) => ({ Borehole: p.boreholeId, Depth: p.depth.toFixed(2), n160: p.n60.toFixed(1), phi: p.phi.toFixed(1) })),
+      points: sorted.map((p) => ({ boreholeId: p.boreholeId, depth: p.depth, values: { phi: p.phi, n160: p.n60 } })),
+      series: [
+        { key: "n160", label: "(N₁)₆₀", unit: "blows/0.3 m" },
+        { key: "phi", label: "φ′", unit: "deg" },
+      ],
+      methodNotes: [
+        `φ′ was calculated for each sample from the overburden-corrected blow count with Equation (1). ${
+          autoFilled
+            ? `${autoFilled} of ${rows.length} (N₁)₆₀ values were taken from SPT Corrections results saved to the project; the remainder were entered manually.`
+            : "All (N₁)₆₀ values were entered manually by the user."
+        }`,
+      ],
+      exclusions: excluded > 0 ? [`${excluded} sample(s) excluded: classified as cohesive in the project data, or invalid depth.`] : undefined,
+    });
+  }, [depthUnit, onReportDataChange, plotPoints, rows]);
+
   return (
     <section className="space-y-5">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Soil Layer Profile</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Enter corrected SPT resistance by depth. Effective friction angle uses φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀²
-          (Peck, Hanson, and Thornburn, 1974).
+          Enter corrected SPT resistance by depth. Effective friction angle uses φ′ ≈ 27.1 + 0.3(N₁)₆₀ − 0.00054(N₁)₆₀²
+          (Wolff, 1989, fit to Peck, Hanson, and Thornburn, 1974).
         </p>
         <p className="mt-1 text-xs leading-5 text-slate-500">
           When samples are imported from <span className="font-semibold">Projects and Boreholes</span> with the project
-          tool lock enabled, sample depth is read-only here (edit under Account &gt; Projects). If available, N₆₀ is
+          tool lock enabled, sample depth is read-only here (edit under Account &gt; Projects). If available, (N₁)₆₀ is
           auto-filled from{" "}
           <span className="font-semibold">{SPT_CORRECTIONS_TOOL_LABEL}</span> results saved to the project. Manual
           override is always allowed.
@@ -399,7 +433,7 @@ export function FrictionAngleProfileTab({
                   <ProfileTableHeaderCell title="Sample Depth" unit={depthUnit} />
                 </th>
                 <th className={profileTableThClass}>
-                  <ProfileTableHeaderCell title={<span>N₆₀</span>} />
+                  <ProfileTableHeaderCell title={<span>(N₁)₆₀</span>} />
                 </th>
                 <th className={profileTableThClass}>
                   <ProfileTableHeaderCell title={<span>φ′</span>} unit="deg" />

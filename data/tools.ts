@@ -1,10 +1,10 @@
 ﻿import type { ToolDefinition, ToolInformation, ToolInput } from "@/lib/types";
 
 const standardDisclaimer =
-  "Read the general disclaimer below before using this output in any engineering workflow. Independent engineering review is required before design use.";
+  "Indicative output only. Before using any result you must carry out your own independent analysis and have it verified by a qualified engineer; the operator accepts no responsibility for decisions based on this tool. Read the general disclaimer below.";
 
 const liquefactionDisclaimer =
-  "Liquefaction outputs are screening-level only. Read the general disclaimer below before using this result, and do not rely on it as a final seismic design basis.";
+  "Liquefaction outputs are screening-level only and are not a seismic design basis. Before using any result you must carry out your own independent analysis and have it verified by a qualified engineer. Read the general disclaimer below.";
 
 const phaseRefs = [
   "Lambe, T.W. and Whitman, R.V. (1969). Soil Mechanics. John Wiley & Sons.",
@@ -18,6 +18,10 @@ const classificationRefs = [
 
 const bearingRefs = [
   "Terzaghi, K. (1943). Theoretical Soil Mechanics. John Wiley & Sons.",
+  "Meyerhof, G.G. (1963). Some recent research on the bearing capacity of foundations. Canadian Geotechnical Journal, 1(1), 16-26.",
+  "Hansen, J.B. (1970). A revised and extended formula for bearing capacity. Danish Geotechnical Institute Bulletin No. 28.",
+  "Vesic, A.S. (1973). Analysis of ultimate loads of shallow foundations. Journal of the Soil Mechanics and Foundations Division, ASCE, 99(SM1), 45-73.",
+  "Coduto, D.P. (2001). Foundation Design: Principles and Practices, 2nd ed. Prentice Hall.",
   "EN 1997-1 (Eurocode 7): Geotechnical design - Part 1: General rules.",
 ];
 
@@ -448,7 +452,7 @@ const bearingTools: ToolDefinition[] = [
         "This tool compares four commonly cited general shear bearing-capacity methods for shallow rectangular footings. Nq and Nc are calculated from the classical friction-angle expressions, while the N-gamma term follows the selected traditional method formulation.",
       assumptions: [
         "General shear failure and drained parameter use are assumed.",
-        "Rectangular footing shape effects are simplified for decision-support use.",
+        "Shape and depth factors follow the selected method (Terzaghi: shape only; Meyerhof: K<sub>p</sub>-based; Hansen/Vesic: N<sub>q</sub>/N<sub>c</sub>-based shape and k-based depth factors).",
         "Groundwater influence is handled in a simplified way using gamma' = gamma - gamma_w below the GWT (no capillary rise or seepage).",
         "Load inclination and eccentric loading are not handled in this tool.",
       ],
@@ -460,8 +464,10 @@ const bearingTools: ToolDefinition[] = [
       equations: [
         "N<sub>q</sub> = e<sup>&pi;tan&phi;'</sup> tan<sup>2</sup>(45 + &phi;'/2)",
         "N<sub>c</sub> = (N<sub>q</sub> - 1) / tan&phi;'",
-        "N<sub>&gamma;,Terzaghi</sub> = 1.5(N<sub>q</sub> - 1)tan&phi;'",
-        "N<sub>&gamma;,Meyerhof/Hansen</sub> = (N<sub>q</sub> - 1)tan(1.4&phi;')",
+        "N<sub>q,Terzaghi</sub> = a<sup>2</sup> / [2cos<sup>2</sup>(45 + &phi;'/2)], a = e<sup>(0.75&pi; - &phi;'/2)tan&phi;'</sup>",
+        "N<sub>&gamma;,Terzaghi</sub> &asymp; 2(N<sub>q</sub> + 1)tan&phi;' / (1 + 0.4sin4&phi;') (Coduto, 2001)",
+        "N<sub>&gamma;,Meyerhof</sub> = (N<sub>q</sub> - 1)tan(1.4&phi;')",
+        "N<sub>&gamma;,Hansen</sub> = 1.5(N<sub>q</sub> - 1)tan&phi;'",
         "N<sub>&gamma;,Vesic</sub> = 2(N<sub>q</sub> + 1)tan&phi;'",
         "q<sub>ult</sub> = c'N<sub>c</sub>s<sub>c</sub>d<sub>c</sub> + qN<sub>q</sub>s<sub>q</sub>d<sub>q</sub> + 0.5&gamma;BN<sub>&gamma;</sub>s<sub>&gamma;</sub>d<sub>&gamma;</sub>",
         "q = &sigma;'<sub>v0</sub>(z = D<sub>f</sub>)",
@@ -501,7 +507,7 @@ const bearingTools: ToolDefinition[] = [
       assumptions: [
         "General shear failure and drained parameter use are assumed.",
         "The tool screens the resistance side rather than carrying out a full Ed versus Rd verification.",
-        "Rectangular footing shape and depth effects are simplified for transparency.",
+        "Bearing and shape factors follow EN 1997-1 Annex D for drained conditions: N<sub>&gamma;</sub> = 2(N<sub>q</sub> - 1)tan&phi;'<sub>d</sub>, s<sub>q</sub> = 1 + (B/L)sin&phi;'<sub>d</sub>, s<sub>&gamma;</sub> = 1 - 0.3B/L, s<sub>c</sub> = (s<sub>q</sub>N<sub>q</sub> - 1)/(N<sub>q</sub> - 1). Annex D has no depth factors.",
       ],
       limitations: [
         "Do not treat the result as a code-compliant Eurocode 7 design.",
@@ -513,6 +519,7 @@ const bearingTools: ToolDefinition[] = [
         "N<sub>c</sub> = (N<sub>q</sub> - 1) / tan&phi;'",
         "tan&phi;'<sub>d</sub> = tan&phi;' / &gamma;<sub>M,&phi;</sub>",
         "c'<sub>d</sub> = c' / &gamma;<sub>M,c</sub>",
+        "N<sub>&gamma;</sub> = 2(N<sub>q</sub> - 1)tan&phi;'<sub>d</sub>",
         "q<sub>Rd</sub> = q<sub>ult,d</sub> / &gamma;<sub>R,v</sub>",
         "DA1 Combination 1 = A1 + M1 + R1",
         "DA1 Combination 2 = A2 + M2 + R1",
@@ -528,7 +535,7 @@ const bearingTools: ToolDefinition[] = [
             ["DA1 Combination 1", "A1 + M1 + R1", "1.00", "1.00", "1.00"],
             ["DA1 Combination 2", "A2 + M2 + R1", "1.25", "1.25", "1.00"],
             ["DA2", "A1 + M1 + R2", "1.00", "1.00", "1.40"],
-            ["DA3", "(A1 or A2) + M2 + R3", "1.25", "1.25", "1.40"],
+            ["DA3", "(A1 or A2) + M2 + R3", "1.25", "1.25", "1.00"],
           ],
           note: "These values are presented for transparent screening only. National Annex choices and project-specific interpretation still govern actual design.",
         },
@@ -611,7 +618,7 @@ const settlementTools: ToolDefinition[] = [
         "&Delta;&sigma;<sub>z</sub> = I<sub>z</sub> q<sub>net</sub>",
         "s<sub>i</sub> = &Delta;&sigma;<sub>z</sub> H (1-&nu;<sup>2</sup>) / E<sub>s</sub>",
         "s<sub>c</sub> = m<sub>v</sub> &Delta;&sigma;<sub>z</sub> H",
-        "s<sub>c</sub> = [H C<sub>c</sub> / (1 + e<sub>0</sub>)] log<sub>10</sub> [(&sigma;'<sub>v0</sub> + &Delta;&sigma;<sub>z</sub>) / &sigma;'<sub>v0</sub>]",
+        "s<sub>c</sub> = [H / (1 + e<sub>0</sub>)] [C<sub>r</sub> log<sub>10</sub>(&sigma;'<sub>p</sub>/&sigma;'<sub>v0</sub>) + C<sub>c</sub> log<sub>10</sub>((&sigma;'<sub>v0</sub> + &Delta;&sigma;<sub>z</sub>)/&sigma;'<sub>p</sub>)], &sigma;'<sub>p</sub> = OCR &sigma;'<sub>v0</sub> (C<sub>r</sub> term only when the final stress stays below &sigma;'<sub>p</sub>)",
       ],
       references: [
         "Terzaghi, K. (1943). Theoretical Soil Mechanics. John Wiley & Sons.",
@@ -1494,7 +1501,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     title: "Standard Penetration Test (SPT) Corrections for N₆₀ and (N₁)₆₀",
     category: "Shear Strength Tools",
     shortDescription:
-      "Energy and equipment corrections yield N<sub>60</sub>; vertical effective stress follows sample depth, groundwater depth, and bulk unit weight, then Idriss and Boulanger (2008) gives C<sub>N</sub> and (N<sub>1</sub>)<sub>60</sub>.",
+      "Energy and equipment corrections yield N<sub>60</sub>; vertical effective stress follows sample depth, groundwater depth, and bulk unit weight, then the Liao and Whitman (1986) expression adopted by Youd et al. (2001) gives C<sub>N</sub> and (N<sub>1</sub>)<sub>60</sub>.",
     tags: ["SPT", "N60"],
     keywords: ["energy correction", "CN", "overburden"],
     featured: true,
@@ -1534,7 +1541,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     ],
     information: info({
       methodology:
-        "The tool converts the recorded blow count N to the energy-standardised resistance N<sub>60</sub> using correction factors C<sub>E</sub> (hammer energy), C<sub>b</sub> (borehole diameter), C<sub>r</sub> (rod length), and C<sub>s</sub> (sampler). C<sub>r</sub> follows depth bands from Youd et al. (2001). Vertical effective stress &sigma;'<sub>v0</sub> at the sample depth is obtained from bulk unit weight and groundwater depth (water unit weight &gamma;<sub>w</sub> = 9.81 kN/m<sup>3</sup>). The overburden factor C<sub>N</sub> is then taken from Idriss and Boulanger (2008), and (N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub> N<sub>60</sub> with a screening cap (N<sub>1</sub>)<sub>60</sub> &le; 2 N<sub>60</sub>.",
+        "The tool converts the recorded blow count N to the energy-standardised resistance N<sub>60</sub> using correction factors C<sub>E</sub> (hammer energy), C<sub>b</sub> (borehole diameter), C<sub>r</sub> (rod length), and C<sub>s</sub> (sampler). C<sub>r</sub> follows depth bands from Youd et al. (2001). Vertical effective stress &sigma;'<sub>v0</sub> at the sample depth is obtained from bulk unit weight and groundwater depth (water unit weight &gamma;<sub>w</sub> = 9.81 kN/m<sup>3</sup>). The overburden factor C<sub>N</sub> is then taken from Liao and Whitman (1986), as adopted by Youd et al. (2001), and (N<sub>1</sub>)<sub>60</sub> = C<sub>N</sub> N<sub>60</sub> with a screening cap (N<sub>1</sub>)<sub>60</sub> &le; 2 N<sub>60</sub>.",
       assumptions: [
         "Selected hammer efficiency, borehole diameter class, and sampler factor match the field test configuration.",
         "Water unit weight is 9.81 kN/m\u2060\u00B3; \u03C3\u2032\u2060\u1D65\u2080 is expressed in kPa for the C\u2060\u2099 expression.",
@@ -1561,7 +1568,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
             ["Borehole diameter", "C<sub>b</sub> from borehole diameter class", "Skempton (1986)"],
             ["Rod length", "C<sub>r</sub> from sample depth z (automatic in this tool)", "Youd et al. (2001)"],
             ["Sampler", "C<sub>s</sub> from sampler configuration", "ASTM D1586/D1586M; Youd et al. (2001)"],
-            ["Overburden", "C<sub>N</sub> = 9.78 (1/&sigma;'<sub>v0</sub>)<sup>0.5</sup>, capped at 1.70", "Idriss & Boulanger (2008)"],
+            ["Overburden", "C<sub>N</sub> = 9.78 (1/&sigma;'<sub>v0</sub>)<sup>0.5</sup>, capped at 1.70", "Liao & Whitman (1986); Youd et al. (2001)"],
           ],
           note: "Hammer efficiency, borehole diameter, and sampler are user-selected; C<sub>r</sub> is fixed by sample depth in the Soil Profile Plot.",
         },
@@ -1589,7 +1596,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
           columns: ["Method", "Equation", "Notes"],
           rows: [
             [
-              "Idriss & Boulanger (2008)",
+              "Liao & Whitman (1986); Youd et al. (2001)",
               "C<sub>N</sub> = 9.78 (1/&sigma;'<sub>v0</sub>)<sup>0.5</sup>, 0.40 &le; C<sub>N</sub> &le; 1.70",
               "&sigma;'<sub>v0</sub> in kPa (kN/m<sup>2</sup>).",
             ],
@@ -1599,6 +1606,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
       ],
       references: [
         "Idriss, I.M. and Boulanger, R.W. (2008). Soil liquefaction during earthquakes. Oakland, CA: Earthquake Engineering Research Institute.",
+        "Liao, S.S.C. and Whitman, R.V. (1986). Overburden correction factors for SPT in sand. Journal of Geotechnical Engineering, 112(3), 373-377.",
         "Skempton, A.W. (1986). Standard penetration test procedures and the effects in sands of overburden pressure, relative density, particle size, ageing and overconsolidation. Geotechnique, 36(3), 425-447.",
         "Youd, T.L. et al. (2001). Liquefaction resistance of soils: Summary report from the 1996 NCEER and 1998 NCEER/NSF workshops. Journal of Geotechnical and Geoenvironmental Engineering, ASCE, 127(10), 817-833.",
         "ASTM D1586/D1586M. Standard Test Method for Standard Penetration Test (SPT) and Split-Barrel Sampling of Soils.",
@@ -1836,7 +1844,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
     ],
     information: info({
       methodology:
-        "Uses soil-type defaults as the primary interpretation: c′ is selected within 0-5 kPa for normally consolidated clays and taken as 0 kPa for sand / gravel. The c′ = 0.1c<sub>u</sub> correlation discussed by Sorensen and Okkels (2013) remains available as an explicit empirical alternative. The Soil Profile Plot tab can load c<sub>u</sub> from saved project parameters or estimate c<sub>u</sub> as f<sub>1</sub> × N<sub>60</sub> when PI and N<sub>60</sub> are available for the sample, consistent with the Undrained Shear Strength (c<sub>u</sub>) from SPT (N<sub>60</sub>) and Plasticity Index (PI) tool.",
+        "Uses soil-type defaults as the primary interpretation: c′ is selected within 0-5 kPa for normally consolidated clays and taken as 0 kPa for sand / gravel. The c′ = 0.1c<sub>u</sub> rule of thumb, commonly attributed in practice to the overconsolidated-clay data of Sorensen and Okkels (2013), remains available as an explicit empirical alternative; verify it against project laboratory data before use. The Soil Profile Plot tab can load c<sub>u</sub> from saved project parameters or estimate c<sub>u</sub> as f<sub>1</sub> × N<sub>60</sub> when PI and N<sub>60</sub> are available for the sample, consistent with the Undrained Shear Strength (c<sub>u</sub>) from SPT (N<sub>60</sub>) and Plasticity Index (PI) tool.",
       assumptions: [
         "The selected soil type is representative of the analysed layer.",
         "Normally consolidated clay defaults are treated as low effective cohesion values within 0-5 kPa.",
@@ -1853,7 +1861,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
         "c′ = 0.1c<sub>u</sub> (optional empirical alternative)",
       ],
       references: [
-        "Sorensen, K.K. and Okkels, N. (2013). Correlation between c'_oc and c_u for overconsolidated clays.",
+        "Sorensen, K.K. and Okkels, N. (2013). Correlation between drained shear strength and plasticity index of undisturbed overconsolidated clays. Proceedings of the 18th International Conference on Soil Mechanics and Geotechnical Engineering, Paris, pp. 423-428.",
         "Ladd, C.C. and Foott, R. (1974). New design procedure for stability of soft clays. Journal of the Geotechnical Engineering Division, ASCE.",
       ],
     }),
@@ -1861,26 +1869,26 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   {
     slug: "friction-angle-from-spt",
     status: "active",
-    title: "Effective Friction Angle (φ′) from Standard Penetration Test Resistance (N₆₀)",
+    title: "Effective Friction Angle (φ′) from Standard Penetration Test Resistance ((N₁)₆₀)",
     category: "Shear Strength Tools",
     shortDescription:
-      "Effective friction angle is estimated from corrected SPT resistance N₆₀ using the empirical correlation cited by Peck, Hanson, and Thornburn (1974).",
+      "Effective friction angle is estimated from overburden-corrected SPT resistance (N₁)₆₀ using the Wolff (1989) fit to the Peck, Hanson, and Thornburn (1974) chart.",
     tags: ["SPT", "friction angle"],
-    keywords: ["phi", "N60", "sand correlation"],
+    keywords: ["phi", "N60", "(N1)60", "sand correlation"],
     featured: false,
-    inputs: [num("n60", "Corrected SPT resistance, N₆₀", 20, undefined, { min: 1, max: 60, step: 0.1 })],
+    inputs: [num("n60", "Overburden-corrected SPT resistance, (N₁)₆₀", 20, undefined, { min: 1, max: 60, step: 0.1 })],
     information: info({
       methodology:
-        "Uses the empirical curve φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀² (Peck, Hanson, and Thornburn, 1974) to convert corrected SPT resistance into a friction-angle estimate for granular soils. On the Soil Profile Plot tab, N₆₀ can be auto-filled from corrected blow counts saved to the project (from the Standard Penetration Test (SPT) Corrections workflow) when a borehole sample is selected.",
+        "Uses the Wolff (1989) fit φ′ ≈ 27.1 + 0.3(N₁)₆₀ − 0.00054(N₁)₆₀² to the Peck, Hanson, and Thornburn (1974) chart to convert overburden-corrected SPT resistance into a friction-angle estimate for granular soils. On the Soil Profile Plot tab, (N₁)₆₀ can be auto-filled from corrected blow counts saved to the project (from the Standard Penetration Test (SPT) Corrections workflow) when a borehole sample is selected.",
       assumptions: [
         "Granular soil behaviour is dominant.",
-        "The correlation is applied to corrected SPT resistance expressed as N₆₀ (dimensionless blow count after corrections).",
+        "The correlation is applied to energy- and overburden-corrected SPT resistance (N₁)₆₀; entering field N or N₆₀ instead generally misestimates φ′.",
       ],
       limitations: [
         "Correlations vary by mineralogy and density range.",
         "Treat the output as an initial estimate only.",
       ],
-      equations: ["φ′ ≈ 27.1 + 0.3N₆₀ − 0.00054N₆₀²"],
+      equations: ["φ′ ≈ 27.1 + 0.3(N₁)₆₀ − 0.00054(N₁)₆₀²"],
       references: empiricalRefs,
     }),
   },
@@ -1910,7 +1918,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
       references: [
         "Mitchell, J.K. (1976). Fundamentals of Soil Behavior. John Wiley & Sons.",
         "Kulhawy, F.H. and Mayne, P.W. (1990). Manual on Estimating Soil Properties for Foundation Design (EPRI EL-6800).",
-        "Sorensen, K.K. and Okkels, N. (2013). Practical correlations for cohesive soil strength parameters.",
+        "Sorensen, K.K. and Okkels, N. (2013). Correlation between drained shear strength and plasticity index of undisturbed overconsolidated clays. Proceedings of the 18th International Conference on Soil Mechanics and Geotechnical Engineering, Paris, pp. 423-428.",
       ],
     }),
   },
@@ -1994,7 +2002,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
         "E<sub>u</sub> = (E<sub>u</sub>/N<sub>60</sub>)N<sub>60</sub>",
       ],
       references: [
-        "Butler, F.G. (1975). Correlations of SPT resistance with undrained deformation modulus from case-history interpretation.",
+        "Butler, F.G. (1975). Heavily over-consolidated clays. In: Settlement of Structures, Proceedings of the Conference organised by the British Geotechnical Society, Cambridge, 1974. London: Pentech Press.",
         "Kulhawy, F.H. and Mayne, P.W. (1990). Manual on Estimating Soil Properties for Foundation Design (EPRI EL-6800).",
       ],
     }),
@@ -2049,8 +2057,8 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
       ],
       references: [
         "Poulos, H.G. and Small, J.C. (2000). Pile Foundation Analysis and Design. John Wiley & Sons.",
-        "Duncan, J.M. and Buchignani, A.L. (1976). An engineering manual for settlement studies of foundations in overconsolidated clays.",
-        "Sorensen, K.K. and Okkels, N. (2013). Practical correlations for cohesive soil parameters.",
+        "Duncan, J.M. and Buchignani, A.L. (1976). An Engineering Manual for Settlement Studies. Geotechnical Engineering Report, Department of Civil Engineering, University of California, Berkeley.",
+        "Sorensen, K.K. and Okkels, N. (2013). Correlation between drained shear strength and plasticity index of undisturbed overconsolidated clays. Proceedings of the 18th International Conference on Soil Mechanics and Geotechnical Engineering, Paris, pp. 423-428.",
       ],
     }),
   },

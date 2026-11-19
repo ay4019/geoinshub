@@ -24,9 +24,12 @@ import {
 } from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 
 interface EprimeFromSptCohesionlessProfileTabProps {
   unitSystem: UnitSystem;
+  /** Emits data for the standard two-part report (Report tab). */
+  onReportDataChange?: (payload: StandardReportPayload) => void;
   importRows?: SelectedBoreholeSummary[];
   soilPolicyToolSlug?: string;
   projectParameters?: Array<{
@@ -49,6 +52,7 @@ interface PlotPoint {
   boreholeId: string;
   depth: number;
   ePrime: number;
+  n: number;
 }
 
 type CorrelationOption = {
@@ -374,6 +378,7 @@ export function EprimeFromSptCohesionlessProfileTab({
   importRows,
   soilPolicyToolSlug,
   projectParameters,
+  onReportDataChange,
 }: EprimeFromSptCohesionlessProfileTabProps) {
   const [rows, setRows] = useState<ProfileRow[]>(initialRows);
   const [correlation, setCorrelation] = useState<string>("km-clean-1000n60");
@@ -483,11 +488,40 @@ export function EprimeFromSptCohesionlessProfileTab({
           const ePrimeMetric = estimateEprimeFromCohesionlessSpt(correlation, nValue);
           const ePrimeDisplay = Number(convertInputValueBetweenSystems(String(ePrimeMetric), "kPa", "metric", unitSystem));
 
-          return { boreholeId: row.boreholeId?.trim() || "BH not set", depth: depthDisplay, ePrime: ePrimeDisplay };
+          return { boreholeId: row.boreholeId?.trim() || "BH not set", depth: depthDisplay, ePrime: ePrimeDisplay, n: nValue };
         })
         .filter((point): point is PlotPoint => point !== null),
     [rows, soilPolicyToolSlug, importRows, unitSystem, correlation],
   );
+
+  useEffect(() => {
+    if (!onReportDataChange) return;
+    const sorted = [...plotPoints].sort((a, b) => a.boreholeId.localeCompare(b.boreholeId, undefined, { numeric: true }) || a.depth - b.depth);
+    const autoFilled = rows.filter((r) => r.nSource === "auto-spt-corrections").length;
+    const excluded = rows.length - plotPoints.length;
+    const nLabel = selectedOption.nType === "N55" ? "N₅₅" : "N₆₀";
+    onReportDataChange({
+      depthUnit,
+      columns: [
+        { header: "Borehole", key: "Borehole" },
+        { header: `Depth (${depthUnit})`, key: "Depth" },
+        { header: nLabel, key: "n" },
+        { header: `E′ (${stressUnit})`, key: "ePrime" },
+      ],
+      rows: sorted.map((p) => ({ Borehole: p.boreholeId, Depth: p.depth.toFixed(2), n: p.n.toFixed(1), ePrime: p.ePrime.toFixed(0) })),
+      points: sorted.map((p) => ({ boreholeId: p.boreholeId, depth: p.depth, values: { ePrime: p.ePrime } })),
+      series: [{ key: "ePrime", label: "E′", unit: stressUnit }],
+      inputs: [{ label: "Selected correlation", value: selectedOption.label }],
+      methodNotes: [
+        `E′ was calculated for every sample with the selected correlation (${selectedOption.label}), which is defined in terms of ${nLabel}. ${
+          autoFilled
+            ? `${autoFilled} of ${rows.length} blow counts were taken from SPT Corrections results saved to the project (N₆₀); where the selected correlation uses N₅₅, the user is responsible for the energy conversion.`
+            : "All blow counts were entered manually by the user."
+        }`,
+      ],
+      exclusions: excluded > 0 ? [`${excluded} sample(s) excluded: classified as cohesive in the project data, or missing/invalid blow count or depth.`] : undefined,
+    });
+  }, [depthUnit, onReportDataChange, plotPoints, rows, selectedOption, stressUnit]);
 
   return (
     <section className="space-y-5">

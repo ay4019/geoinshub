@@ -1,6 +1,13 @@
 "use client";
 
 import { sanitizeAiInterpretationText } from "@/lib/ai-interpretation-sanitize";
+import { toPdfSafeText } from "@/lib/pdf-safe-text";
+import {
+  drawAiNotice,
+  drawReportTitleBlock,
+  drawResponsibilitySection,
+  stampReportFooters,
+} from "@/lib/reports/pdf-chrome";
 import {
   CPRIME_REPORT_FIGURE_2_CAPTION,
   CPRIME_REPORT_REFERENCE_ENTRIES,
@@ -44,6 +51,8 @@ interface CreateToolReportPdfOptions {
   /** Second profile figure (e.g. SPT (N1)60). */
   plotImageDataUrl2?: string | null;
   aiParagraph?: string | null;
+  projectName?: string | null;
+  boreholeIds?: string[];
 }
 
 function sanitizeFilenamePart(value: string): string {
@@ -246,7 +255,7 @@ function plainPdfCaptionFromMarkup(s: string): string {
 
 type CuPdfFontStyle = "normal" | "bold" | "italic" | "bolditalic";
 
-/** Profile PDF body uses Helvetica except friction-angle-from-pi, which embeds Noto Sans for φ′ and Greek text. */
+/** Profile PDF body font. All profile reports embed Noto Sans so primes, Greek letters, and subscripts render; see lib/pdf-safe-text.ts for glyphs outside the subset. */
 let activeProfilePdfFont: "helvetica" | "NotoSans" = "helvetica";
 
 function setProfilePdfFont(doc: import("jspdf").jsPDF, style: CuPdfFontStyle): void {
@@ -313,7 +322,7 @@ function drawCuCenteredCaptionText(
   setProfilePdfFont(doc, "normal");
   doc.setFontSize(fontSize);
   doc.setTextColor(51, 65, 85);
-  const lines = doc.splitTextToSize(text, contentWidth);
+  const lines = doc.splitTextToSize(toPdfSafeText(text), contentWidth);
   for (const line of lines) {
     if (cursorY + lineHeight > pageHeight - 36) {
       doc.addPage();
@@ -644,7 +653,7 @@ function addCuEngineeringBlock(
   style: CuPdfFontStyle,
 ): number {
   let cursorY = startY;
-  const units = buildCuEngineeringUnits(doc, text, fontSize, style);
+  const units = buildCuEngineeringUnits(doc, toPdfSafeText(text), fontSize, style);
   let line: CuDrawUnit[] = [];
   let lineW = 0;
 
@@ -696,7 +705,7 @@ function addSptEngineeringBlock(
   style: CuPdfFontStyle,
 ): number {
   let cursorY = startY;
-  const units = buildSptEngineeringUnits(doc, text, fontSize, style);
+  const units = buildSptEngineeringUnits(doc, toPdfSafeText(text), fontSize, style);
   let line: CuDrawUnit[] = [];
   let lineW = 0;
 
@@ -904,7 +913,7 @@ function drawPhiPiEquationCentered(
   const style: CuPdfFontStyle = "italic";
   const eqNum = "Eq.1";
   const gap = 18;
-  const text = "\u03c6\u2032 = 45 \u2212 14 log\u2081\u2080(PI) (deg)";
+  const text = toPdfSafeText("\u03c6\u2032 = 45 \u2212 14 log\u2081\u2080(PI) (deg)");
 
   setProfilePdfFont(doc, style);
   doc.setFontSize(fontSize);
@@ -1022,9 +1031,9 @@ function drawSptN60EquationCentered(
   const segments: SptEqSeg[] = [
     { type: "sub", base: "N", sub: "60" },
     { type: "txt", text: ` = N ${multiply} ` },
-    { type: "sub", base: "C", sub: "R" },
+    { type: "sub", base: "C", sub: "r" },
     { type: "txt", text: ` ${multiply} ` },
-    { type: "sub", base: "C", sub: "S" },
+    { type: "sub", base: "C", sub: "s" },
     { type: "txt", text: ` ${multiply} ` },
     { type: "sub", base: "C", sub: "b" },
     { type: "txt", text: ` ${multiply} ` },
@@ -1047,9 +1056,9 @@ function drawSptN160EquationCentered(
     { type: "txt", text: ` = N ${multiply} ` },
     { type: "sub", base: "C", sub: "N" },
     { type: "txt", text: ` ${multiply} ` },
-    { type: "sub", base: "C", sub: "R" },
+    { type: "sub", base: "C", sub: "r" },
     { type: "txt", text: ` ${multiply} ` },
-    { type: "sub", base: "C", sub: "S" },
+    { type: "sub", base: "C", sub: "s" },
     { type: "txt", text: ` ${multiply} ` },
     { type: "sub", base: "C", sub: "b" },
     { type: "txt", text: ` ${multiply} ` },
@@ -1117,13 +1126,21 @@ function addProfileAiInterpretationSection(
   doc.setTextColor(15, 23, 42);
   doc.text("AI Interpretation", marginX, cursorY, { baseline: "top" });
   cursorY += 18;
+  cursorY = drawAiNotice(doc, marginX, contentWidth, cursorY, pageHeight);
 
   resetDocToProfileBodyStyle(doc);
   const normalizedAi = sanitizeAiInterpretationText(aiParagraph);
-  cursorY =
-    engineeringMode === "spt"
-      ? addSptEngineeringBlock(doc, normalizedAi, marginX, contentWidth, cursorY, pageHeight, 11, 16, "normal")
-      : addCuEngineeringBlock(doc, normalizedAi, marginX, contentWidth, cursorY, pageHeight, 11, 16, "normal");
+  // Render each paragraph separately; the token-based line builder treats newlines as spaces.
+  const aiParagraphs = normalizedAi
+    .split(/\n\s*\n/g)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (const paragraph of aiParagraphs) {
+    cursorY =
+      engineeringMode === "spt"
+        ? addSptEngineeringBlock(doc, paragraph, marginX, contentWidth, cursorY, pageHeight, 11, 16, "normal")
+        : addCuEngineeringBlock(doc, paragraph, marginX, contentWidth, cursorY, pageHeight, 11, 16, "normal");
+  }
 
   resetDocToProfileBodyStyle(doc);
   return cursorY + 8;
@@ -1145,7 +1162,7 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
     }
     doc.setFont("times", "normal");
     doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, contentWidth);
+    const lines = doc.splitTextToSize(toPdfSafeText(text), contentWidth);
     if (cursorY + lines.length * lineHeight > pageHeight - 44) {
       doc.addPage();
       cursorY = 48;
@@ -1168,11 +1185,15 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
               : null;
 
   if (profileReportKind) {
-    activeProfilePdfFont = "helvetica";
-    if (profileReportKind === "phi-pi" || profileReportKind === "spt" || profileReportKind === "eoed") {
-      await ensureNotoSansFonts(doc);
-      activeProfilePdfFont = "NotoSans";
-    }
+    await ensureNotoSansFonts(doc);
+    activeProfilePdfFont = "NotoSans";
+    cursorY = drawReportTitleBlock(doc, marginX, contentWidth, cursorY, {
+      subject: options.toolTitle,
+      toolTitle: options.toolTitle,
+      projectName: options.projectName,
+      boreholeIds: options.boreholeIds,
+      unitSystem: options.unitSystem,
+    });
     resetDocToProfileBodyStyle(doc);
 
     const blocks = options.narrativeText
@@ -1254,9 +1275,9 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
       cursorY = 48;
     }
 
-    const headRow = options.columns.map((column) => column.header);
+    const headRow = options.columns.map((column) => toPdfSafeText(column.header));
     const bodyRows = options.rows.map((row) =>
-      options.columns.map((column) => ensureText(row[column.key])),
+      options.columns.map((column) => toPdfSafeText(ensureText(row[column.key]))),
     );
 
     autoTable(doc, {
@@ -1428,11 +1449,16 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
       );
     }
 
+    cursorY = drawResponsibilitySection(doc, marginX, contentWidth, cursorY + 8, pageHeight, "3. Limitations and Responsibility");
+    stampReportFooters(doc);
+
     const slug = sanitizeFilenamePart(options.toolSlug || "tool");
     const stamp = formatDateTimeStamp();
     doc.save(`${slug}-report-${stamp}.pdf`);
     return;
   }
+
+  await ensureNotoSansFonts(doc);
 
   doc.setFont("times", "bold");
   doc.setFontSize(20);
@@ -1520,8 +1546,12 @@ export async function createToolReportPdf(options: CreateToolReportPdfOptions): 
     doc.setFontSize(12);
     doc.text("AI Interpretation", marginX, cursorY, { baseline: "top" });
     cursorY += 18;
+    cursorY = drawAiNotice(doc, marginX, contentWidth, cursorY, pageHeight);
     addParagraph(aiParagraph);
   }
+
+  cursorY = drawResponsibilitySection(doc, marginX, contentWidth, cursorY + 8, pageHeight, "Limitations and Responsibility");
+  stampReportFooters(doc);
 
   const slug = sanitizeFilenamePart(options.toolSlug || "tool");
   const stamp = formatDateTimeStamp();

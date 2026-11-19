@@ -116,6 +116,11 @@ export default function PrivacyPolicyPage() {
             <li>- Supabase (authentication and database infrastructure).</li>
             <li>- Vercel (hosting and deployment infrastructure).</li>
             <li>- Resend (transactional email delivery, if enabled).</li>
+            <li>
+              - Google (Gemini API), only when you choose an &quot;Analyse with AI&quot; or AI report feature: the
+              report table, profile figures, method text, project and borehole labels you entered are sent for
+              processing. Account details such as your name and e-mail address are not included.
+            </li>
           </ul>
           <p>We do not sell personal data.</p>
         </div>
@@ -127,6 +132,11 @@ export default function PrivacyPolicyPage() {
             regions. Where personal data is transferred outside Türkiye, we rely on appropriate safeguards permitted
             under KVKK (such as the data importer&apos;s commitment to adequate protection, standard contractual clauses,
             or other mechanisms required by law) and contractual security requirements.
+          </p>
+          <p>
+            AI features are optional. When you start one, the related data is transferred to Google&apos;s Gemini API,
+            which may process it outside Türkiye. Do not use AI features for confidential, personal, or client-restricted
+            information.
           </p>
         </div>
 
@@ -200,7 +210,7 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <p className="text-xs text-slate-500">
-          Last updated: 12 April 2026. This page is general information and is not legal advice.
+          Last updated: 18 November 2026. This page is general information and is not legal advice.
         </p>
       </section>
     </div>

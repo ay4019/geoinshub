@@ -8,6 +8,7 @@ export const TOOL_CATEGORIES = [
   "Settlement",
   "Earth Pressure & Retaining Structures",
   "Pile Foundations",
+  "Slope Stability",
   "Ground Improvement",
   "Liquefaction",
   "Railway Geotechnics",
@@ -18,7 +19,8 @@ export const TOOL_CATEGORIES = [
 export type ToolCategory = (typeof TOOL_CATEGORIES)[number];
 export type ToolInputType = "number" | "select";
 export type UnitSystem = "metric" | "american";
-export type ToolStatus = "active" | "archived";
+/** "draft" = implemented and registered but hidden from listings and routes until switched to "active". */
+export type ToolStatus = "active" | "archived" | "draft";
 
 export interface ToolInputOption {
   label: string;
@@ -118,8 +120,15 @@ export type InsightArticleBlock =
       triggerLabel: string;
       dialogTitle: string;
       /** Built-in extended content (e.g. long Q&A from a source document). */
-      preset?: "hardening-soil-further-questions";
+      preset?: FurtherQuestionsPreset;
+    }
+  | {
+      type: "list";
+      /** Plain strings, or `{ term, text }` to render a bold lead-in followed by the text. */
+      items: Array<string | { term: string; text: string }>;
     };
+
+export type FurtherQuestionsPreset = "hardening-soil-further-questions" | "liquefaction-further-questions";
 
 export interface CounterStore {
   visits: number;

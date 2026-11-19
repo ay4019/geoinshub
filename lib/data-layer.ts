@@ -1,8 +1,9 @@
 ﻿import { tools as toolLibrary } from "@/data/tools";
+import { draftTools } from "@/data/tools-drafts";
 import articlesData from "@/data/articles.json";
 import type { InsightArticle, ToolDefinition } from "@/lib/types";
 
-const tools = toolLibrary as ToolDefinition[];
+const tools = [...(toolLibrary as ToolDefinition[]), ...draftTools];
 const articles = articlesData as InsightArticle[];
 
 function isActiveArticle(article: InsightArticle): boolean {
@@ -26,7 +27,7 @@ const toolAliases: Record<string, string> = {
 };
 
 function isActiveTool(tool: ToolDefinition): boolean {
-  return tool.status !== "archived";
+  return tool.status !== "archived" && tool.status !== "draft";
 }
 
 function getActiveTools(): ToolDefinition[] {

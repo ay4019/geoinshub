@@ -24,9 +24,12 @@ import {
 } from "@/lib/soil-behavior-policy";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
+import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 
 interface EprimeFromEuProfileTabProps {
   unitSystem: UnitSystem;
+  /** Emits data for the standard two-part report (Report tab). */
+  onReportDataChange?: (payload: StandardReportPayload) => void;
   importRows?: SelectedBoreholeSummary[];
   soilPolicyToolSlug?: string;
   projectParameters?: Array<{
@@ -50,6 +53,9 @@ interface PlotPoint {
   boreholeId: string;
   depth: number;
   ePrime: number;
+  eu: number;
+  beta: number;
+  soilType: string;
 }
 
 const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
@@ -228,6 +234,7 @@ export function EprimeFromEuProfileTab({
   importRows,
   soilPolicyToolSlug,
   projectParameters,
+  onReportDataChange,
 }: EprimeFromEuProfileTabProps) {
   const [rows, setRows] = useState<EprimeFromEuRow[]>(initialRows);
   const previousUnitSystem = useRef(unitSystem);
@@ -352,11 +359,43 @@ export function EprimeFromEuProfileTab({
             boreholeId: row.boreholeId?.trim() || "BH not set",
             depth: depthDisplay,
             ePrime: ePrimeDisplay,
+            eu: eModulusDisplay,
+            beta,
+            soilType: row.soilType === "soft-clay" ? "Soft clay" : row.soilType === "stiff-clay" ? "Stiff clay" : "Silt / silty clay",
           };
         })
         .filter((point): point is PlotPoint => point !== null),
     [rows, soilPolicyToolSlug, importRows, unitSystem],
   );
+
+  useEffect(() => {
+    if (!onReportDataChange) return;
+    const sorted = [...plotPoints].sort((a, b) => a.boreholeId.localeCompare(b.boreholeId, undefined, { numeric: true }) || a.depth - b.depth);
+    const autoFilled = rows.filter((r) => r.euSource === "auto-eu-from-spt").length;
+    const excluded = rows.length - plotPoints.length;
+    onReportDataChange({
+      depthUnit,
+      columns: [
+        { header: "Borehole", key: "Borehole" },
+        { header: `Depth (${depthUnit})`, key: "Depth" },
+        { header: `Eᵤ (${stressUnit})`, key: "eu" },
+        { header: "Soil type", key: "soilType" },
+        { header: "β′", key: "beta" },
+        { header: `E′ (${stressUnit})`, key: "ePrime" },
+      ],
+      rows: sorted.map((p) => ({ Borehole: p.boreholeId, Depth: p.depth.toFixed(2), eu: p.eu.toFixed(0), soilType: p.soilType, beta: p.beta.toFixed(2), ePrime: p.ePrime.toFixed(0) })),
+      points: sorted.map((p) => ({ boreholeId: p.boreholeId, depth: p.depth, values: { ePrime: p.ePrime } })),
+      series: [{ key: "ePrime", label: "E′", unit: stressUnit }],
+      methodNotes: [
+        `E′ was obtained for each sample as β′ × Eᵤ (Equation 3), with β′ selected from the soil type assigned to the sample. ${
+          autoFilled
+            ? `${autoFilled} of ${rows.length} Eᵤ values were taken from Eᵤ-from-SPT results saved to the project; the remainder were entered manually.`
+            : "All Eᵤ values were entered manually by the user; Equation (2) is shown for reference only."
+        }`,
+      ],
+      exclusions: excluded > 0 ? [`${excluded} sample(s) excluded: classified as cohesionless in the project data, or missing/invalid Eᵤ or depth.`] : undefined,
+    });
+  }, [depthUnit, onReportDataChange, plotPoints, rows, stressUnit]);
 
   return (
     <section className="space-y-5">
