@@ -94,10 +94,10 @@ export function SignUpForm({ showSwitchLink = true }: SignUpFormProps) {
         </p>
         <div className="rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50 via-white to-amber-50/90 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:px-5">
           <p className="text-center text-[13px] font-semibold leading-snug tracking-tight text-amber-950 sm:text-sm">
-            Register now — become a <span className="whitespace-nowrap text-amber-900">free Gold</span> member
+            Register free — unlock the <span className="whitespace-nowrap text-amber-900">detailed calculations</span>
           </p>
           <p className="mt-1.5 text-center text-xs leading-relaxed text-amber-900/85">
-            New sign-ups currently receive full Gold access at no extra cost. Secure sign-in with Supabase.
+            New accounts start as Bronze: every calculation step and the tool Information pages, free. Secure sign-in with Supabase.
           </p>
         </div>
       </div>

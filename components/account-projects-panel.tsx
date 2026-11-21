@@ -1,5 +1,6 @@
 "use client";
 
+import { ExcelExportButton } from "@/components/calculation/excel-export-button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -32,6 +33,7 @@ import {
   type MatrixAiReportCachePayload,
 } from "@/lib/matrix-ai-report-cache";
 import { getTierLimits, MATRIX_AI_REPORTS_PER_WEEK, tierAllowsAiAnalysis, tierAllowsReports } from "@/lib/subscription";
+import { getRetiredTool } from "@/lib/retired-tools";
 import { isToolReportSnapshotPayload } from "@/lib/tool-report-snapshot";
 import type { SoilBehavior } from "@/lib/soil-behavior-policy";
 
@@ -163,7 +165,7 @@ const PARAMETER_META: Record<
       </>
     ),
     tooltip: "Effective cohesion (c').",
-    tools: [{ slug: "cprime-from-cu", label: "c' from cu" }],
+    tools: [],
   },
   phi_prime: {
     label: <>φ′ (deg)</>,
@@ -233,7 +235,7 @@ const PARAMETER_META: Record<
       </>
     ),
     tooltip: "Oedometric modulus (Eoed).",
-    tools: [{ slug: "eoed-from-mv", label: "Eoed from mv" }],
+    tools: [{ slug: "eoed-from-mv", label: "Consolidation parameters" }],
   },
   mv: {
     label: (
@@ -242,7 +244,7 @@ const PARAMETER_META: Record<
       </>
     ),
     tooltip: "Coefficient of volume compressibility (mv).",
-    tools: [{ slug: "eoed-from-mv", label: "Eoed from mv" }],
+    tools: [{ slug: "eoed-from-mv", label: "Consolidation parameters" }],
   },
   ka: {
     label: (
@@ -1751,6 +1753,12 @@ export function AccountProjectsPanel() {
       setMessageType("error");
       return;
     }
+    const retired = getRetiredTool(toolSlug);
+    if (retired) {
+      setMessage(retired.message);
+      setMessageType("error");
+      return;
+    }
 
     if (typeof window !== "undefined") {
       window.localStorage.setItem(
@@ -2613,7 +2621,7 @@ export function AccountProjectsPanel() {
                     >
                       {isLoadingProjectParameters ? "Refreshing..." : "Refresh"}
                     </button>
-                    <button
+                    <ExcelExportButton
                       type="button"
                       className="btn-base px-3 py-1.5 text-xs"
                       onClick={exportIntegratedMatrixExcel}
@@ -2621,7 +2629,7 @@ export function AccountProjectsPanel() {
                       title={integratedMatrixRows.length === 0 ? "Matrix is empty." : undefined}
                     >
                       Export Excel
-                    </button>
+                    </ExcelExportButton>
                     <button
                       type="button"
                       className={`${AI_ANALYZE_BUTTON_CLASS} !w-auto shrink-0 !min-h-[2.25rem] !px-3 !py-1.5 !text-xs`}
@@ -2835,7 +2843,19 @@ export function AccountProjectsPanel() {
                             <p>Saved at: {new Date(savedResultDetails.created_at).toLocaleString("en-GB")}</p>
                             <p>Tool: {savedResultDetails.tool_title ?? "-"}</p>
                           </div>
-                          {slug ? (
+                          {slug && getRetiredTool(slug) ? (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                              <p>{getRetiredTool(slug)?.message}</p>
+                              {getRetiredTool(slug)?.replacementSlug ? (
+                                <Link
+                                  href={`/tools/${getRetiredTool(slug)?.replacementSlug}`}
+                                  className="mt-1 inline-flex font-semibold underline underline-offset-2"
+                                >
+                                  Open the replacement tool
+                                </Link>
+                              ) : null}
+                            </div>
+                          ) : slug ? (
                             <Link
                               href={`/tools/${slug}`}
                               className="inline-flex text-sm font-semibold text-slate-800 underline decoration-slate-400 underline-offset-2 hover:text-slate-950"

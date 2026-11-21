@@ -53,121 +53,130 @@ body {
   font-family: var(--font-sans), sans-serif;
 }
 
-h1,
-h2,
-h3,
-h4 {
-  font-family: var(--font-serif), serif;
+/*
+ * Element defaults and component classes live in Tailwind layers so that utility classes written on an
+ * element (text-xs, px-2, text-amber-800, …) override them. Unlayered rules here used to beat every utility,
+ * which made button sizes and link colours ignore their classes across the site.
+ */
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif), serif;
+  }
+
+  /* Account / auth: keep headings in the UI sans stack (Lora on dashboard looked off) */
+  .account-ui-sans h1,
+  .account-ui-sans h2,
+  .account-ui-sans h3,
+  .account-ui-sans h4 {
+    font-family: var(--font-sans), sans-serif;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
-/* Account / auth: keep headings in the UI sans stack (Lora on dashboard looked off) */
-.account-ui-sans h1,
-.account-ui-sans h2,
-.account-ui-sans h3,
-.account-ui-sans h4 {
-  font-family: var(--font-sans), sans-serif;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.btn-base {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 0.75rem;
-  background: #ffffff;
-  color: #334155;
-  font-family: var(--font-sans), sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  line-height: 1;
-  padding: 0.875rem 1rem;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.8),
-    0 8px 20px -18px rgba(15, 23, 42, 0.35);
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    filter 0.2s ease;
-}
-
-.btn-base:hover {
-  border-color: #7c93b3;
-  background: #e8eef8;
-  color: #0f172a;
-  transform: translateY(-1px) scale(1.01);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.9),
-    0 16px 30px -22px rgba(37, 99, 235, 0.45);
-  filter: saturate(1.05);
-}
-
-.btn-base:focus-visible {
-  outline: 2px solid #94a3b8;
-  outline-offset: 2px;
-}
-
-.btn-base:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-  transform: none;
-}
-
-.btn-danger {
-  border-color: #fca5a5;
-  background: #fef2f2;
-  color: #b91c1c;
-}
-
-.btn-danger:hover {
-  border-color: #f87171;
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.btn-md {
-  min-height: 2.75rem;
-  padding: 0.875rem 1rem;
-}
-
-.btn-lg {
-  min-height: 3.5rem;
-  padding: 1rem 1.5rem;
-  font-size: 1rem;
-}
-
-@media (max-width: 639px) {
+@layer components {
   .btn-base {
-    font-size: 0.8125rem;
-    padding: 0.5rem 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 0.75rem;
+    background: #ffffff;
+    color: #334155;
+    font-family: var(--font-sans), sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.875rem 1rem;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.8),
+      0 8px 20px -18px rgba(15, 23, 42, 0.35);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease,
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      filter 0.2s ease;
+  }
+
+  .btn-base:hover {
+    border-color: #7c93b3;
+    background: #e8eef8;
+    color: #0f172a;
+    transform: translateY(-1px) scale(1.01);
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+      0 16px 30px -22px rgba(37, 99, 235, 0.45);
+    filter: saturate(1.05);
+  }
+
+  .btn-base:focus-visible {
+    outline: 2px solid #94a3b8;
+    outline-offset: 2px;
+  }
+
+  .btn-base:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none;
+  }
+
+  .btn-danger {
+    border-color: #fca5a5;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .btn-danger:hover {
+    border-color: #f87171;
+    background: #fee2e2;
+    color: #991b1b;
   }
 
   .btn-md {
-    min-height: 2.375rem;
-    padding: 0.5rem 0.75rem;
-  }
-
-  .btn-lg {
     min-height: 2.75rem;
-    padding: 0.625rem 1rem;
-    font-size: 0.875rem;
+    padding: 0.875rem 1rem;
   }
-}
 
-@media (min-width: 640px) {
   .btn-lg {
-    min-height: 4rem;
-    padding: 1.125rem 2rem;
-    font-size: 1.05rem;
+    min-height: 3.5rem;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 639px) {
+    .btn-base {
+      font-size: 0.8125rem;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .btn-md {
+      min-height: 2.375rem;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .btn-lg {
+      min-height: 2.75rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .btn-lg {
+      min-height: 4rem;
+      padding: 1.125rem 2rem;
+      font-size: 1.05rem;
+    }
   }
 }
 

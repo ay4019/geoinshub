@@ -47,8 +47,8 @@ export function usageWeekMondayKeyEuropeIstanbul(ref: Date = new Date()): string
 /** Maps DB/API values to a tier; includes legacy `plan` aliases (free, pro, etc.). */
 export function normaliseSubscriptionTier(value: string | null | undefined): SubscriptionTier {
   if (value == null || value === "") {
-    // Temporary policy: every signed-up user is treated as Gold.
-    return "gold";
+    // Signed-up users without a stored tier start on Bronze.
+    return "bronze";
   }
   const v = value.trim().toLowerCase();
   if (v === "bronze" || v === "silver" || v === "gold" || v === "none") {
@@ -97,11 +97,12 @@ export function getTierLimits(tier: SubscriptionTier | null | undefined): TierLi
   };
 }
 
+/** Tool reports (Create report, Download PDF) — Gold only. */
 export function tierAllowsReports(
   tier: SubscriptionTier | null | undefined,
   isAdmin?: boolean | null,
 ): boolean {
-  return effectiveSubscriptionTier(tier, isAdmin ?? false) !== "none";
+  return effectiveSubscriptionTier(tier, isAdmin ?? false) === "gold";
 }
 
 export function tierAllowsAiAnalysis(
@@ -110,6 +111,14 @@ export function tierAllowsAiAnalysis(
 ): boolean {
   const t = effectiveSubscriptionTier(tier, isAdmin ?? false);
   return t === "gold";
+}
+
+/** AASHTO and TBDY design codes in the pile capacity tool — signed-in Gold members (EC7 stays open to all). */
+export function tierAllowsPremiumDesignCodes(
+  tier: SubscriptionTier | null | undefined,
+  isAdmin?: boolean | null,
+): boolean {
+  return effectiveSubscriptionTier(tier, isAdmin ?? false) === "gold";
 }
 
 /** Guided follow-ups (“Further questions”) in blog research articles — Silver and Gold. */
@@ -180,4 +189,12 @@ export function effectiveTierDisplayLabel(
 export function tierUi(tier: SubscriptionTier | null | undefined, isAdmin?: boolean | null) {
   const t = effectiveSubscriptionTier(tier, isAdmin ?? false);
   return TIER_UI[t];
+}
+
+/** Excel export of profile tables and the project parameter matrix — Gold only. */
+export function tierAllowsExcelExport(
+  tier: SubscriptionTier | null | undefined,
+  isAdmin?: boolean | null,
+): boolean {
+  return effectiveSubscriptionTier(tier, isAdmin ?? false) === "gold";
 }

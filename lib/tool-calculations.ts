@@ -1,5 +1,6 @@
 ﻿import { computeLiquefactionScreening } from "@/lib/liquefaction-screening";
 import { designToolCalculators } from "@/lib/design-tools/registry";
+import { compressionIndexCorrelations } from "@/lib/design-tools/soil-index-correlations";
 import { computePostLiquefactionSettlement } from "@/lib/post-liquefaction-settlement";
 import type { CalculationResult } from "@/lib/types";
 
@@ -436,8 +437,75 @@ function bearingCapacityCore(
     surcharge * nq * sq * dq +
     0.5 * gammaForNgamma * b * ngamma * sgamma * dgamma;
   const qall = qult / fs;
+  const r2 = (v: number) => round(v, 2);
+  const r3 = (v: number) => round(v, 3);
+  const NQ_FORMULA: Record<string, string> = {
+    terzaghi: "N_q = a² / [2 cos²(45° + φ′/2)],  a = e^((0.75π − φ′/2) tanφ′)",
+    meyerhof: "N_q = e^(π tanφ′) tan²(45° + φ′/2)",
+    hansen: "N_q = e^(π tanφ′) tan²(45° + φ′/2)",
+    vesic: "N_q = e^(π tanφ′) tan²(45° + φ′/2)",
+  };
+  const NG_FORMULA: Record<string, [string, string]> = {
+    terzaghi: ["N_γ ≈ 2(N_q + 1) tanφ′ / (1 + 0.4 sin4φ′)", `2(${r3(nq)} + 1)·tan${round(phiDeg, 1)}° / (1 + 0.4 sin${round(4 * phiDeg, 0)}°)`],
+    meyerhof: ["N_γ = (N_q − 1) tan(1.4φ′)", `(${r3(nq)} − 1)·tan(${round(1.4 * phiDeg, 1)}°)`],
+    hansen: ["N_γ = 1.5(N_q − 1) tanφ′", `1.5(${r3(nq)} − 1)·tan${round(phiDeg, 1)}°`],
+    vesic: ["N_γ = 2(N_q + 1) tanφ′", `2(${r3(nq)} + 1)·tan${round(phiDeg, 1)}°`],
+  };
+  const SHAPE_FORMULA: Record<string, string> = {
+    terzaghi: "s_c = 1 + 0.3B/L,  s_q = 1,  s_γ = 1 − 0.2B/L",
+    meyerhof: "s_c = 1 + 0.2K_p B/L,  s_q = s_γ = 1 + 0.1K_p B/L,  K_p = tan²(45° + φ′/2)",
+    hansen: "s_c = 1 + (N_q/N_c)B/L,  s_q = 1 + (B/L) sinφ′,  s_γ = 1 − 0.4B/L ≥ 0.6",
+    vesic: "s_c = 1 + (N_q/N_c)B/L,  s_q = 1 + (B/L) tanφ′,  s_γ = 1 − 0.4B/L ≥ 0.6",
+  };
+  const DEPTH_FORMULA: Record<string, string> = {
+    terzaghi: "No depth factors (d = 1)",
+    meyerhof: "d_c = 1 + 0.2√K_p D_f/B,  d_q = d_γ = 1 + 0.1√K_p D_f/B",
+    hansen: "d_c = 1 + 0.4k,  d_q = 1 + 2 tanφ′(1 − sinφ′)² k,  d_γ = 1,  k = D_f/B (≤ 1) or atan(D_f/B)",
+    vesic: "d_c = 1 + 0.4k,  d_q = 1 + 2 tanφ′(1 − sinφ′)² k,  d_γ = 1,  k = D_f/B (≤ 1) or atan(D_f/B)",
+  };
+  const termC = c * nc * sc * dc;
+  const termQ = surcharge * nq * sq * dq;
+  const termG = 0.5 * gammaForNgamma * b * ngamma * sgamma * dgamma;
 
   return {
+    headline: [
+      { label: "Allowable bearing pressure, q_all", value: r2(qall), unit: "kPa", note: `q_ult / FS = ${r2(qult)} / ${fs}` },
+      { label: "Ultimate bearing capacity, q_ult", value: r2(qult), unit: "kPa" },
+    ],
+    steps: [
+      {
+        title: "Bearing capacity factors",
+        lines: [
+          { label: "N_q", value: r3(nq), formula: NQ_FORMULA[method], substituted: method === "terzaghi" ? `φ′ = ${round(phiDeg, 1)}° → ${r3(nq)}` : `e^(π·tan${round(phiDeg, 1)}°)·tan²(${round(45 + phiDeg / 2, 2)}°) = ${r3(nq)}` },
+          { label: "N_c", value: r3(nc), formula: phiDeg > 0 ? "N_c = (N_q − 1) / tanφ′" : "N_c (φ = 0)", substituted: phiDeg > 0 ? `(${r3(nq)} − 1) / tan${round(phiDeg, 1)}° = ${r3(nc)}` : `${r3(nc)}` },
+          { label: "N_γ", value: r3(ngamma), formula: NG_FORMULA[method][0], substituted: `${NG_FORMULA[method][1]} = ${r3(ngamma)}` },
+        ],
+      },
+      {
+        title: "Shape and depth factors",
+        lines: [
+          { label: "s_c / s_q / s_γ", value: `${r3(sc)} / ${r3(sq)} / ${r3(sgamma)}`, formula: SHAPE_FORMULA[method], substituted: `B/L = ${r3(b / l)}` },
+          { label: "d_c / d_q / d_γ", value: `${r3(dc)} / ${r3(dq)} / ${r3(dgamma)}`, formula: DEPTH_FORMULA[method], substituted: `D_f/B = ${r3(dOverB)}` },
+        ],
+      },
+      {
+        title: "Overburden and unit weight",
+        lines: [
+          { label: "Effective surcharge at base, q", value: r2(surcharge), unit: "kPa", formula: "q = σ′_v0(D_f) = γD_f − γ_w·max(D_f − z_w, 0)", substituted: `${gamma}·${df} − 9.81·${r2(Math.max(df - gwt, 0))} = ${r2(surcharge)} kPa` },
+          { label: "γ′ for the N_γ term", value: r3(gammaForNgamma), unit: "kN/m3", formula: "average effective unit weight over D_f → D_f + B" },
+        ],
+      },
+      {
+        title: "Ultimate and allowable bearing pressure",
+        lines: [
+          { label: "Cohesion term", value: r2(termC), unit: "kPa", formula: "c′ N_c s_c d_c", substituted: `${c}·${r3(nc)}·${r3(sc)}·${r3(dc)} = ${r2(termC)} kPa` },
+          { label: "Overburden term", value: r2(termQ), unit: "kPa", formula: "q N_q s_q d_q", substituted: `${r2(surcharge)}·${r3(nq)}·${r3(sq)}·${r3(dq)} = ${r2(termQ)} kPa` },
+          { label: "Self-weight term", value: r2(termG), unit: "kPa", formula: "0.5 γ′ B N_γ s_γ d_γ", substituted: `0.5·${r3(gammaForNgamma)}·${b}·${r3(ngamma)}·${r3(sgamma)}·${r3(dgamma)} = ${r2(termG)} kPa` },
+          { label: "q_ult", value: r2(qult), unit: "kPa", formula: "q_ult = c′N_c s_c d_c + qN_q s_q d_q + 0.5γ′BN_γ s_γ d_γ", substituted: `${r2(termC)} + ${r2(termQ)} + ${r2(termG)} = ${r2(qult)} kPa` },
+          { label: "q_all", value: r2(qall), unit: "kPa", formula: "q_all = q_ult / FS", substituted: `${r2(qult)} / ${fs} = ${r2(qall)} kPa` },
+        ],
+      },
+    ],
     title: `${method.charAt(0).toUpperCase() + method.slice(1)} Bearing Capacity`,
     summary: `Simplified rectangular footing check with φ′ = ${round(phiDeg, 1)} deg and B/L = ${round(
       b / l,
@@ -526,8 +594,43 @@ function ec7BearingCapacity(values: FormValues): CalculationResult {
     surcharge * nq * sq * dq +
     0.5 * gammaForNgamma * b * ngamma * sgamma;
   const qrd = qultDesign / factors.gammaR;
+  const r2 = (v: number) => round(v, 2);
+  const r3 = (v: number) => round(v, 3);
+  const termC = cDesign * nc * sc * dc;
+  const termQ = surcharge * nq * sq * dq;
+  const termG = 0.5 * gammaForNgamma * b * ngamma * sgamma;
 
   return {
+    headline: [
+      { label: "Design bearing resistance, q_Rd", value: r2(qrd), unit: "kPa", note: `${designApproach.toUpperCase().replaceAll("-", " ")} · ${factors.actionSet}` },
+      { label: "Design ultimate pressure, q_ult,d", value: r2(qultDesign), unit: "kPa" },
+    ],
+    steps: [
+      {
+        title: "Design soil parameters",
+        lines: [
+          { label: "φ′_d", value: r2(phiDegD), unit: "deg", formula: "tanφ′_d = tanφ′ / γ_M,φ", substituted: `atan(tan${phiDeg}° / ${factors.gammaMphi}) = ${r2(phiDegD)}°` },
+          { label: "c′_d", value: r2(cDesign), unit: "kPa", formula: "c′_d = c′ / γ_M,c", substituted: `${c} / ${factors.gammaMc} = ${r2(cDesign)} kPa` },
+        ],
+      },
+      {
+        title: "Bearing capacity factors (Annex D)",
+        lines: [
+          { label: "N_q", value: r3(nq), formula: "N_q = e^(π tanφ′_d) tan²(45° + φ′_d/2)", substituted: `e^(π·tan${r2(phiDegD)}°)·tan²(${r2(45 + phiDegD / 2)}°) = ${r3(nq)}` },
+          { label: "N_c", value: r3(nc), formula: "N_c = (N_q − 1) cotφ′_d", substituted: `(${r3(nq)} − 1) / tan${r2(phiDegD)}° = ${r3(nc)}` },
+          { label: "N_γ", value: r3(ngamma), formula: "N_γ = 2(N_q − 1) tanφ′_d", substituted: `2(${r3(nq)} − 1)·tan${r2(phiDegD)}° = ${r3(ngamma)}` },
+          { label: "s_c / s_q / s_γ", value: `${r3(sc)} / ${r3(sq)} / ${r3(sgamma)}`, formula: "s_q = 1 + (B/L) sinφ′_d,  s_γ = 1 − 0.3B/L,  s_c = (s_q N_q − 1)/(N_q − 1)", substituted: `B/L = ${r3(ratio)}` },
+        ],
+      },
+      {
+        title: "Design resistance",
+        lines: [
+          { label: "Effective surcharge at base, q", value: r2(surcharge), unit: "kPa", formula: "q = σ′_v0(D_f)" },
+          { label: "q_ult,d", value: r2(qultDesign), unit: "kPa", formula: "R/A′ = c′_d N_c s_c + q N_q s_q + 0.5 γ′ B N_γ s_γ", substituted: `${r2(termC)} + ${r2(termQ)} + ${r2(termG)} = ${r2(qultDesign)} kPa` },
+          { label: "q_Rd", value: r2(qrd), unit: "kPa", formula: "q_Rd = q_ult,d / γ_R,v", substituted: `${r2(qultDesign)} / ${factors.gammaR} = ${r2(qrd)} kPa` },
+        ],
+      },
+    ],
     title: "Eurocode 7 Bearing Resistance Screening",
     summary: `Design approach ${designApproach.toUpperCase().replaceAll("-", " ")} represented as ${factors.actionSet}.`,
     items: [
@@ -631,7 +734,45 @@ const calculators: Record<string, Calculator> = {
     };
   },
   "eoed-from-mv": (values) => {
-    const inputMode = values.eoedInputMode === "pi-f2" ? "pi-f2" : "mv";
+    const inputMode = values.eoedInputMode === "pi-f2" ? "pi-f2" : values.eoedInputMode === "cc" ? "cc" : "mv";
+
+    if (inputMode === "cc") {
+      const ll = ensurePositive(parseNumber(values.ll, "Liquid limit"), "Liquid limit");
+      const e0 = ensurePositive(parseNumber(values.e0, "Initial void ratio"), "Initial void ratio");
+      const wn = ensurePositive(parseNumber(values.wn, "Natural water content"), "Natural water content");
+      const sigma0 = ensurePositive(parseNumber(values.sigmaV0, "σ′v0"), "σ′v0");
+      const dSigma = ensurePositive(parseNumber(values.deltaSigma, "Δσ′"), "Δσ′");
+      const cc = compressionIndexCorrelations({ ll, e0, wn });
+      if (!cc.list.length) {
+        throw new Error("The index properties give no positive C_c estimate.");
+      }
+      // m_v in 1/kPa → m²/MN (×1000); Eoed in MPa.
+      const mvOf = (c: number) => ((c / (1 + e0)) * Math.log10((sigma0 + dSigma) / sigma0)) / dSigma * 1000;
+      const mv = mvOf(cc.mean);
+      const eoed = 1 / mv;
+
+      return {
+        title: "Consolidation Parameters from C_c Correlations",
+        summary: `C_c ≈ ${round(cc.mean, 3)} (range ${round(cc.min, 3)}–${round(cc.max, 3)}); over ${round(sigma0, 0)} → ${round(
+          sigma0 + dSigma,
+          0,
+        )} kPa this gives m_v ≈ ${round(mv, 3)} m²/MN and Eoed ≈ ${round(eoed, 2)} MPa (Eoed range ${round(1 / mvOf(cc.max), 2)}–${round(1 / mvOf(cc.min), 2)} MPa).`,
+        items: [
+          ...cc.list.map((c) => ({ label: c.label, value: round(c.cc, 3) })),
+          { label: "Mean C_c", value: round(cc.mean, 3) },
+          { label: "Compression ratio C_c / (1 + e0)", value: round(cc.mean / (1 + e0), 4) },
+          { label: "Recompression index C_r (C_c/10 – C_c/5)", value: `${round(cc.mean / 10, 3)} – ${round(cc.mean / 5, 3)}` },
+          { label: "Secondary compression index C_α ≈ 0.04 C_c", value: round(0.04 * cc.mean, 4) },
+          { label: "m_v over σ′v0 → σ′v0 + Δσ′ (mean C_c)", value: round(mv, 4), unit: "m2/MN" },
+          { label: "Eoed = 1 / m_v (mean C_c)", value: round(eoed, 3), unit: "MPa" },
+        ],
+        notes: [
+          "m_v and Eoed assume normal consolidation over the whole stress range; for overconsolidated clay use C_r up to σ′p.",
+          "The correlations apply to inorganic clays; organic soils and peats need laboratory testing (C_α/C_c ≈ 0.05–0.07).",
+        ],
+        warnings: baseWarnings(),
+      };
+    }
 
     if (inputMode === "pi-f2") {
       const pi = ensureNonNegative(parseNumber(values.plasticityIndex, "Plasticity index"), "Plasticity index");
@@ -801,6 +942,7 @@ const calculators: Record<string, Calculator> = {
   },
   "traditional-bearing-capacity-methods": (values) => {
     const selectedMethod = values.method;
+    if (selectedMethod === "eurocode-7") return ec7BearingCapacity(values);
     const method =
       selectedMethod === "meyerhof" ||
       selectedMethod === "hansen" ||
@@ -1267,6 +1409,10 @@ const calculators: Record<string, Calculator> = {
     const threshold = screening.minimumRequiredFos;
 
     return {
+      headline: [
+        { label: "Factor of safety, FoS", value: round(screening.fos, 2), status: screening.fos >= threshold ? "pass" : "fail", note: `required ≥ ${round(threshold, 2)}` },
+        { label: "Liquefaction", value: screening.fos >= threshold ? "Not expected" : "Potential", status: screening.fos >= threshold ? "pass" : "fail" },
+      ],
       title: "Liquefaction Potential",
       summary:
         screening.fos < threshold

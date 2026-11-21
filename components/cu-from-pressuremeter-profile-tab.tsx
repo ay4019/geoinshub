@@ -1,5 +1,6 @@
 "use client";
 
+import { ExcelExportButton } from "@/components/calculation/excel-export-button";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
@@ -384,7 +385,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
                 </td>
                 <td colSpan={3} />
                 <td className="px-2 py-3 text-right align-top">
-                  <button
+                  <ExcelExportButton
                     type="button"
                     className={profileTableFooterButtonClass}
                     onClick={(event) => {
@@ -392,7 +393,7 @@ export function CuFromPressuremeterProfileTab({ unitSystem, importRows }: CuFrom
                     }}
                   >
                     Export Excel
-                  </button>
+                  </ExcelExportButton>
                 </td>
               </tr>
             </tfoot>

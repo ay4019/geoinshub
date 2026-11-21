@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ScriptText } from "@/components/script-text";
 import {
   CHART_INK,
   boreholeStyles,
@@ -30,23 +31,6 @@ interface DepthProfilePlotProps extends DepthProfileSpec {
 
 const MARGIN = { top: 50, right: 18, bottom: 14, left: 58 };
 const MARKER_R = 4.6;
-
-/** HTML text with real subscripts. */
-export function ScriptText({ text }: { text: string }) {
-  return (
-    <>
-      {splitSubscripts(text).map((seg, i) =>
-        seg.sub ? (
-          <sub key={i} className="relative -bottom-[0.1em] align-baseline text-[0.72em] leading-none">
-            {seg.text}
-          </sub>
-        ) : (
-          <span key={i}>{seg.text}</span>
-        ),
-      )}
-    </>
-  );
-}
 
 /** SVG <tspan>s with real subscripts; place inside a <text>. */
 function SvgScript({ text }: { text: string }) {

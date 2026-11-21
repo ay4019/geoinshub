@@ -4,39 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { SearchInput } from "@/components/search-input";
 import { ToolCard } from "@/components/tool-card";
+import { TOOL_SUPERGROUPS, readToolsSection, writeToolsSection } from "@/lib/tool-supergroups";
 import { TOOL_CATEGORIES, type ToolDefinition } from "@/lib/types";
 
 interface ToolCatalogProps {
   tools: ToolDefinition[];
 }
 
-const TOOL_SUPERGROUPS = [
-  {
-    id: "site-characterization",
-    title: "Site Characterisation Tools",
-    categories: [
-      "Shear Strength Tools",
-      "Rigidity / Deformation Tools",
-      "Stress Related Tools",
-      "Field & In-Situ Testing",
-      "Soil Parameters",
-    ],
-  },
-  {
-    id: "geotechnical-analysis",
-    title: "Geotechnical Analysis Tools",
-    categories: [
-      "Bearing Capacity",
-      "Settlement",
-      "Liquefaction",
-      "Earth Pressure & Retaining Structures",
-      "Pile Foundations",
-      "Slope Stability",
-      "Ground Improvement",
-      "Railway Geotechnics",
-    ],
-  },
-] as const;
+
 
 type ToolSupersection = {
   id: string;
@@ -47,6 +22,12 @@ type ToolSupersection = {
 export function ToolCatalog({ tools }: ToolCatalogProps) {
   const [query, setQuery] = useState("");
   const [activeSupersection, setActiveSupersection] = useState<string>("site-characterization");
+
+  // Restore the group from ?section= (e.g. when coming back from a tool page); the server renders the default.
+  useEffect(() => {
+    const fromUrl = readToolsSection();
+    if (fromUrl && TOOL_SUPERGROUPS.some((g) => g.id === fromUrl)) setActiveSupersection(fromUrl);
+  }, []);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -145,7 +126,10 @@ export function ToolCatalog({ tools }: ToolCatalogProps) {
                 <button
                   key={section.id}
                   type="button"
-                  onClick={() => setActiveSupersection(section.id)}
+                  onClick={() => {
+                    setActiveSupersection(section.id);
+                    writeToolsSection(section.id);
+                  }}
                   className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
                     isActive
                       ? "border-slate-300 bg-white shadow-sm"
@@ -176,18 +160,33 @@ export function ToolCatalog({ tools }: ToolCatalogProps) {
               </p>
             </div>
 
-            {visibleSection.categories.map((group) => (
-              <section key={group.category} className="space-y-4" aria-labelledby={`group-${group.category}`}>
-                <h3 id={`group-${group.category}`} className="font-serif text-lg font-semibold text-slate-800">
-                  {group.category}
-                </h3>
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.tools.map((tool) => (
-                    <ToolCard key={tool.slug} tool={tool} />
-                  ))}
-                </div>
-              </section>
-            ))}
+            {/* One flowing 3-column grid: categories share rows; the first card of each category carries its heading,
+                the following cards of the same category continue its rule so the group still reads as one. */}
+            <div className="grid gap-x-5 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleSection.categories
+                .flatMap((group) => group.tools.map((tool, index) => ({ group, tool, index })))
+                .map(({ group, tool, index }, position) => (
+                  <div key={tool.slug} className="flex flex-col">
+                    <div className="mb-3 flex h-8 items-end border-b border-slate-200 pb-1.5">
+                      {index === 0 ? (
+                        <h3 className="font-serif text-lg font-semibold leading-tight text-slate-800">{group.category}</h3>
+                      ) : (
+                        // A category that wraps onto a new row repeats its name (muted) at the start of that row.
+                        <span
+                          className={`text-lg font-semibold leading-tight text-slate-400 ${
+                            position % 2 === 0 ? "hidden sm:block" : "hidden"
+                          } ${position % 3 === 0 ? "lg:block" : "lg:hidden"}`}
+                        >
+                          {group.category} <span className="text-sm font-normal">(cont.)</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <ToolCard tool={tool} />
+                    </div>
+                  </div>
+                ))}
+            </div>
           </section>
         </div>
       ) : (

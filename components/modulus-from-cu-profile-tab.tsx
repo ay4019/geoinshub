@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { ExcelExportButton } from "@/components/calculation/excel-export-button";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
@@ -445,7 +446,7 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows, soilPolicyTool
             <button type="button" className="btn-base btn-md" onClick={addRow}>
               Add Sample
             </button>
-            <button
+            <ExcelExportButton
               type="button"
               className="btn-base btn-md"
               onClick={(event) => {
@@ -453,7 +454,7 @@ export function ModulusFromCuProfileTab({ unitSystem, importRows, soilPolicyTool
               }}
             >
               Export Excel
-            </button>
+            </ExcelExportButton>
           </div>
         </div>
 

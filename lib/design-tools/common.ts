@@ -63,11 +63,12 @@ export function equivalentInfluenceDiameter(spacing: number, pattern: "square" |
   return Math.sqrt((4 * tributaryArea(spacing, pattern)) / Math.PI);
 }
 
+/**
+ * Result-specific warnings only. The general "preliminary output, verify independently" notice is shown once
+ * per tool page (Important disclaimer under the calculator) and is not repeated inside each result.
+ */
 export function screeningWarnings(extra: string[] = []): string[] {
-  return [
-    ...extra,
-    "Preliminary design output. Verify against the cited manual, project-specific data, and an independent check before use.",
-  ];
+  return [...extra];
 }
 
 /** Terzaghi one-dimensional average degree of consolidation U_v(T_v) (Sivakugan & Das closed form). */

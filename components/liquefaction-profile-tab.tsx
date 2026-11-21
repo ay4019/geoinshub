@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ExcelExportButton } from "@/components/calculation/excel-export-button";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
+import { DETAILS_ANCHOR, TierGate, scrollToDetails, type DetailLevel } from "@/components/calculation/result-panels";
+import { DepthProfilePlot } from "@/components/charts/depth-profile-plot";
+import { EngineeringText } from "@/components/engineering-text";
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
+import { profilePlotItemClass, profilePlotsSectionClass } from "@/lib/profile-plot-layout";
 import {
   ProfileTableHeaderCell,
   ProfileTableScroll,
@@ -26,6 +32,8 @@ interface LiquefactionProfileTabProps {
   initialMethod?: LiquefactionMethod;
   /** Emits data for the standard two-part report (Report tab). */
   onReportDataChange?: (payload: StandardReportPayload) => void;
+  /** Membership level for the detailed plots (guest: blurred). */
+  detailLevel?: DetailLevel;
 }
 
 interface LiquefactionProfileRow {
@@ -98,6 +106,7 @@ export function LiquefactionProfileTab({
   importRows,
   initialMethod = "idriss-boulanger-2008",
   onReportDataChange,
+  detailLevel = "guest",
 }: LiquefactionProfileTabProps) {
   const [method, setMethod] = useState<LiquefactionMethod>(initialMethod);
   const [magnitude, setMagnitude] = useState("7.5");
@@ -125,6 +134,9 @@ export function LiquefactionProfileTab({
           boreholeId: (row.boreholeId || "").trim() || "—",
           depth: sampleDepth,
           fos,
+          demand: result ? result.demandValue : null,
+          resistance: result ? result.resistanceValue : null,
+          minimumRequiredFos: result ? result.minimumRequiredFos : null,
         };
       })
       .filter((item) => Number.isFinite(item.depth) && item.depth > 0 && item.fos !== null && Number.isFinite(item.fos));
@@ -361,83 +373,11 @@ export function LiquefactionProfileTab({
                     (N<sub>1</sub>)<sub>60</sub>
                   </span>
                 </th>
-                {method === "tbdy-2018" ? (
-                  <>
-                    <th className={`${profileTableThClass} text-center`}>
-                      <span className="block leading-tight">α</span>
-                    </th>
-                    <th className={`${profileTableThClass} text-center`}>
-                      <span className="block leading-tight">β</span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">
-                        (N<sub>1</sub>)<sub>60,f</sub>
-                      </span>
-                    </th>
-                  </>
-                ) : (
-                  <>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">
-                        ΔN<sub>(1,60)</sub>
-                      </span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">(N<sub>1</sub>)<sub>60,cs</sub></span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">CRR<sub>7.5</sub></span>
-                    </th>
-                  </>
-                )}
-                <th className={profileTableThClass}>
-                  <ProfileTableHeaderCell title={<span>σ<sub>v0</sub></span>} unit="kPa" />
-                </th>
                 <th className={profileTableThClass}>
                   <span className="block leading-tight">
                     Check<sup>1</sup>
                   </span>
                 </th>
-                {method === "tbdy-2018" ? (
-                  <>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">C<sub>M</sub></span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">CRR<sub>7.5</sub></span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <ProfileTableHeaderCell title={<span>σ′<sub>v0</sub></span>} unit="kPa" />
-                    </th>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">r<sub>d</sub></span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <ProfileTableHeaderCell title={<span>τ<sub>R</sub></span>} unit="kPa" />
-                    </th>
-                    <th className={profileTableThClass}>
-                      <ProfileTableHeaderCell title={<span>τ<sub>eq</sub></span>} unit="kPa" />
-                    </th>
-                  </>
-                ) : (
-                  <>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">MSF</span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <ProfileTableHeaderCell title={<span>σ′<sub>v0</sub></span>} unit="kPa" />
-                    </th>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">r<sub>d</sub></span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">CSR</span>
-                    </th>
-                    <th className={profileTableThClass}>
-                      <span className="block leading-tight">CRR<sub>M</sub></span>
-                    </th>
-                  </>
-                )}
                 <th className={profileTableThClass}>
                   <span className="block leading-tight">FS</span>
                 </th>
@@ -448,7 +388,7 @@ export function LiquefactionProfileTab({
             </thead>
             <tbody>
               {rows.map((row) => {
-                const { sampleDepth, hasDepthIssue, rawResult, checkStatus, result } = evaluateLiquefactionRow(row, {
+                const { hasDepthIssue, checkStatus, result } = evaluateLiquefactionRow(row, {
                   method,
                   magnitude,
                   peakGroundAcceleration,
@@ -519,48 +459,16 @@ export function LiquefactionProfileTab({
                       />
                     </td>
 
-                    {method === "tbdy-2018" ? (
-                      <>
-                        <td className="px-2 py-3 text-center font-semibold text-slate-900">{rawResult ? rawResult.alpha?.toFixed(2) : "-"}</td>
-                        <td className="px-2 py-3 text-center font-semibold text-slate-900">{rawResult ? rawResult.beta?.toFixed(3) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{rawResult ? rawResult.n160f?.toFixed(2) : "-"}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{rawResult ? rawResult.deltaN?.toFixed(2) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{rawResult ? rawResult.n160cs?.toFixed(2) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{rawResult ? rawResult.crr75.toFixed(3) : "-"}</td>
-                      </>
-                    )}
-
-                    <td className="px-2 py-3 font-semibold text-slate-900">{rawResult ? rawResult.sigmaV0.toFixed(1) : "-"}</td>
                     <td className="px-2 py-3"><div className={`rounded-lg border px-2 py-1.5 font-semibold leading-tight ${statusTone}`}>{checkStatus}</div></td>
 
-                    {method === "tbdy-2018" ? (
-                      <>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.cm?.toFixed(3) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.crr75.toFixed(3) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.sigmaV0Effective.toFixed(1) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.rd.toFixed(3) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.tauResistance?.toFixed(2) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.tauEarthquake?.toFixed(2) : "-"}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.msf?.toFixed(3) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.sigmaV0Effective.toFixed(1) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.rd.toFixed(3) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.csr?.toFixed(3) : "-"}</td>
-                        <td className="px-2 py-3 font-semibold text-slate-900">{result ? result.crrMagnitudeCorrected?.toFixed(3) : "-"}</td>
-                      </>
-                    )}
 
                     <td className="px-2 py-3">
                       <div className={profileTableOutputCellClass}>{result ? result.fos.toFixed(2) : "-"}</div>
-                      <p className="mt-1 text-[10px] leading-tight text-slate-500">
-                        {rawResult ? `Sample depth: ${sampleDepth.toFixed(2)} ${depthUnit}` : "Enter a valid sample depth."}
-                      </p>
-                      {result && result.fos < result.minimumRequiredFos ? <p className="mt-1 text-[10px] font-semibold leading-tight text-red-700">Liquefaction Potential!</p> : null}
+                      {result ? (
+                        <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${result.fos < result.minimumRequiredFos ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
+                          {result.fos < result.minimumRequiredFos ? "✗ Liquefaction potential" : "✓ OK"}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-2 py-3">
                       <button
@@ -588,7 +496,7 @@ export function LiquefactionProfileTab({
             Add Sample
           </button>
           <div className="flex items-center gap-3">
-            <button
+            <ExcelExportButton
               type="button"
               className="btn-base btn-md"
               onClick={(event) => {
@@ -596,218 +504,91 @@ export function LiquefactionProfileTab({
               }}
             >
               Export Excel
-            </button>
+            </ExcelExportButton>
           </div>
         </div>
 
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plot</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-900">Factor of Safety vs Depth</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Depth is on the vertical axis; FoS is on the horizontal axis. Points with FoS &lt; 1 are shown in red.
-            </p>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Plots</p>
+        <h3 className="mt-1 text-lg font-semibold text-slate-900">Liquefaction triggering with depth</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Factor of safety by borehole with the {method === "tbdy-2018" ? "TBDY 2018" : "Idriss and Boulanger (2008)"} limit,
+          and the cyclic demand against the soil&apos;s cyclic resistance. Hover a point for its value.
+        </p>
+        {fosPlot.points.length ? (
+          (() => {
+            const isTbdy = method === "tbdy-2018";
+            const minFos = fosPlot.points.find((p) => p.minimumRequiredFos !== null)?.minimumRequiredFos ?? (isTbdy ? 1.1 : 1.0);
+            const stressUnit = getDisplayUnit("kPa", unitSystem) ?? "kPa";
+            const toDisplay = (v: number) => (isTbdy ? Number(convertInputValueBetweenSystems(String(v), "kPa", "metric", unitSystem)) : v);
+            const demandName = isTbdy ? "τ_eq demand" : "CSR demand";
+            const resistanceName = isTbdy ? "τ_R resistance" : "CRR resistance";
+            const fosData = fosPlot.points.map((p) => ({ boreholeId: p.boreholeId === "—" ? "BH not set" : p.boreholeId, depth: p.depth, value: p.fos ?? 0 }));
+            const dvrData = fosPlot.points.flatMap((p) => [
+              { boreholeId: demandName, depth: p.depth, value: toDisplay(p.demand ?? 0) },
+              { boreholeId: resistanceName, depth: p.depth, value: toDisplay(p.resistance ?? 0) },
+            ]);
+            const below = fosPlot.points.filter((p) => (p.fos ?? 99) < minFos).length;
+            return (
+              <>
+                <div className={`mt-3 rounded-lg border px-3 py-2 text-sm ${below ? "border-red-200 bg-red-50 text-red-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+                  {below
+                    ? `${below} of ${fosPlot.points.length} analysed samples have FoS below ${minFos.toFixed(2)} — liquefaction potential.`
+                    : `All ${fosPlot.points.length} analysed samples have FoS of at least ${minFos.toFixed(2)}.`}
+                </div>
+                <button type="button" onClick={scrollToDetails} className="mt-2 text-sm font-semibold text-slate-800 underline underline-offset-4">
+                  Detailed calculations ↓
+                </button>
+                <section id={DETAILS_ANCHOR} className="scroll-mt-28">
+                <TierGate level={detailLevel} minHeight={300}>
+                <LiquefactionStepsTable
+                  rows={rows}
+                  method={method}
+                  ctx={{ method, magnitude, peakGroundAcceleration, groundwaterDepth, unitSystem }}
+                  depthUnit={depthUnit}
+                  showFormulas={detailLevel === "silver" || detailLevel === "gold"}
+                  magnitude={Number(magnitude)}
+                  pga={Number(peakGroundAcceleration)}
+                />
+                <div className={profilePlotsSectionClass(2)}>
+                  <ExpandableProfilePlot className={profilePlotItemClass(2)}>
+                    <DepthProfilePlot
+                      title="Factor of safety vs depth"
+                      subtitle={isTbdy ? "FoS = τ_R / τ_eq" : "FoS = CRR / CSR"}
+                      xLabel="FoS (—)"
+                      valueName="FoS"
+                      depthUnit={depthUnit}
+                      data={fosData}
+                      xMin={0}
+                      referenceLines={[
+                        { value: 1, label: "FoS = 1.0" },
+                        ...(Math.abs(minFos - 1) > 1e-6 ? [{ value: minFos, label: `Required ${minFos.toFixed(1)}` }] : []),
+                      ]}
+                    />
+                  </ExpandableProfilePlot>
+                  <ExpandableProfilePlot className={profilePlotItemClass(2)}>
+                    <DepthProfilePlot
+                      title={isTbdy ? "Cyclic shear stress vs depth" : "Cyclic stress ratio vs depth"}
+                      subtitle="Demand from the earthquake against the soil's cyclic resistance"
+                      xLabel={isTbdy ? `τ (${stressUnit})` : "CSR, CRR (—)"}
+                      depthUnit={depthUnit}
+                      data={dvrData}
+                      xMin={0}
+                    />
+                  </ExpandableProfilePlot>
+                </div>
+                </TierGate>
+                </section>
+              </>
+            );
+          })()
+        ) : (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            No analysed points available yet. Enter valid sample depths below GWT and within range, then review FoS in the table.
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              FoS ≥ 1
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-              FoS &lt; 1
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-4 overflow-x-auto">
-          {fosPlot.points.length ? (
-            (() => {
-              const { points, maxDepth, maxFoS, boreholes } = fosPlot;
-              const shapeOrder = ["circle", "square", "triangle", "diamond"] as const;
-              const shapeByBorehole = new Map<string, (typeof shapeOrder)[number]>();
-              boreholes.forEach((id, idx) => {
-                shapeByBorehole.set(id, shapeOrder[idx % shapeOrder.length]);
-              });
-              const marginLeft = 64;
-              const marginRight = 22;
-              const marginTop = 44;
-              const marginBottom = 46;
-              const width = 860;
-              const height = 420;
-              const plotWidth = width - marginLeft - marginRight;
-              const plotHeight = height - marginTop - marginBottom;
-              const xMin = 0;
-              const xMax = Math.max(1.6, Math.ceil(maxFoS * 10) / 10);
-              const yMin = 0;
-              const yMax = Math.max(6, Math.ceil(maxDepth));
-              const x = (value: number) => marginLeft + ((value - xMin) / (xMax - xMin)) * plotWidth;
-              const y = (depth: number) => marginTop + ((depth - yMin) / (yMax - yMin)) * plotHeight;
-
-              const xTicks = Array.from({ length: 6 }, (_, i) => xMin + (i * (xMax - xMin)) / 5).map((tick) =>
-                Number(tick.toFixed(2)),
-              );
-              const yTicks = [0, 2, 4, 6, 8, 10, 15, 20].filter((tick) => tick <= yMax);
-
-              const renderMarker = (
-                shape: (typeof shapeOrder)[number],
-                cx: number,
-                cy: number,
-                fill: string,
-                stroke: string,
-              ) => {
-                const r = 6;
-                switch (shape) {
-                  case "square":
-                    return (
-                      <rect
-                        x={cx - r}
-                        y={cy - r}
-                        width={r * 2}
-                        height={r * 2}
-                        rx="3"
-                        fill={fill}
-                        stroke={stroke}
-                        strokeWidth="1"
-                      />
-                    );
-                  case "triangle":
-                    return (
-                      <path
-                        d={`M ${cx} ${cy - r} L ${cx + r} ${cy + r} L ${cx - r} ${cy + r} Z`}
-                        fill={fill}
-                        stroke={stroke}
-                        strokeWidth="1"
-                        strokeLinejoin="round"
-                      />
-                    );
-                  case "diamond":
-                    return (
-                      <path
-                        d={`M ${cx} ${cy - r} L ${cx + r} ${cy} L ${cx} ${cy + r} L ${cx - r} ${cy} Z`}
-                        fill={fill}
-                        stroke={stroke}
-                        strokeWidth="1"
-                        strokeLinejoin="round"
-                      />
-                    );
-                  default:
-                    return <circle cx={cx} cy={cy} r={r} fill={fill} stroke={stroke} strokeWidth="1" />;
-                }
-              };
-
-              const legendItems = boreholes.slice(0, 6);
-              const legendItemWidth = 120;
-              const legendTotalWidth = legendItems.length * legendItemWidth;
-              const legendStartX = marginLeft + Math.max(0, (plotWidth - legendTotalWidth) / 2);
-              const legendY = height - 14;
-
-              return (
-                <svg
-                  viewBox={`0 0 ${width} ${height}`}
-                  className="block w-full max-w-[980px] rounded-2xl border border-slate-200 bg-white"
-                  role="img"
-                  aria-label="Factor of safety versus depth plot"
-                >
-                  <rect x="0" y="0" width={width} height={height} fill="#ffffff" />
-
-                  {xTicks.map((tick) => (
-                    <g key={`xt-${tick.toFixed(3)}`}>
-                      <line x1={x(tick)} y1={marginTop} x2={x(tick)} y2={marginTop + plotHeight} stroke="#e2e8f0" strokeWidth="1" />
-                      <text
-                        x={Math.abs(tick - 1) < 1e-9 ? x(1) : x(tick)}
-                        y={marginTop - 16}
-                        textAnchor="middle"
-                        fill="#64748b"
-                        fontSize="12"
-                        fontWeight="700"
-                      >
-                        {tick.toFixed(2)}
-                      </text>
-                    </g>
-                  ))}
-                  {yTicks.map((tick) => (
-                    <g key={`yt-${tick}`}>
-                      <line x1={marginLeft} y1={y(tick)} x2={marginLeft + plotWidth} y2={y(tick)} stroke="#e2e8f0" strokeWidth="1" />
-                      <text x={marginLeft - 12} y={y(tick) + 4} textAnchor="end" fill="#64748b" fontSize="12" fontWeight="700">
-                        {tick}
-                      </text>
-                    </g>
-                  ))}
-
-                  <text x={marginLeft + plotWidth / 2} y={22} textAnchor="middle" fill="#334155" fontSize="13" fontWeight="800">
-                    FoS (—)
-                  </text>
-                  <text
-                    x={14}
-                    y={marginTop + plotHeight / 2}
-                    fill="#334155"
-                    fontSize="13"
-                    fontWeight="800"
-                    transform={`rotate(-90 14 ${marginTop + plotHeight / 2})`}
-                    textAnchor="middle"
-                  >
-                    Depth ({depthUnit})
-                  </text>
-
-                  <line x1={marginLeft} y1={marginTop} x2={marginLeft} y2={marginTop + plotHeight} stroke="#0f172a" strokeWidth="1.4" />
-                  <line x1={marginLeft} y1={marginTop} x2={marginLeft + plotWidth} y2={marginTop} stroke="#0f172a" strokeWidth="1.4" />
-
-                  <line
-                    x1={x(1)}
-                    y1={marginTop}
-                    x2={x(1)}
-                    y2={marginTop + plotHeight}
-                    stroke="#0ea5e9"
-                    strokeWidth="2"
-                    strokeDasharray="6 4"
-                    opacity="0.9"
-                  />
-                  <text x={x(1) + 6} y={marginTop + 12} fill="#0369a1" fontSize="11" fontWeight="800">
-                    FoS = 1.0
-                  </text>
-
-                  {points.map((p) => {
-                    const value = p.fos ?? 0;
-                    const color = value < 1 ? "#ef4444" : "#10b981";
-                    const bh = p.boreholeId;
-                    const shape = shapeByBorehole.get(bh) ?? "circle";
-                    const cx = x(value);
-                    const cy = y(p.depth);
-                    return (
-                      <g key={`p-${p.id}`} opacity="0.95">
-                        <title>{`${bh} | z=${p.depth.toFixed(2)} ${depthUnit} | FoS=${value.toFixed(2)}`}</title>
-                        {renderMarker(shape, cx, cy, color, "#334155")}
-                      </g>
-                    );
-                  })}
-
-                  {/* borehole legend */}
-                  {legendItems.map((bh, idx) => {
-                    const lx = legendStartX + idx * legendItemWidth;
-                    const ly = legendY;
-                    const shape = shapeByBorehole.get(bh) ?? "circle";
-                    return (
-                      <g key={`leg-${bh}`}>
-                        {renderMarker(shape, lx, ly - 2, "#ffffff", "#334155")}
-                        <text x={lx + 14} y={ly + 3} fill="#334155" fontSize="11" fontWeight="800">
-                          {bh}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              );
-            })()
-          ) : (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-              No analysed points available yet. Enter valid sample depths below GWT and within range, then review FoS in the table.
-            </div>
-          )}
-        </div>
+        )}
       </section>
 
     </section>
@@ -815,3 +596,132 @@ export function LiquefactionProfileTab({
 }
 
 
+
+/** Per-sample intermediate values (members) and, for Silver/Gold, the formulas for the first analysed sample. */
+function LiquefactionStepsTable({
+  rows,
+  method,
+  ctx,
+  depthUnit,
+  showFormulas,
+  magnitude,
+  pga,
+}: {
+  rows: LiquefactionProfileRow[];
+  method: LiquefactionMethod;
+  ctx: Parameters<typeof evaluateLiquefactionRow>[1];
+  depthUnit: string;
+  showFormulas: boolean;
+  magnitude: number;
+  pga: number;
+}) {
+  const evaluated = rows
+    .map((row) => ({ row, ...evaluateLiquefactionRow(row, ctx) }))
+    .filter((e) => e.rawResult);
+  const tbdy = method === "tbdy-2018";
+  const f = (v: number | undefined, d: number) => (typeof v === "number" && Number.isFinite(v) ? v.toFixed(d) : "–");
+  const columns: Array<{ head: ReactNode; cell: (e: (typeof evaluated)[number]) => string }> = tbdy
+    ? [
+        { head: "α", cell: (e) => f(e.rawResult?.alpha, 2) },
+        { head: "β", cell: (e) => f(e.rawResult?.beta, 3) },
+        { head: <>(N<sub>1</sub>)<sub>60,f</sub></>, cell: (e) => f(e.rawResult?.n160f, 2) },
+        { head: <>CRR<sub>7.5</sub></>, cell: (e) => f(e.rawResult?.crr75, 3) },
+        { head: <>C<sub>M</sub></>, cell: (e) => f(e.rawResult?.cm, 3) },
+        { head: <>σ<sub>v0</sub> (kPa)</>, cell: (e) => f(e.rawResult?.sigmaV0, 1) },
+        { head: <>σ′<sub>v0</sub> (kPa)</>, cell: (e) => f(e.rawResult?.sigmaV0Effective, 1) },
+        { head: <>r<sub>d</sub></>, cell: (e) => f(e.rawResult?.rd, 3) },
+        { head: <>τ<sub>R</sub> (kPa)</>, cell: (e) => f(e.rawResult?.tauResistance, 2) },
+        { head: <>τ<sub>eq</sub> (kPa)</>, cell: (e) => f(e.rawResult?.tauEarthquake, 2) },
+        { head: "FS", cell: (e) => f(e.rawResult?.fos, 2) },
+      ]
+    : [
+        { head: <>ΔN<sub>(1,60)</sub></>, cell: (e) => f(e.rawResult?.deltaN, 2) },
+        { head: <>(N<sub>1</sub>)<sub>60,cs</sub></>, cell: (e) => f(e.rawResult?.n160cs, 2) },
+        { head: <>CRR<sub>7.5</sub></>, cell: (e) => f(e.rawResult?.crr75, 3) },
+        { head: <>σ<sub>v0</sub> (kPa)</>, cell: (e) => f(e.rawResult?.sigmaV0, 1) },
+        { head: <>σ′<sub>v0</sub> (kPa)</>, cell: (e) => f(e.rawResult?.sigmaV0Effective, 1) },
+        { head: <>r<sub>d</sub></>, cell: (e) => f(e.rawResult?.rd, 3) },
+        { head: "MSF", cell: (e) => f(e.rawResult?.msf, 3) },
+        { head: <>K<sub>σ</sub></>, cell: (e) => f(e.rawResult?.kSigma, 3) },
+        { head: "CSR", cell: (e) => f(e.rawResult?.csr, 3) },
+        { head: <>CRR<sub>M</sub></>, cell: (e) => f(e.rawResult?.crrMagnitudeCorrected, 3) },
+        { head: "FS", cell: (e) => f(e.rawResult?.fos, 2) },
+      ];
+  const first = evaluated[0]?.rawResult;
+  const formulas: Array<[string, string]> = !first
+    ? []
+    : tbdy
+      ? [
+          ["(N₁)₆₀,f = α + β(N₁)₆₀", `${f(first.alpha, 2)} + ${f(first.beta, 3)} × ${evaluated[0].row.n160} = ${f(first.n160f, 2)}`],
+          ["CRR₇.₅ = 1/(34 − N) + N/135 + 50/(10N + 45)² − 1/200,  N = min((N₁)₆₀,f, 30)", `= ${f(first.crr75, 3)}`],
+          ["C_M = 10^2.24 / M_w^2.56", `10^2.24 / ${magnitude}^2.56 = ${f(first.cm, 3)}`],
+          ["τ_R = CRR₇.₅ · C_M · σ′_v0", `${f(first.crr75, 3)} × ${f(first.cm, 3)} × ${f(first.sigmaV0Effective, 1)} = ${f(first.tauResistance, 2)} kPa`],
+          ["τ_eq = 0.65 · σ_v0 · (S_DS·0.4) · r_d", `0.65 × ${f(first.sigmaV0, 1)} × ${pga} × ${f(first.rd, 3)} = ${f(first.tauEarthquake, 2)} kPa`],
+          ["FS = τ_R / τ_eq ≥ 1.1", `${f(first.tauResistance, 2)} / ${f(first.tauEarthquake, 2)} = ${f(first.fos, 2)}`],
+        ]
+      : [
+          ["ΔN₍₁,₆₀₎ = exp(1.63 + 9.7/(FC + 0.01) − (15.7/(FC + 0.01))²)", `FC = ${evaluated[0].row.finesContent}% → ${f(first.deltaN, 2)}`],
+          ["(N₁)₆₀,cs = (N₁)₆₀ + ΔN₍₁,₆₀₎", `${evaluated[0].row.n160} + ${f(first.deltaN, 2)} = ${f(first.n160cs, 2)}`],
+          ["CRR₇.₅ = exp(N/14.1 + (N/126)² − (N/23.6)³ + (N/25.4)⁴ − 2.8),  N = (N₁)₆₀,cs", `= ${f(first.crr75, 3)}`],
+          ["MSF = 6.9 exp(−M_w/4) − 0.058 ≤ 1.8", `6.9·exp(−${magnitude}/4) − 0.058 = ${f(first.msf, 3)}`],
+          ["K_σ = 1 − C_σ ln(σ′_v0 / p_a) ≤ 1.1", `σ′_v0 = ${f(first.sigmaV0Effective, 1)} kPa → ${f(first.kSigma, 3)}`],
+          ["CSR = 0.65 · a_max · (σ_v0 / σ′_v0) · r_d", `0.65 × ${pga} × (${f(first.sigmaV0, 1)} / ${f(first.sigmaV0Effective, 1)}) × ${f(first.rd, 3)} = ${f(first.csr, 3)}`],
+          ["FS = CRR₇.₅ · MSF · K_σ / CSR", `${f(first.crr75, 3)} × ${f(first.msf, 3)} × ${f(first.kSigma, 3)} / ${f(first.csr, 3)} = ${f(first.fos, 2)}`],
+        ];
+
+  return (
+    <div className="mb-4 space-y-3">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full min-w-[760px] text-xs">
+          <thead className="bg-slate-100 text-left text-slate-600">
+            <tr>
+              <th className="px-2 py-2 font-semibold">Borehole</th>
+              <th className="px-2 py-2 font-semibold">Depth ({depthUnit})</th>
+              {columns.map((c, i) => (
+                <th key={i} className="px-2 py-2 text-right font-semibold">
+                  {c.head}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {evaluated.map((e) => (
+              <tr key={e.row.id} className="border-t border-slate-100">
+                <td className="px-2 py-1.5">{e.row.boreholeId || "—"}</td>
+                <td className="px-2 py-1.5 tabular-nums">{e.sampleDepth.toFixed(2)}</td>
+                {columns.map((c, i) => (
+                  <td key={i} className="px-2 py-1.5 text-right tabular-nums font-medium text-slate-900">
+                    {c.cell(e)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {showFormulas && formulas.length ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <p className="text-sm font-semibold text-slate-900">
+            Formulas — first analysed sample ({evaluated[0].row.boreholeId || "—"}, z = {evaluated[0].sampleDepth.toFixed(2)} {depthUnit})
+          </p>
+          <div className="mt-2 space-y-1.5">
+            {formulas.map(([formula, sub]) => (
+              <div key={formula} className="rounded-md bg-slate-50 px-3 py-1.5 font-serif text-[13.5px] text-slate-800">
+                <p>
+                  <EngineeringText text={formula} />
+                </p>
+                <p className="text-slate-600">
+                  <EngineeringText text={sub} />
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : !showFormulas ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Silver shows the formula behind each column, with the numbers substituted.
+        </p>
+      ) : null}
+    </div>
+  );
+}

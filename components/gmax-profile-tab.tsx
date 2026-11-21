@@ -1,8 +1,11 @@
 "use client";
 
+import { ExcelExportButton } from "@/components/calculation/excel-export-button";
 import type { ReactNode } from "react";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
+import { DepthProfilePlot } from "@/components/charts/depth-profile-plot";
+import { buildDepthProfilePng } from "@/lib/charts/depth-profile-png";
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
@@ -15,7 +18,6 @@ import {
   profileTableThClass,
 } from "@/components/profile-table-mobile";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
-import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
 import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import { convertInputValueBetweenSystems, getDisplayUnit } from "@/lib/tool-units";
 import type { UnitSystem } from "@/lib/types";
@@ -253,8 +255,6 @@ function buildChartSvgMarkup({
 }
 
 function buildChartPngDataUri({
-  title,
-  xLabel,
   xUnit,
   depthUnit,
   rows,
@@ -267,177 +267,16 @@ function buildChartPngDataUri({
   rows: ProfilePoint[];
   valueKey: "vs" | "gmax";
 }): string {
-  const width = 1200;
-  const height = 820;
-  const margin = { top: 108, right: 56, bottom: 120, left: 130 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
-  const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
-  const xStep = getNiceTickStep(maxDataValue / 5);
-  const xIntervals = Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
-  const xAxisMax = xStep * xIntervals;
-  const yStep = getNiceTickStep(maxDepth / 8);
-  const yIntervals = Math.max(Math.floor(maxDepth / yStep) + 1, 2);
-  const yAxisMax = yStep * yIntervals;
-  const xScale = (value: number) => margin.left + (value / xAxisMax) * innerWidth;
-  const yScale = (depth: number) => margin.top + (depth / yAxisMax) * innerHeight;
-  const boreholeIds = Array.from(new Set(rows.map((row) => row.boreholeId)));
-  const lineSeries = boreholeIds.map((boreholeId, boreholeIndex) => {
-    const boreholeRows = rows
-      .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.sampleDepth - b.sampleDepth);
-    const colour = BOREHOLE_COLOURS[boreholeIndex % BOREHOLE_COLOURS.length];
-    const points = boreholeRows.map((row) => ({
-      x: xScale(row[valueKey]),
-      y: yScale(row.sampleDepth),
-    }));
-
-    return { boreholeId, colour, points };
+  const label = valueKey === "vs" ? "Vₛ" : "Gₘₐₓ";
+  return buildDepthProfilePng({
+    title: `Depth vs ${label}`,
+    xLabel: `${label} (${xUnit})`,
+    depthUnit,
+    data: rows.map((r) => ({ boreholeId: r.boreholeId, depth: r.sampleDepth, value: r[valueKey] })),
   });
-
-  const hi = getHiDpiCanvas2D(width, height);
-  if (!hi) {
-    return "";
-  }
-  const { canvas, context } = hi;
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, width, height);
-
-  context.fillStyle = "#0f172a";
-  context.font = "700 30px Georgia, 'Times New Roman', serif";
-  context.fillText(title, margin.left, 52);
-
-  context.fillStyle = "#1e3a5f";
-  context.font = "700 23px Inter, Arial, sans-serif";
-  context.textAlign = "center";
-  context.fillText(`${xLabel} (${xUnit})`, margin.left + innerWidth / 2, 84);
-  context.textAlign = "start";
-
-  context.strokeStyle = "#dbe5f1";
-  context.lineWidth = 2;
-  context.font = "600 21px Inter, Arial, sans-serif";
-  context.fillStyle = "#36557f";
-  for (let index = 0; index <= xIntervals; index += 1) {
-    const value = xStep * index;
-    const x = xScale(value);
-    context.beginPath();
-    context.moveTo(x, margin.top);
-    context.lineTo(x, margin.top + innerHeight);
-    context.stroke();
-    context.textAlign = "center";
-    context.fillText(String(Math.round(value)), x, margin.top - 14);
-  }
-
-  for (let index = 0; index <= yIntervals; index += 1) {
-    const depth = yStep * index;
-    const y = yScale(depth);
-    context.beginPath();
-    context.moveTo(margin.left, y);
-    context.lineTo(margin.left + innerWidth, y);
-    context.stroke();
-    context.textAlign = "right";
-    context.fillText(depth.toFixed(1), margin.left - 18, y + 7);
-  }
-
-  context.strokeStyle = "#7f98ba";
-  context.lineWidth = 3;
-  context.beginPath();
-  context.moveTo(margin.left, margin.top);
-  context.lineTo(margin.left, margin.top + innerHeight);
-  context.stroke();
-  context.beginPath();
-  context.moveTo(margin.left, margin.top);
-  context.lineTo(margin.left + innerWidth, margin.top);
-  context.stroke();
-
-  lineSeries.forEach((series) => {
-    if (series.points.length > 1) {
-      context.beginPath();
-      context.strokeStyle = series.colour;
-      context.lineWidth = 4;
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.moveTo(series.points[0].x, series.points[0].y);
-      for (let index = 1; index < series.points.length; index += 1) {
-        context.lineTo(series.points[index].x, series.points[index].y);
-      }
-      context.stroke();
-    }
-
-    series.points.forEach((point) => {
-      context.beginPath();
-      context.fillStyle = "#ffffff";
-      context.arc(point.x, point.y, 7.4, 0, 2 * Math.PI);
-      context.fill();
-
-      context.beginPath();
-      context.strokeStyle = series.colour;
-      context.lineWidth = 3;
-      context.arc(point.x, point.y, 7.4, 0, 2 * Math.PI);
-      context.stroke();
-
-      context.beginPath();
-      context.fillStyle = series.colour;
-      context.arc(point.x, point.y, 3.3, 0, 2 * Math.PI);
-      context.fill();
-    });
-  });
-
-  context.save();
-  context.translate(42, margin.top + innerHeight / 2);
-  context.rotate(-Math.PI / 2);
-  context.textAlign = "center";
-  context.fillStyle = "#1e3a5f";
-  context.font = "700 23px Inter, Arial, sans-serif";
-  context.fillText(`Depth (${depthUnit})`, 0, 0);
-  context.restore();
-
-  const legendY = margin.top + innerHeight + 52;
-  let legendX = margin.left;
-  context.font = "600 18px Inter, Arial, sans-serif";
-
-  lineSeries.forEach((series, index) => {
-    const label = series.boreholeId;
-    const textWidth = context.measureText(label).width;
-    const blockWidth = 44 + textWidth;
-
-    if (index > 0 && legendX + blockWidth > width - margin.right) {
-      legendX = margin.left;
-    }
-
-    context.beginPath();
-    context.fillStyle = hexToRgba(series.colour, 0.12);
-    context.roundRect(legendX, legendY - 18, blockWidth, 34, 14);
-    context.fill();
-
-    context.beginPath();
-    context.strokeStyle = "#d5e0ef";
-    context.lineWidth = 1.5;
-    context.roundRect(legendX, legendY - 18, blockWidth, 34, 14);
-    context.stroke();
-
-    context.beginPath();
-    context.fillStyle = series.colour;
-    context.arc(legendX + 16, legendY - 1, 5, 0, 2 * Math.PI);
-    context.fill();
-
-    context.fillStyle = "#334155";
-    context.textAlign = "start";
-    context.fillText(label, legendX + 28, legendY + 5);
-
-    legendX += blockWidth + 10;
-  });
-
-  return canvas.toDataURL("image/png");
 }
 
 function ProfileChart({
-  containerId,
-  keyPrefix,
-  title,
-  xLabel,
   xUnit,
   depthUnit,
   rows,
@@ -452,181 +291,15 @@ function ProfileChart({
   rows: ProfilePoint[];
   valueKey: "vs" | "gmax";
 }) {
-  const width = 560;
-  const height = 360;
-  const margin = { top: 54, right: 20, bottom: 24, left: 72 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
-  const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
-  const xStep = getNiceTickStep(maxDataValue / 5);
-  const xIntervals = Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
-  const xAxisMax = xStep * xIntervals;
-  const yStep = getNiceTickStep(maxDepth / 8);
-  const yIntervals = Math.max(Math.floor(maxDepth / yStep) + 1, 2);
-  const yAxisMax = yStep * yIntervals;
-  const xScale = (value: number) => margin.left + (value / xAxisMax) * innerWidth;
-  const yScale = (depth: number) => margin.top + (depth / yAxisMax) * innerHeight;
-  const boreholeIds = Array.from(new Set(rows.map((row) => row.boreholeId)));
-
-  const lineSeries = boreholeIds.map((boreholeId, boreholeIndex) => {
-    const boreholeRows = rows
-      .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.sampleDepth - b.sampleDepth);
-    const colour = BOREHOLE_COLOURS[boreholeIndex % BOREHOLE_COLOURS.length];
-    const points = boreholeRows.map((row) => ({
-      x: xScale(row[valueKey]),
-      y: yScale(row.sampleDepth),
-    }));
-
-    return { boreholeId, colour, points };
-  });
-
+  const label = valueKey === "vs" ? "Vₛ" : "Gₘₐₓ";
   return (
     <ExpandableProfilePlot>
-      <div id={containerId} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3">
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-        </div>
-        <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 w-full">
-        <defs>
-          <clipPath id={`${keyPrefix}-clip`}>
-            <rect x={margin.left} y={margin.top} width={innerWidth} height={innerHeight} rx="10" />
-          </clipPath>
-          <filter id={`${keyPrefix}-marker-shadow`} x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="1" stdDeviation="1.2" floodColor="#0f172a" floodOpacity="0.18" />
-          </filter>
-        </defs>
-        <rect x="0" y="0" width={width} height={height} rx="14" fill="#ffffff" />
-        <rect
-          x={margin.left}
-          y={margin.top}
-          width={innerWidth}
-          height={innerHeight}
-          fill="#ffffff"
-          stroke="#c7d4e5"
-          strokeWidth="1.25"
+      <DepthProfilePlot
+        title={`Depth vs ${label}`}
+        xLabel={`${label} (${xUnit})`}
+        depthUnit={depthUnit}
+        data={rows.map((r) => ({ boreholeId: r.boreholeId, depth: r.sampleDepth, value: r[valueKey] }))}
         />
-
-        {Array.from({ length: xIntervals + 1 }).map((_, index) => {
-          const value = xStep * index;
-          const x = xScale(value);
-          return (
-            <g key={`${keyPrefix}-x-grid-${index}`}>
-              <line
-                x1={x}
-                y1={margin.top}
-                x2={x}
-                y2={margin.top + innerHeight}
-                stroke="#dbe5f1"
-                strokeWidth="1"
-              />
-              <text x={x} y={margin.top - 10} textAnchor="middle" fontSize="11" fill="#36557f" fontWeight="600">
-                {Math.round(value)}
-              </text>
-            </g>
-          );
-        })}
-
-        {Array.from({ length: yIntervals + 1 }).map((_, index) => {
-          const depth = yStep * index;
-          const y = yScale(depth);
-          return (
-            <g key={`${keyPrefix}-y-grid-${index}`}>
-              <line
-                x1={margin.left}
-                y1={y}
-                x2={margin.left + innerWidth}
-                y2={y}
-                stroke="#dbe5f1"
-                strokeWidth="1"
-              />
-              <text x={margin.left - 12} y={y + 4} textAnchor="end" fontSize="11" fill="#36557f" fontWeight="600">
-                {depth.toFixed(1)}
-              </text>
-            </g>
-          );
-        })}
-
-        <line
-          x1={margin.left}
-          y1={margin.top}
-          x2={margin.left}
-          y2={margin.top + innerHeight}
-          stroke="#7f98ba"
-          strokeWidth="1.5"
-        />
-        <line
-          x1={margin.left}
-          y1={margin.top}
-          x2={margin.left + innerWidth}
-          y2={margin.top}
-          stroke="#7f98ba"
-          strokeWidth="1.5"
-        />
-
-        <g clipPath={`url(#${keyPrefix}-clip)`}>
-          {lineSeries.map((series) =>
-            series.points.length > 1 ? (
-              <polyline
-                key={`${keyPrefix}-${series.boreholeId}-line`}
-                fill="none"
-                stroke={series.colour}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                points={series.points.map((point) => `${point.x},${point.y}`).join(" ")}
-              />
-            ) : null,
-          )}
-
-          {lineSeries.flatMap((series) =>
-            series.points.map((point, index) => (
-              <g key={`${keyPrefix}-${series.boreholeId}-point-${index}`} filter={`url(#${keyPrefix}-marker-shadow)`}>
-                <circle cx={point.x} cy={point.y} r="4.2" fill="#ffffff" stroke={series.colour} strokeWidth="2.2" />
-                <circle cx={point.x} cy={point.y} r="1.8" fill={series.colour} />
-              </g>
-            )),
-          )}
-        </g>
-
-        <text
-          x={margin.left + innerWidth / 2}
-          y={24}
-          textAnchor="middle"
-          fontSize="12"
-          fill="#1e3a5f"
-          fontWeight="700"
-        >
-          {xLabel} ({xUnit})
-        </text>
-        <text
-          x="18"
-          y={margin.top + innerHeight / 2}
-          textAnchor="middle"
-          fontSize="12"
-          fill="#1e3a5f"
-          fontWeight="700"
-          transform={`rotate(-90 18 ${margin.top + innerHeight / 2})`}
-        >
-          Depth ({depthUnit})
-        </text>
-      </svg>
-      <div className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-2">
-        {boreholeIds.map((boreholeId, index) => (
-          <div
-            key={`${keyPrefix}-legend-${boreholeId}`}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600"
-          >
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: BOREHOLE_COLOURS[index % BOREHOLE_COLOURS.length], boxShadow: `0 0 0 3px ${hexToRgba(BOREHOLE_COLOURS[index % BOREHOLE_COLOURS.length], 0.12)}` }}
-            />
-            <span>{boreholeId}</span>
-          </div>
-        ))}
-      </div>
-      </div>
     </ExpandableProfilePlot>
   );
 }
@@ -1059,9 +732,9 @@ export function GmaxProfileTab({ unitSystem, importRows, onReportDataChange }: G
             Add Layer
           </button>
           <div className="flex flex-wrap gap-3">
-            <button type="button" className="btn-base btn-md" onClick={handleExportExcel}>
+            <ExcelExportButton type="button" className="btn-base btn-md" onClick={handleExportExcel}>
               Export Excel
-            </button>
+            </ExcelExportButton>
           </div>
         </div>
 

@@ -258,6 +258,7 @@ export const slopeStabilityCalculator: DesignCalculator = (values): CalculationR
     };
     const r = computeInfiniteSlope(input);
     return {
+      headline: [{ label: "Factor of safety, FS", value: round(r.fs, 3), status: r.fs >= targetFs ? "pass" : "fail", note: `target ${targetFs}` }],
       title: "Infinite Slope Stability",
       summary: `FS = ${round(r.fs, 3)} (target ${targetFs}).`,
       items: [
@@ -306,6 +307,7 @@ export const slopeStabilityCalculator: DesignCalculator = (values): CalculationR
   }
 
   return {
+    headline: [{ label: "Minimum factor of safety, FS_min", value: round(best.fs, 3), status: best.fs >= targetFs ? "pass" : "fail", note: `target ${targetFs}` }],
     title: "Slope Stability — Simplified Bishop",
     summary: `Minimum FS = ${round(best.fs, 3)} from ${evaluated} trial circles (target ${targetFs}).`,
     items: [

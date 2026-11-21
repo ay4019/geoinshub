@@ -39,7 +39,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
   return (
     <div className="space-y-6">
       <Link href="/tools" className="inline-flex text-sm font-medium text-slate-700 transition-colors hover:text-slate-900">
-        {"<-"} Back to all tools
+        ← Back to all tools
       </Link>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

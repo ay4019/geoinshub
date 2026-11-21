@@ -5,6 +5,9 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import { ProfileTableScroll, profileTableScrollableMinClass } from "@/components/profile-table-mobile";
+import { DETAILS_ANCHOR, TierGate, scrollToDetails, type DetailLevel } from "@/components/calculation/result-panels";
+import { EngineeringText } from "@/components/engineering-text";
+import { SettlementSectionVisual } from "@/components/visuals/settlement-section-visual";
 import type { UnitSystem } from "@/lib/types";
 import type { StandardReportPayload } from "@/lib/reports/standard-report-types";
 
@@ -12,6 +15,8 @@ interface IntegratedSettlementProfileTabProps {
   unitSystem: UnitSystem;
   /** Emits data for the standard two-part report (Report tab). */
   onReportDataChange?: (payload: StandardReportPayload) => void;
+  /** Membership level for the detailed calculations (guest: blurred). */
+  detailLevel?: DetailLevel;
 }
 
 type LoadCase = "embankment" | "structure";
@@ -152,28 +157,6 @@ function tvFromU(targetPercent: number): number {
   return -0.933 * Math.log10(1 - u) - 0.085;
 }
 
-const UNICODE_SUBSCRIPT_DIGITS: Record<string, string> = {
-  "0": "\u2080",
-  "1": "\u2081",
-  "2": "\u2082",
-  "3": "\u2083",
-  "4": "\u2084",
-  "5": "\u2085",
-  "6": "\u2086",
-  "7": "\u2087",
-  "8": "\u2088",
-  "9": "\u2089",
-};
-
-function layerNameForSvg(name: string): string {
-  const match = /^L\s*(\d+)$/i.exec(name.trim());
-  if (match) {
-    const sub = match[1].split("").map((d) => UNICODE_SUBSCRIPT_DIGITS[d] ?? d).join("");
-    return `L${sub}`;
-  }
-  return name.trim() || "?";
-}
-
 function LayerLabel({ name }: { name: string }): ReactNode {
   const match = /^L\s*(\d+)$/i.exec(name.trim());
   if (match) {
@@ -194,326 +177,7 @@ function paramInputClassName() {
   return "w-full min-w-0 rounded-md border border-slate-300 px-2 py-1.5 text-xs";
 }
 
-function getLayerFill(soilType: SoilType, index: number) {
-  const clayPalette = ["#d7b78a", "#c89f6f", "#b8845d", "#a9724f"];
-  const sandPalette = ["#f2d7a1", "#e8c27f", "#ddb46c", "#d39f52"];
-  const palette = soilType === "clay" ? clayPalette : sandPalette;
-  return palette[index % palette.length];
-}
-
-function FoundationSoilIllustration({
-  geometry,
-  widthValue,
-  lengthValue,
-  excavationDepthValue,
-  groundwaterDepthM,
-}: {
-  geometry: LayerGeometry[];
-  widthValue: number;
-  lengthValue: number;
-  excavationDepthValue: number;
-  groundwaterDepthM: number;
-}) {
-  const totalDepth = Math.max(geometry.at(-1)?.bottom ?? 1, 1);
-  const referenceGwt = Math.min(Math.max(groundwaterDepthM, 0), totalDepth);
-  const sectionTop = 84;
-  const sectionLeft = 34;
-  const sectionWidth = 566;
-  const sectionHeight = 280;
-  const footingWidth = 180;
-  const footingHeight = 34;
-  const footingX = sectionLeft + sectionWidth / 2 - footingWidth / 2;
-  const footingY = 68;
-  const excavationPx = Math.min(sectionHeight, (Math.max(excavationDepthValue, 0) / totalDepth) * sectionHeight);
-  const layerRects = geometry.map((layer, index) => {
-    const top = sectionTop + (layer.top / totalDepth) * sectionHeight;
-    const height = Math.max(8, (layer.thicknessValue / totalDepth) * sectionHeight);
-    return {
-      id: layer.id,
-      name: layer.name || `L${layer.id}`,
-      soilType: layer.soilType,
-      thickness: layer.thicknessValue,
-      top,
-      height,
-      fill: getLayerFill(layer.soilType, index),
-    };
-  });
-  const gwtY = sectionTop + (referenceGwt / totalDepth) * sectionHeight;
-  const depthAxisX = 18;
-  const profileClipId = "integrated-profile-soil-clip";
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-[radial-gradient(circle_at_top,_#ffffff,_#f8fafc_55%,_#eef2f7)] p-3 shadow-sm">
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">Foundation and soil profile</h3>
-        </div>
-        <div className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">
-          Live section + plan cue
-        </div>
-      </div>
-
-      <svg
-        viewBox="0 0 660 410"
-        className="h-[280px] w-full min-h-[260px] sm:h-[320px] md:h-[360px]"
-        shapeRendering="geometricPrecision"
-        role="img"
-        aria-label="Foundation cross-section with soil layers, groundwater, and dimensions"
-      >
-        <defs>
-          <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#f8fbff" />
-            <stop offset="100%" stopColor="#edf4fb" />
-          </linearGradient>
-          <linearGradient id="footingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#334155" />
-            <stop offset="100%" stopColor="#0f172a" />
-          </linearGradient>
-          <linearGradient id="layerAmbientShade" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
-            <stop offset="100%" stopColor="#1c1917" stopOpacity="0.1" />
-          </linearGradient>
-          <pattern id="textureSand" width="20" height="20" patternUnits="userSpaceOnUse">
-            <circle cx="5" cy="6" r="1.15" fill="#ffffff" opacity="0.2" />
-            <circle cx="14" cy="4" r="0.9" fill="#ffffff" opacity="0.16" />
-            <circle cx="11" cy="14" r="1" fill="#ffffff" opacity="0.18" />
-            <circle cx="3" cy="16" r="0.75" fill="#292524" opacity="0.06" />
-          </pattern>
-          <pattern id="textureClay" width="14" height="6" patternUnits="userSpaceOnUse">
-            <path d="M0 3 H14" stroke="#292524" strokeWidth="0.6" opacity="0.12" />
-            <path d="M0 5.5 H14" stroke="#ffffff" strokeWidth="0.5" opacity="0.1" />
-          </pattern>
-          <clipPath id={profileClipId}>
-            <rect x={sectionLeft} y={sectionTop} width={sectionWidth} height={sectionHeight} rx="20" />
-          </clipPath>
-          <marker id="arrowHead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e293b" />
-          </marker>
-        </defs>
-
-        <rect x="0" y="0" width="660" height="410" rx="24" fill="url(#skyGradient)" />
-
-        <rect
-          x={sectionLeft}
-          y={sectionTop}
-          width={sectionWidth}
-          height={sectionHeight}
-          rx="20"
-          fill="#e2e8f0"
-          stroke="#94a3b8"
-          strokeWidth="2"
-        />
-        <line x1={sectionLeft} y1={sectionTop} x2={sectionLeft + sectionWidth} y2={sectionTop} stroke="#475569" strokeWidth="3.5" strokeLinecap="round" />
-
-        <text
-          x={sectionLeft + sectionWidth / 2}
-          y={sectionTop - 10}
-          fill="#334155"
-          fontSize="12"
-          fontWeight="700"
-          fontFamily="ui-sans-serif, system-ui, sans-serif"
-          textAnchor="middle"
-        >
-          Ground surface
-        </text>
-
-        <g clipPath={`url(#${profileClipId})`}>
-          {layerRects.map((layer) => (
-            <g key={layer.id}>
-              <rect x={sectionLeft} y={layer.top} width={sectionWidth} height={layer.height} fill={layer.fill} />
-              <rect x={sectionLeft} y={layer.top} width={sectionWidth} height={layer.height} fill="url(#layerAmbientShade)" />
-              <rect
-                x={sectionLeft}
-                y={layer.top}
-                width={sectionWidth}
-                height={layer.height}
-                fill={layer.soilType === "sand" ? "url(#textureSand)" : "url(#textureClay)"}
-                opacity={layer.soilType === "sand" ? 0.95 : 0.85}
-              />
-              <line
-                x1={sectionLeft}
-                y1={layer.top}
-                x2={sectionLeft + sectionWidth}
-                y2={layer.top}
-                stroke="#fefce8"
-                strokeWidth="1.25"
-                opacity="0.85"
-              />
-              <line
-                x1={sectionLeft}
-                y1={layer.top + layer.height}
-                x2={sectionLeft + sectionWidth}
-                y2={layer.top + layer.height}
-                stroke="#57534e"
-                strokeWidth="1.25"
-                opacity="0.35"
-              />
-            </g>
-          ))}
-        </g>
-
-        <g fontFamily="ui-sans-serif, system-ui, sans-serif">
-          <line
-            x1={depthAxisX + 12}
-            y1={sectionTop}
-            x2={depthAxisX + 12}
-            y2={sectionTop + sectionHeight}
-            stroke="#64748b"
-            strokeWidth="1.5"
-          />
-          <text x={depthAxisX} y={sectionTop - 14} fill="#475569" fontSize="10" fontWeight="700">
-            Depth (m)
-          </text>
-          {layerRects.map((layer) => {
-            const yMid = layer.top + layer.height / 2;
-            const showLabel = layer.height >= 22;
-            if (!showLabel) return null;
-            return (
-              <g key={`lbl-${layer.id}`}>
-                <rect
-                  x={sectionLeft + 8}
-                  y={yMid - 11}
-                  width={Math.min(120, sectionWidth - 160)}
-                  height="22"
-                  rx="6"
-                  fill="#ffffff"
-                  opacity="0.92"
-                  stroke="#cbd5e1"
-                  strokeWidth="1"
-                />
-                <text x={sectionLeft + 16} y={yMid + 4} fill="#0f172a" fontSize="12" fontWeight="700">
-                  {layerNameForSvg(layer.name)}
-                  <tspan fill="#64748b" fontWeight="600" fontSize="11">
-                    {" "}
-                    ({layer.soilType === "sand" ? "sand" : "clay"})
-                  </tspan>
-                </text>
-              </g>
-            );
-          })}
-          {Array.from(new Set([0, ...geometry.map((l) => l.bottom)]))
-            .sort((a, b) => a - b)
-            .map((d) => {
-              const y = sectionTop + (d / totalDepth) * sectionHeight;
-              return (
-                <g key={`tick-${d}`}>
-                  <line x1={depthAxisX + 12} y1={y} x2={depthAxisX + 22} y2={y} stroke="#64748b" strokeWidth="1.2" />
-                  <text x={depthAxisX} y={y + 4} fill="#475569" fontSize="11" fontWeight="600" textAnchor="end">
-                    {round(d, 2)}
-                  </text>
-                </g>
-              );
-            })}
-        </g>
-
-        {excavationDepthValue > 0 ? (
-          <>
-            <rect
-              x={footingX - 34}
-              y={sectionTop}
-              width={footingWidth + 68}
-              height={Math.max(18, excavationPx)}
-              fill="#ffffff"
-              opacity="0.5"
-            />
-            <path
-              d={`M ${footingX - 34} ${sectionTop} L ${footingX - 34} ${sectionTop + excavationPx} L ${footingX + footingWidth + 34} ${sectionTop + excavationPx} L ${footingX + footingWidth + 34} ${sectionTop}`}
-              fill="none"
-              stroke="#0f172a"
-              strokeDasharray="6 5"
-              strokeWidth="2"
-              opacity="0.8"
-            />
-            <text x={footingX + footingWidth + 44} y={sectionTop + Math.max(18, excavationPx / 2)} fill="#0f172a" fontSize="12" fontWeight="700">
-              Dexc = {round(excavationDepthValue, 2)} m
-            </text>
-          </>
-        ) : null}
-
-        {referenceGwt < totalDepth ? (
-          <>
-            <line x1={sectionLeft} y1={gwtY} x2={sectionLeft + sectionWidth} y2={gwtY} stroke="#0369a1" strokeWidth="2.75" strokeDasharray="8 6" strokeLinecap="round" />
-            <path
-              d={`M ${sectionLeft + 6} ${gwtY + 2} Q ${sectionLeft + 22} ${gwtY - 3} ${sectionLeft + 38} ${gwtY + 2} T ${sectionLeft + 70} ${gwtY + 2}`}
-              fill="none"
-              stroke="#0369a1"
-              strokeWidth="1.4"
-              opacity="0.85"
-            />
-            <path
-              d={`M ${sectionLeft + sectionWidth - 70} ${gwtY + 2} Q ${sectionLeft + sectionWidth - 54} ${gwtY - 3} ${sectionLeft + sectionWidth - 38} ${gwtY + 2} T ${sectionLeft + sectionWidth - 6} ${gwtY + 2}`}
-              fill="none"
-              stroke="#0369a1"
-              strokeWidth="1.4"
-              opacity="0.85"
-            />
-            <rect x={sectionLeft + sectionWidth - 102} y={gwtY - 20} width="86" height="24" rx="12" fill="#0369a1" stroke="#e0f2fe" strokeWidth="1" />
-            <text
-              x={sectionLeft + sectionWidth - 59}
-              y={gwtY - 2}
-              fill="#ffffff"
-              fontSize="12"
-              textAnchor="middle"
-              fontWeight="700"
-              fontFamily="ui-sans-serif, system-ui, sans-serif"
-            >
-              GWT
-            </text>
-          </>
-        ) : null}
-
-        <rect x={footingX} y={footingY} width={footingWidth} height={footingHeight} rx="10" fill="url(#footingGradient)" />
-        <rect x={footingX + 18} y={footingY - 18} width={footingWidth - 36} height="18" rx="9" fill="#475569" opacity="0.85" />
-        <text
-          x={footingX + footingWidth / 2}
-          y={footingY + 22}
-          fill="#ffffff"
-          fontSize="14"
-          textAnchor="middle"
-          fontWeight="700"
-          fontFamily="ui-sans-serif, system-ui, sans-serif"
-        >
-          Foundation
-        </text>
-
-        <line x1={footingX} y1={footingY + footingHeight + 26} x2={footingX + footingWidth} y2={footingY + footingHeight + 26} stroke="#1e293b" strokeWidth="2" markerStart="url(#arrowHead)" markerEnd="url(#arrowHead)" />
-        <text
-          x={footingX + footingWidth / 2}
-          y={footingY + footingHeight + 20}
-          fill="#0f172a"
-          fontSize="13"
-          textAnchor="middle"
-          fontWeight="700"
-          fontFamily="ui-sans-serif, system-ui, sans-serif"
-        >
-          B = {round(widthValue, 2)} m
-        </text>
-
-        <g transform="translate(516 26)">
-          <rect x="0" y="0" width="110" height="86" rx="16" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.5" />
-          <text x="55" y="18" fill="#334155" fontSize="12" textAnchor="middle" fontWeight="700">
-            Plan cue
-          </text>
-          <rect x="28" y="30" width="54" height="34" rx="7" fill="#94a3b8" />
-          <line x1="28" y1="72" x2="82" y2="72" stroke="#1e293b" strokeWidth="1.6" markerStart="url(#arrowHead)" markerEnd="url(#arrowHead)" />
-          <text x="55" y="83" fill="#0f172a" fontSize="11" textAnchor="middle" fontWeight="700">
-            B = {round(widthValue, 2)} m
-          </text>
-          <line x1="90" y1="30" x2="90" y2="64" stroke="#1e293b" strokeWidth="1.6" markerStart="url(#arrowHead)" markerEnd="url(#arrowHead)" />
-          <text x="97" y="49" fill="#0f172a" fontSize="11" fontWeight="700">
-            L = {round(lengthValue, 2)} m
-          </text>
-        </g>
-
-        <text x={sectionLeft} y={sectionTop + sectionHeight + 24} fill="#475569" fontSize="12">
-          Total interpreted profile depth = {round(totalDepth, 2)} m
-        </text>
-      </svg>
-    </div>
-  );
-}
-
-export function IntegratedSettlementProfileTab({ unitSystem, onReportDataChange }: IntegratedSettlementProfileTabProps) {
+export function IntegratedSettlementProfileTab({ unitSystem, onReportDataChange, detailLevel = "guest" }: IntegratedSettlementProfileTabProps) {
   const [loadCase, setLoadCase] = useState<LoadCase>("structure");
   const [q0, setQ0] = useState("120");
   const [excavationDepth, setExcavationDepth] = useState("0");
@@ -736,30 +400,28 @@ export function IntegratedSettlementProfileTab({ unitSystem, onReportDataChange 
 
   return (
     <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div
-        className={`grid gap-3 ${loadCase === "structure" ? "md:grid-cols-3" : "md:grid-cols-1"}`}
-      >
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Load case</label>
-          <select
-            value={loadCase}
-            onChange={(event) => setLoadCase(event.target.value as LoadCase)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
-          >
-            <option value="structure">Structure</option>
-            <option value="embankment">Embankment</option>
-          </select>
-        </div>
-        {loadCase === "structure" ? (
-          <>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Foundation and load</p>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Load case</label>
+            <select
+              value={loadCase}
+              onChange={(event) => setLoadCase(event.target.value as LoadCase)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="structure">Structure</option>
+              <option value="embankment">Embankment</option>
+            </select>
+          </div>
+          {loadCase === "structure" ? (
+            <>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Surface load q<sub>0</sub> ({loadUnitLabel})
-              </label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Surface load q<sub>0</sub> ({loadUnitLabel})</label>
               <input
                 value={q0}
                 onChange={(event) => setQ0(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -773,29 +435,16 @@ export function IntegratedSettlementProfileTab({ unitSystem, onReportDataChange 
                 step="0.1"
                 value={groundwaterDepth}
                 onChange={(event) => setGroundwaterDepth(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
-          </>
-        ) : null}
-      </div>
-
-      {loadCase === "embankment" ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
-          <div className="mx-auto flex min-h-[220px] max-w-2xl flex-col items-center justify-center text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-500">Coming Soon</p>
-            <h3 className="mt-2 text-2xl font-semibold text-slate-900">Embankment mode is under construction.</h3>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">B (m)</label>
               <input
                 value={width}
                 onChange={(event) => setWidth(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -803,28 +452,44 @@ export function IntegratedSettlementProfileTab({ unitSystem, onReportDataChange 
               <input
                 value={length}
                 onChange={(event) => setLength(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
+            </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Excavation depth D<sub>exc</sub> (m)
-              </label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Excavation depth D<sub>exc</sub> (m)</label>
               <input
                 value={excavationDepth}
                 onChange={(event) => setExcavationDepth(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
-          </div>
+            </>
+          ) : null}
+        </div>
 
-          <FoundationSoilIllustration
-            geometry={geometry}
-            widthValue={Math.max(num(width), 0)}
-            lengthValue={Math.max(num(length), 0)}
-            excavationDepthValue={Math.max(num(excavationDepth), 0)}
-            groundwaterDepthM={num(groundwaterDepth)}
+        {loadCase === "embankment" ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
+            <div className="mx-auto flex min-h-[220px] max-w-2xl flex-col items-center justify-center text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.08em] text-slate-500">Coming Soon</p>
+              <h3 className="mt-2 text-2xl font-semibold text-slate-900">Embankment mode is under construction.</h3>
+            </div>
+          </div>
+        ) : (
+          <SettlementSectionVisual
+            layers={geometry.map((layer) => ({ name: layer.name || `L${layer.id}`, top: layer.top, bottom: layer.bottom, soilType: layer.soilType }))}
+            width={Math.max(num(width), 0.1)}
+            length={Math.max(num(length), 0.1)}
+            excavationDepth={Math.max(num(excavationDepth), 0)}
+            groundwaterDepth={num(groundwaterDepth)}
+            qApplied={qApplied}
+            results={results}
           />
+        )}
+      </div>
+
+      {loadCase === "embankment" ? null : (
+        <>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <div className="mb-2 flex items-center justify-between">
@@ -1051,6 +716,28 @@ export function IntegratedSettlementProfileTab({ unitSystem, onReportDataChange 
             </ProfileTableScroll>
           </div>
 
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg border border-slate-900 bg-slate-900 p-3 text-white">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-300">Total settlement</p>
+                <p className="mt-1 text-2xl font-semibold">{round(totals.total * 1000, 2)} mm</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Immediate</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">{round(totals.immediate * 1000, 2)} mm</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Consolidation</p>
+                <p className="mt-1 text-2xl font-semibold text-slate-900">{round(totals.consolidation * 1000, 2)} mm</p>
+              </div>
+            </div>
+            <button type="button" onClick={scrollToDetails} className="mt-2 text-sm font-semibold text-slate-800 underline underline-offset-4">
+              Detailed calculations ↓
+            </button>
+          </div>
+
+          <section id={DETAILS_ANCHOR} className="scroll-mt-28">
+            <TierGate level={detailLevel} minHeight={220}>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <h3 className="mb-2 text-lg font-semibold text-slate-900">Layer calculations</h3>
             <ProfileTableScroll showHint={false}>
@@ -1098,26 +785,43 @@ export function IntegratedSettlementProfileTab({ unitSystem, onReportDataChange 
               </tbody>
             </table>
             </ProfileTableScroll>
+                {detailLevel === "silver" || detailLevel === "gold" ? (
+                  <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-900">Formulas by layer</p>
+                    <p className="font-serif text-[14px] text-slate-800">
+                      <EngineeringText text="Δσ_z = q · I_z,  I_z from Boussinesq integration over the B × L footing; s_i = Δσ_z H (1 − ν²) / E_s" />
+                    </p>
+                    {geometry.map((layer) => {
+                      const r = results.find((x) => x.id === layer.id);
+                      if (!r) return null;
+                      const nu = Math.min(Math.max(num(layer.nu), 0), 0.49);
+                      const cons =
+                        layer.soilType !== "clay"
+                          ? "s_c = 0 (granular)"
+                          : layer.clayInputMode === "mv"
+                            ? `s_c = m_v Δσ H = ${num(layer.mv)} × ${round(r.deltaSigma, 2)}/1000 × ${round(layer.thicknessValue, 2)} = ${round(r.consolidation * 1000, 2)} mm`
+                            : `s_c = H/(1 + e_0)[C_r log(σ′_p/σ′_0) + C_c log(σ′_f/σ′_p)],  σ′_0 = ${round(r.sigmaV0Eff, 1)} kPa, OCR = ${num(layer.ocr, 1)} → ${round(r.consolidation * 1000, 2)} mm`;
+                      return (
+                        <div key={layer.id} className="rounded-md bg-slate-50 px-3 py-1.5 font-serif text-[13.5px] text-slate-800">
+                          <p className="font-sans text-xs font-semibold text-slate-600">{layer.name || `L${layer.id}`}</p>
+                          <p>
+                            <EngineeringText text={`Δσ_z = ${round(qApplied, 1)} × ${round(r.influence, 4)} = ${round(r.deltaSigma, 2)} kPa;  s_i = ${round(r.deltaSigma, 2)} × ${round(layer.thicknessValue, 2)} × (1 − ${nu}²) / ${num(layer.es)} = ${round(r.immediate * 1000, 2)} mm`} />
+                          </p>
+                          <p>
+                            <EngineeringText text={cons} />
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : detailLevel === "bronze" ? (
+                  <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    Silver shows the formula behind every layer value, with your numbers substituted.
+                  </p>
+                ) : null}
           </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Consolidation</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">
-                {round(totals.consolidation * 1000, 2)} mm
-              </p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Immediate</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">
-                {round(totals.immediate * 1000, 2)} mm
-              </p>
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Total</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900">{round(totals.total * 1000, 2)} mm</p>
-            </div>
-          </div>
+            </TierGate>
+          </section>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <h3 className="text-lg font-semibold text-slate-900">Consolidation time</h3>

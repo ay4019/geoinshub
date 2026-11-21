@@ -90,7 +90,7 @@ interface CuProfileReportTabProps {
 const AI_EVALUATION_REPORT_ENABLED = true;
 
 const PDF_MEMBERSHIP_TITLE =
-  "PDF export requires Bronze membership or higher. You can keep using the tools with manual inputs.";
+  "Tool reports are available to Gold members. You can keep using the tools with manual inputs.";
 
 /** Matches PDF Figure 1 / Table 1 / Figure 2 caption typography. */
 const CU_REPORT_CAPTION_TEXT_CLASS =
@@ -737,7 +737,7 @@ export function CuProfileReportTab({
   const handleReportPdf = async () => {
     if (!reportsOk) {
       setStatus(
-        "PDF export and cloud save require Bronze membership or higher. You can keep using the tools with manual inputs.",
+        "Tool reports are available to Gold members; cloud save is available from Bronze. You can keep using the tools with manual inputs.",
       );
       return;
     }
@@ -838,7 +838,8 @@ export function CuProfileReportTab({
           {!reportsOk ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-relaxed text-amber-950 sm:px-5 sm:py-5">
               <p className="break-words">
-                To create projects and boreholes, save analyses, generate reports, and run AI analysis,{" "}
+                Projects, boreholes and saved analyses are available from Bronze; tool reports and AI analysis are Gold
+                features. To use them,{" "}
                 <Link
                   href="/account?mode=signup"
                   className="font-semibold text-amber-900 underline decoration-amber-700/60 underline-offset-2 hover:text-amber-950"

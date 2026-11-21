@@ -1,8 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { ExcelExportButton } from "@/components/calculation/excel-export-button";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
+import { DepthProfilePlot } from "@/components/charts/depth-profile-plot";
+import { buildDepthProfilePng } from "@/lib/charts/depth-profile-png";
 import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
 import { BoreholeIdSelector } from "@/components/borehole-id-selector";
 import {
@@ -15,7 +17,6 @@ import {
   profileTableThClass,
 } from "@/components/profile-table-mobile";
 import type { SelectedBoreholeSummary } from "@/lib/project-boreholes";
-import { getHiDpiCanvas2D } from "@/lib/chart-canvas-hidpi";
 import { buildMhtmlMultipartDocument, EXCEL_TABLE_BLOCK_CSS, excelTextCell, excelTextHeader } from "@/lib/excel-mhtml-export";
 import {
   matchImportSummaryForProfileRow,
@@ -72,7 +73,6 @@ export interface EoedProfileReportPayload {
   plotImageDataUrl2: string | null;
 }
 
-const BOREHOLE_COLOURS = ["#163d6b", "#8c5a2b", "#1f7a5a", "#7a3e8e", "#b45309", "#2563eb"];
 const MV_SYMBOL = "m_v";
 const EOED_SYMBOL = "E_oed";
 
@@ -106,51 +106,6 @@ function depthKey(value: number | null | undefined): string {
   return typeof value === "number" && Number.isFinite(value) ? value.toFixed(4) : "na";
 }
 
-function formatTick(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "0";
-  }
-  if (Math.abs(value) >= 100) {
-    return String(Math.round(value));
-  }
-  if (Math.abs(value) >= 10) {
-    return value.toFixed(1).replace(/\.0$/, "");
-  }
-  if (Math.abs(value) >= 1) {
-    return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-  }
-  return value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
-}
-
-function getNiceTickStep(rawStep: number): number {
-  if (!Number.isFinite(rawStep) || rawStep <= 0) {
-    return 1;
-  }
-
-  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
-  const normalised = rawStep / magnitude;
-
-  if (normalised <= 1) {
-    return magnitude;
-  }
-  if (normalised <= 2) {
-    return 2 * magnitude;
-  }
-  if (normalised <= 5) {
-    return 5 * magnitude;
-  }
-
-  return 10 * magnitude;
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const clean = hex.replace("#", "");
-  const normalized = clean.length === 3 ? clean.split("").map((char) => char + char).join("") : clean;
-  const red = Number.parseInt(normalized.slice(0, 2), 16);
-  const green = Number.parseInt(normalized.slice(2, 4), 16);
-  const blue = Number.parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-}
 
 function downloadBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
@@ -163,57 +118,7 @@ function downloadBlob(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
-function splitSubscript(symbol: string): { main: string; sub: string } {
-  const dividerIndex = symbol.indexOf("_");
-  if (dividerIndex < 0) {
-    return { main: symbol, sub: "" };
-  }
-  return {
-    main: symbol.slice(0, dividerIndex),
-    sub: symbol.slice(dividerIndex + 1),
-  };
-}
-
-function measureSymbolWidth(
-  context: CanvasRenderingContext2D,
-  symbol: string,
-  mainFont: string,
-  subFont: string,
-): number {
-  const { main, sub } = splitSubscript(symbol);
-  context.font = mainFont;
-  const mainWidth = context.measureText(main).width;
-  if (!sub) {
-    return mainWidth;
-  }
-  context.font = subFont;
-  const subWidth = context.measureText(sub).width;
-  return mainWidth + subWidth;
-}
-
-function drawSymbol(
-  context: CanvasRenderingContext2D,
-  symbol: string,
-  startX: number,
-  baselineY: number,
-  mainFont: string,
-  subFont: string,
-  subscriptOffsetY = 6,
-) {
-  const { main, sub } = splitSubscript(symbol);
-  context.font = mainFont;
-  context.fillText(main, startX, baselineY);
-  if (!sub) {
-    return;
-  }
-  const mainWidth = context.measureText(main).width;
-  context.font = subFont;
-  context.fillText(sub, startX + mainWidth, baselineY + subscriptOffsetY);
-}
-
 function buildChartPngDataUri({
-  title,
-  xLabel,
   xUnit,
   depthUnit,
   rows,
@@ -226,216 +131,19 @@ function buildChartPngDataUri({
   rows: ProfilePoint[];
   valueKey: "mv" | "eoed";
 }): string {
-  if (typeof document === "undefined") {
-    return "";
-  }
-
-  const width = 1200;
-  const height = 820;
-  const margin = { top: 108, right: 56, bottom: 120, left: 130 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
-  const maxDepth = Math.max(...rows.map((row) => row.sampleDepth), 1);
-  const maxDataValue = Math.max(...rows.map((row) => row[valueKey]), 1);
-  const xStep = getNiceTickStep(maxDataValue / 5);
-  const xIntervals = Math.max(Math.floor(maxDataValue / xStep) + 1, 2);
-  const xAxisMax = xStep * xIntervals;
-  const yStep = getNiceTickStep(maxDepth / 8);
-  const yIntervals = Math.max(Math.floor(maxDepth / yStep) + 1, 2);
-  const yAxisMax = yStep * yIntervals;
-  const xScale = (value: number) => margin.left + (value / xAxisMax) * innerWidth;
-  const yScale = (depth: number) => margin.top + (depth / yAxisMax) * innerHeight;
-  const boreholeIds = Array.from(new Set(rows.map((row) => row.boreholeId)));
-
-  const lineSeries = boreholeIds.map((boreholeId, boreholeIndex) => {
-    const boreholeRows = rows
-      .filter((row) => row.boreholeId === boreholeId)
-      .sort((a, b) => a.sampleDepth - b.sampleDepth);
-    const colour = BOREHOLE_COLOURS[boreholeIndex % BOREHOLE_COLOURS.length];
-    const points = boreholeRows.map((row) => ({
-      x: xScale(row[valueKey]),
-      y: yScale(row.sampleDepth),
-    }));
-
-    return { boreholeId, colour, points };
+  const label = valueKey === "mv" ? "mᵥ" : "E_oed";
+  return buildDepthProfilePng({
+    title: `Depth vs ${label}`,
+    xLabel: `${label} (${xUnit})`,
+    depthUnit,
+    data: rows.map((r) => ({ boreholeId: r.boreholeId, depth: r.sampleDepth, value: r[valueKey] })),
   });
-
-  const hi = getHiDpiCanvas2D(width, height);
-  if (!hi) {
-    return "";
-  }
-  const { canvas, context } = hi;
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, width, height);
-
-  context.fillStyle = "#0f172a";
-  const titleMainFont = "700 30px Georgia, 'Times New Roman', serif";
-  const titleSubFont = "700 21px Georgia, 'Times New Roman', serif";
-  if (title.includes(" vs ")) {
-    const [titlePrefix, titleSymbol] = title.split(" vs ");
-    const prefixText = `${titlePrefix} vs `;
-    context.font = titleMainFont;
-    context.fillText(prefixText, margin.left, 52);
-    const prefixWidth = context.measureText(prefixText).width;
-    drawSymbol(context, titleSymbol, margin.left + prefixWidth, 52, titleMainFont, titleSubFont, 7);
-  } else {
-    context.font = titleMainFont;
-    context.fillText(title, margin.left, 52);
-  }
-
-  context.fillStyle = "#1e3a5f";
-  const axisMainFont = "700 23px Inter, Arial, sans-serif";
-  const axisSubFont = "700 16px Inter, Arial, sans-serif";
-  context.textAlign = "start";
-  const unitText = ` (${xUnit})`;
-  const symbolWidth = measureSymbolWidth(context, xLabel, axisMainFont, axisSubFont);
-  context.font = axisMainFont;
-  const unitWidth = context.measureText(unitText).width;
-  const axisTotalWidth = symbolWidth + unitWidth;
-  const axisStartX = margin.left + innerWidth / 2 - axisTotalWidth / 2;
-  drawSymbol(context, xLabel, axisStartX, 60, axisMainFont, axisSubFont, 5);
-  context.font = axisMainFont;
-  context.fillText(unitText, axisStartX + symbolWidth, 60);
-  context.textAlign = "start";
-
-  context.strokeStyle = "#dbe5f1";
-  context.lineWidth = 2;
-  context.font = "600 21px Inter, Arial, sans-serif";
-  context.fillStyle = "#36557f";
-  for (let index = 0; index <= xIntervals; index += 1) {
-    const value = xStep * index;
-    const x = xScale(value);
-    context.beginPath();
-    context.moveTo(x, margin.top);
-    context.lineTo(x, margin.top + innerHeight);
-    context.stroke();
-    context.textAlign = "center";
-    context.fillText(formatTick(value), x, margin.top - 14);
-  }
-
-  for (let index = 0; index <= yIntervals; index += 1) {
-    const depth = yStep * index;
-    const y = yScale(depth);
-    context.beginPath();
-    context.moveTo(margin.left, y);
-    context.lineTo(margin.left + innerWidth, y);
-    context.stroke();
-    context.textAlign = "right";
-    context.fillText(depth.toFixed(1), margin.left - 18, y + 7);
-  }
-
-  context.strokeStyle = "#7f98ba";
-  context.lineWidth = 3;
-  context.beginPath();
-  context.moveTo(margin.left, margin.top);
-  context.lineTo(margin.left, margin.top + innerHeight);
-  context.stroke();
-  context.beginPath();
-  context.moveTo(margin.left, margin.top);
-  context.lineTo(margin.left + innerWidth, margin.top);
-  context.stroke();
-
-  lineSeries.forEach((series) => {
-    if (series.points.length > 1) {
-      context.beginPath();
-      context.strokeStyle = series.colour;
-      context.lineWidth = 4;
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.moveTo(series.points[0].x, series.points[0].y);
-      for (let index = 1; index < series.points.length; index += 1) {
-        context.lineTo(series.points[index].x, series.points[index].y);
-      }
-      context.stroke();
-    }
-
-    series.points.forEach((point) => {
-      context.beginPath();
-      context.fillStyle = "#ffffff";
-      context.arc(point.x, point.y, 7.4, 0, 2 * Math.PI);
-      context.fill();
-
-      context.beginPath();
-      context.strokeStyle = series.colour;
-      context.lineWidth = 3;
-      context.arc(point.x, point.y, 7.4, 0, 2 * Math.PI);
-      context.stroke();
-
-      context.beginPath();
-      context.fillStyle = series.colour;
-      context.arc(point.x, point.y, 3.3, 0, 2 * Math.PI);
-      context.fill();
-    });
-  });
-
-  context.save();
-  context.translate(42, margin.top + innerHeight / 2);
-  context.rotate(-Math.PI / 2);
-  context.textAlign = "center";
-  context.fillStyle = "#1e3a5f";
-  context.font = "700 23px Inter, Arial, sans-serif";
-  context.fillText(`Depth (${depthUnit})`, 0, 0);
-  context.restore();
-
-  const legendY = margin.top + innerHeight + 52;
-  context.font = "600 18px Inter, Arial, sans-serif";
-
-  const legendBlocks = lineSeries.map((series) => {
-    const textWidth = context.measureText(series.boreholeId).width;
-    return { series, blockWidth: 44 + textWidth };
-  });
-  const legendGap = 10;
-  const totalLegendWidth =
-    legendBlocks.reduce((total, item) => total + item.blockWidth, 0) + Math.max(legendBlocks.length - 1, 0) * legendGap;
-  let legendX = totalLegendWidth <= innerWidth ? margin.left + (innerWidth - totalLegendWidth) / 2 : margin.left;
-
-  legendBlocks.forEach((item) => {
-    const { series, blockWidth } = item;
-    const label = series.boreholeId;
-
-    context.beginPath();
-    context.fillStyle = hexToRgba(series.colour, 0.12);
-    context.roundRect(legendX, legendY - 18, blockWidth, 34, 14);
-    context.fill();
-
-    context.beginPath();
-    context.strokeStyle = "#d5e0ef";
-    context.lineWidth = 1.5;
-    context.roundRect(legendX, legendY - 18, blockWidth, 34, 14);
-    context.stroke();
-
-    context.beginPath();
-    context.fillStyle = series.colour;
-    context.arc(legendX + 16, legendY - 1, 5, 0, 2 * Math.PI);
-    context.fill();
-
-    context.fillStyle = "#334155";
-    context.textAlign = "start";
-    context.fillText(label, legendX + 28, legendY + 5);
-
-    legendX += blockWidth + legendGap;
-  });
-
-  return canvas.toDataURL("image/png");
 }
 
 function OutputCell({ value }: { value: string }) {
   return <div className={profileTableOutputCellClass}>{value}</div>;
 }
 
-function ProfileImageCard({ title, imageSrc }: { title: ReactNode; imageSrc: string }) {
-  return (
-    <ExpandableProfilePlot>
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-        <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
-          {imageSrc ? <img src={imageSrc} alt="Profile plot" className="w-full" /> : null}
-        </div>
-      </div>
-    </ExpandableProfilePlot>
-  );
-}
 
 function computeEoedRowValues({
   row,
@@ -984,30 +692,20 @@ export function EoedProfileTab({
           <button type="button" className="btn-base btn-md" onClick={addRow}>
             Add Layer
           </button>
-          <button type="button" className="btn-base btn-md" onClick={handleExportExcel}>
+          <ExcelExportButton type="button" className="btn-base btn-md" onClick={handleExportExcel}>
             Export Excel
-          </button>
+          </ExcelExportButton>
         </div>
 
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <ProfileImageCard
-          title={
-            <span>
-              Depth vs m<sub>v</sub>
-            </span>
-          }
-          imageSrc={mvChartImgSrc}
-        />
-        <ProfileImageCard
-          title={
-            <span>
-              Depth vs E<sub>oed</sub>
-            </span>
-          }
-          imageSrc={eoedChartImgSrc}
-        />
+        <ExpandableProfilePlot>
+          <DepthProfilePlot title="Depth vs mᵥ" xLabel={`mᵥ (${mvUnit})`} depthUnit={depthUnit} data={plotRows.map((r) => ({ boreholeId: r.boreholeId, depth: r.sampleDepth, value: r.mv }))} />
+        </ExpandableProfilePlot>
+        <ExpandableProfilePlot>
+          <DepthProfilePlot title="Depth vs E_oed" xLabel={`E_oed (${eoedUnit})`} depthUnit={depthUnit} data={plotRows.map((r) => ({ boreholeId: r.boreholeId, depth: r.sampleDepth, value: r.eoed }))} />
+        </ExpandableProfilePlot>
       </div>
 </section>
   );

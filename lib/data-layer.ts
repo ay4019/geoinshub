@@ -1,6 +1,7 @@
 ﻿import { tools as toolLibrary } from "@/data/tools";
 import { draftTools } from "@/data/tools-drafts";
 import articlesData from "@/data/articles.json";
+import { isAnalysisCategory } from "@/lib/tool-supergroups";
 import type { InsightArticle, ToolDefinition } from "@/lib/types";
 
 const tools = [...(toolLibrary as ToolDefinition[]), ...draftTools];
@@ -24,6 +25,9 @@ const toolAliases: Record<string, string> = {
   "liquefaction-crr": "seed-idriss-liquefaction-screening",
   "liquefaction-factor-of-safety": "seed-idriss-liquefaction-screening",
   "gmax-vs-correlation": "gmax-from-vs",
+  // Merged tools: old URLs open the tool that now contains them.
+  "compression-index-correlations": "eoed-from-mv",
+  "eurocode-7-bearing-resistance": "traditional-bearing-capacity-methods",
 };
 
 function isActiveTool(tool: ToolDefinition): boolean {
@@ -42,7 +46,7 @@ export function getFeaturedTools(limit = 3): ToolDefinition[] {
   const featuredHomeSlugs = [
     "spt-corrections",
     "gmax-from-vs",
-    "eurocode-7-bearing-resistance",
+    "traditional-bearing-capacity-methods",
   ];
 
   const curatedTools = featuredHomeSlugs
@@ -85,4 +89,18 @@ export function getToolSlugs(): string[] {
 
 export function getArticleSlugs(): string[] {
   return getActiveArticles().map((article) => article.slug);
+}
+
+/**
+ * Slugs (including aliases) of geotechnical analysis tools that take their own inputs — the tools header hides the
+ * project/borehole selector there. Liquefaction tools are kept out: they import samples from project boreholes.
+ */
+export function getAnalysisToolSlugs(): string[] {
+  const slugs = getActiveTools()
+    .filter((tool) => isAnalysisCategory(tool.category) && tool.category !== "Liquefaction")
+    .map((tool) => tool.slug);
+  const aliases = Object.entries(toolAliases)
+    .filter(([, target]) => slugs.includes(target))
+    .map(([alias]) => alias);
+  return [...slugs, ...aliases];
 }

@@ -204,15 +204,32 @@ export interface ScriptSegment {
   sub: boolean;
 }
 
+/**
+ * Splits text into normal and subscript runs. Recognises Unicode subscript glyphs (N₆₀) and the ASCII
+ * underscore notation used in equations (C_E, z_w, γ_R,v, φ′_d): an underscore after a letter or prime
+ * subscripts the following run of letters/digits (and one ",x" suffix).
+ */
 export function splitSubscripts(text: string): ScriptSegment[] {
   const out: ScriptSegment[] = [];
-  for (const ch of text) {
-    const mapped = SUBSCRIPTS[ch];
-    const sub = mapped !== undefined;
-    const value = sub ? mapped : ch;
+  const push = (value: string, sub: boolean) => {
     const last = out[out.length - 1];
     if (last && last.sub === sub) last.text += value;
     else out.push({ text: value, sub });
+  };
+  const chars = Array.from(text);
+  for (let i = 0; i < chars.length; i += 1) {
+    const ch = chars[i];
+    const prev = chars[i - 1] ?? "";
+    if (ch === "_" && /[\p{L}′')]/u.test(prev)) {
+      const m = /^[\p{L}\p{N}]+(?:,[\p{L}\p{N}]+)?/u.exec(chars.slice(i + 1).join(""));
+      if (m) {
+        push(m[0], true);
+        i += Array.from(m[0]).length;
+        continue;
+      }
+    }
+    const mapped = SUBSCRIPTS[ch];
+    push(mapped ?? ch, mapped !== undefined);
   }
   return out;
 }

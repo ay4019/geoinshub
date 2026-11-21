@@ -1,218 +1,321 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { B, LegalDocument, List, type LegalSection } from "@/components/legal/legal-document";
+
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "Privacy policy and KVKK-related information for Geotechnical Insights Hub (Türkiye).",
+  description:
+    "Privacy policy and KVKK (Law No. 6698) information notice for Geotechnical Insights Hub: what data is processed, why, with whom, for how long, and your rights.",
 };
+
+const linkClass = "font-semibold underline underline-offset-4";
+const th = "border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-600";
+const td = "border-b border-slate-100 px-3 py-2 align-top";
+
+const dataRows: Array<[string, string, string, string, string]> = [
+  [
+    "Account",
+    "E‑mail address, user ID, password hash, membership level, sign‑in and session metadata",
+    "Create and secure your account, apply membership features",
+    "Contract (Art. 5/2‑c); legitimate interest (Art. 5/2‑f)",
+    "Until you delete your account; copies in backups are removed in the providers’ normal backup cycle",
+  ],
+  [
+    "Projects and analyses",
+    "Project and borehole labels, sample depths and values, saved tool inputs, outputs and plot images",
+    "Store and reload your work, feed one tool from another",
+    "Contract (Art. 5/2‑c)",
+    "Until you delete them or your account",
+  ],
+  [
+    "AI requests",
+    "Report tables, figures, method text and the labels you entered (no name or e‑mail)",
+    "Produce the AI interpretation you request; enforce quotas",
+    "Contract (Art. 5/2‑c); explicit instruction when you start the feature",
+    "Not stored by us beyond the session and quota counters; provider terms apply",
+  ],
+  [
+    "Contact messages",
+    "Name, e‑mail, subject and message (delivered to the operator by e‑mail); a log of e‑mail address, subject and time",
+    "Answer your enquiry, prevent spam and keep a record",
+    "Legitimate interest (Art. 5/2‑f); establishing or defending rights (Art. 5/2‑e)",
+    "As long as needed to handle the enquiry and any related claims",
+  ],
+  [
+    "Newsletter",
+    "E‑mail address you submit to the newsletter form",
+    "Send occasional updates about new tools and articles",
+    "Explicit consent (Art. 5/1), given by submitting the form",
+    "Until you ask us to remove it",
+  ],
+  [
+    "Technical and usage",
+    "IP address, browser and device data, pages viewed, performance metrics, error logs",
+    "Operate, secure and improve the Service; prevent misuse",
+    "Legitimate interest (Art. 5/2‑f); legal obligation (Art. 5/2‑ç)",
+    "For the providers’ standard log retention periods; analytics only in aggregated form",
+  ],
+  [
+    "Preferences on your device",
+    "Unit system, guide language, tool and project selections, unsaved table drafts",
+    "Remember your settings",
+    "Legitimate interest (Art. 5/2‑f)",
+    "Stored in your browser until you clear it",
+  ],
+];
+
+const sections: LegalSection[] = [
+  {
+    id: "controller",
+    title: "Data controller",
+    body: (
+      <p>
+        The data controller under Law No. 6698 on the Protection of Personal Data (<B>KVKK</B>) is the operator of Geotechnical
+        Insights Hub, based in the Republic of Türkiye. You can reach the operator for any privacy matter through the{" "}
+        <Link href="/contact" className={linkClass}>
+          Contact
+        </Link>{" "}
+        page. This Policy is also the information notice required by Art. 10 KVKK. Where the EU General Data Protection
+        Regulation or another law applies to you, comparable rights are respected.
+      </p>
+    ),
+  },
+  {
+    id: "principles",
+    title: "Our approach",
+    body: (
+      <List
+        items={[
+          "We collect only what is needed to run an educational engineering platform.",
+          "We do not sell or rent personal data, and we do not use it for advertising or profiling.",
+          "There is no general file upload: we process what you type into forms and the results you choose to save.",
+          <>
+            <B>Please do not enter confidential or personal data</B> about clients, sites or other people in project, borehole
+            or message fields. Use neutral labels.
+          </>,
+        ]}
+      />
+    ),
+  },
+  {
+    id: "data",
+    title: "What we process, why, on which legal basis and for how long",
+    body: (
+      <>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full min-w-[720px] border-collapse text-[13px] leading-5">
+            <thead>
+              <tr>
+                <th className={th}>Category</th>
+                <th className={th}>Examples</th>
+                <th className={th}>Purpose</th>
+                <th className={th}>Legal basis (KVKK)</th>
+                <th className={th}>Retention</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dataRows.map((row) => (
+                <tr key={row[0]}>
+                  {row.map((cell, i) => (
+                    <td key={i} className={`${td} ${i === 0 ? "font-semibold text-slate-900" : ""}`}>
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p>
+          We do not intentionally process special categories of personal data (Art. 6 KVKK). After the retention period, data is
+          deleted, destroyed or anonymised. Anonymised or aggregated statistics may be kept.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "collection",
+    title: "How data is collected",
+    body: (
+      <p>
+        Data is collected electronically when you register, sign in, use tools, save analyses, start AI features, send a
+        contact message or simply browse the site (through server logs, cookies, local storage and cookieless analytics).
+      </p>
+    ),
+  },
+  {
+    id: "recipients",
+    title: "Who we share data with",
+    body: (
+      <>
+        <p>We share data only with service providers that process it on our behalf, and with authorities where the law requires:</p>
+        <List
+          items={[
+            <>
+              <B>Supabase</B>: authentication and database hosting.
+            </>,
+            <>
+              <B>Vercel</B>: website hosting, server logs, and privacy‑friendly analytics and performance measurement (Vercel
+              Web Analytics and Speed Insights, which work without advertising cookies and report aggregated figures).
+            </>,
+            <>
+              <B>Resend</B>: delivery of transactional e‑mails, such as account and contact messages.
+            </>,
+            <>
+              <B>Google (Gemini API)</B>: only when you start an AI feature; the report data described above is sent for
+              processing. Your name and e‑mail address are not sent.
+            </>,
+            "Public authorities, courts or law enforcement, where a legal obligation or court order requires it.",
+          ]}
+        />
+      </>
+    ),
+  },
+  {
+    id: "transfers",
+    title: "Transfers abroad",
+    body: (
+      <>
+        <p>
+          These providers may store or process data outside Türkiye, including in the European Union and the United States.
+          Such transfers are carried out under Art. 9 KVKK, mainly on the basis of standard contracts or other appropriate
+          safeguards provided by the providers, or, where those are not available, on a basis permitted by law, such as the
+          transfer being necessary for the performance of the contract with you.
+        </p>
+        <p>
+          AI features are optional. Starting one transfers the related data to Google; do not use them for confidential, personal
+          or client‑restricted information.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "cookies",
+    title: "Cookies and local storage",
+    body: (
+      <>
+        <List
+          items={[
+            <>
+              <B>Strictly necessary</B>: authentication and session cookies set by Supabase to keep you signed in and protect
+              your account. The site cannot work without them.
+            </>,
+            <>
+              <B>Visit counter</B>: a first‑party cookie (<code>gih_visit_session</code>, 30 minutes) so a visit is counted once
+              in the anonymous site counters. It contains no personal data.
+            </>,
+            <>
+              <B>Functional local storage</B>: your preferences and drafts (for example unit system, guide language, selected
+              project and tool tables), kept only in your browser.
+            </>,
+            <>
+              <B>Analytics</B>: Vercel Web Analytics and Speed Insights measure visits and performance without advertising or
+              cross‑site tracking cookies.
+            </>,
+          ]}
+        />
+        <p>We use no advertising or social‑media tracking cookies. You can delete cookies and local storage in your browser at any time; signed‑in features will then require you to sign in again.</p>
+      </>
+    ),
+  },
+  {
+    id: "ai",
+    title: "AI features",
+    body: (
+      <p>
+        AI interpretations are produced by a third‑party model from a general‑purpose prompt and the data you choose to send.
+        They are not used to make any decision about you and involve no profiling of you. The provider processes the request
+        under its own terms; see the{" "}
+        <Link href="/disclaimer" className={linkClass}>
+          Disclaimer
+        </Link>{" "}
+        for the limits of AI output.
+      </p>
+    ),
+  },
+  {
+    id: "security",
+    title: "Security",
+    body: (
+      <p>
+        We apply reasonable technical and organisational measures (Art. 12 KVKK), such as encrypted connections, access controls,
+        row‑level security in the database and least‑privilege access. The Service is not designed as a secure repository for
+        confidential engineering files, and no system can be guaranteed to be completely secure. If a breach affects your data,
+        we will notify you and the Personal Data Protection Board as required by law.
+      </p>
+    ),
+  },
+  {
+    id: "rights",
+    title: "Your rights",
+    body: (
+      <>
+        <p>Under Art. 11 KVKK you have the right to:</p>
+        <List
+          items={[
+            "learn whether your personal data is processed and request information about it;",
+            "learn the purpose of processing and whether data is used accordingly;",
+            "know the third parties in Türkiye or abroad to whom data is transferred;",
+            "request correction of incomplete or inaccurate data, and notification of the correction to recipients;",
+            "request deletion or destruction of data under Art. 7, and notification of this to recipients;",
+            "withdraw consent at any time where processing is based on consent (for example the newsletter);",
+            "object to a result against you arising solely from automated analysis; and",
+            "claim compensation for damage caused by unlawful processing.",
+          ]}
+        />
+        <p>
+          You can delete your account and its data yourself from your account page. For other requests, write to us through the{" "}
+          <Link href="/contact" className={linkClass}>
+            Contact
+          </Link>{" "}
+          page from your registered e‑mail address, stating your request clearly. We will answer free of charge within 30 days
+          at the latest, as provided in the Communiqué on the Procedures and Principles of Application to the Data Controller;
+          a fee may be charged only where the law allows. If you are not satisfied, you may complain to the Personal Data
+          Protection Board (Kişisel Verileri Koruma Kurulu).
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "children",
+    title: "Children",
+    body: (
+      <p>
+        The Service is intended for adults and for learners using it under supervision. It is not directed at children, and we
+        do not knowingly create accounts for persons under 18 without supervision. If you believe a child has given us personal
+        data, contact us and we will delete it.
+      </p>
+    ),
+  },
+  {
+    id: "changes",
+    title: "Changes to this Policy",
+    body: (
+      <p>
+        We may update this Policy when the Service, our providers or the law change. The date above shows the latest version;
+        where changes are material and you have an account, we will make reasonable efforts to inform you.
+      </p>
+    ),
+  },
+];
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-10 sm:px-6 sm:py-12">
-      <h1 className="text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Privacy Policy</h1>
-
-      <section className="space-y-5 rounded-xl border border-slate-200 bg-white p-6 text-sm leading-7 text-slate-700 shadow-sm">
+    <LegalDocument
+      title="Privacy Policy"
+      updated="21 November 2026"
+      intro={
         <p>
-          This Privacy Policy explains how Geotechnical Insights Hub collects, uses, stores, and shares personal data.
-          The Service is operated from the Republic of Türkiye (Turkey). Processing is described in line with Law No.
-          6698 on the Protection of Personal Data (KVKK) and, where relevant, international standards. It also explains
-          your privacy rights and choices.
+          This Policy explains how Geotechnical Insights Hub processes personal data, in line with Law No. 6698 on the
+          Protection of Personal Data (KVKK), and how you can exercise your rights. It should be read with the{" "}
+          <Link href="/terms" className={linkClass}>
+            Terms of Use
+          </Link>
+          .
         </p>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">1. Who We Are</h2>
-          <p>
-            Geotechnical Insights Hub is an educational geotechnical engineering platform published from the Republic of
-            Türkiye. For privacy and data subject requests, please use the{" "}
-            <Link href="/contact" className="font-semibold underline underline-offset-4">
-              Contact
-            </Link>{" "}
-            page.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">2. Data We Collect</h2>
-          <p>
-            <span className="font-medium text-slate-900">No general file uploads.</span> The website does not provide a
-            feature to upload documents, borehole logs, or attachments. We only process data you enter into forms and
-            fields, plus technical data needed to run the Service.
-          </p>
-          <p>
-            <span className="font-medium text-slate-900">Use neutral labels.</span> Project names, borehole identifiers,
-            and similar fields are optional labels to help you organise records inside the application. Do not enter
-            confidential client names, exact site addresses, contract codes, or other sensitive identifiers there unless
-            you accept the risk of processing and storage as described here.
-          </p>
-          <ul className="space-y-1">
-            <li>
-              - <span className="font-medium text-slate-900">Account data:</span> email address, authentication user
-              ID, and login/session metadata through Supabase Auth.
-            </li>
-            <li>
-              - <span className="font-medium text-slate-900">Project and engineering inputs:</span> project names,
-              borehole identifiers, sample depths, and numeric or text fields you enter when using account project
-              tools (for example user-entered N values). You are responsible for not submitting special categories of
-              personal data or third-party personal data except where you have a lawful basis.
-            </li>
-            <li>
-              - <span className="font-medium text-slate-900">Tool records:</span> selected tool outputs if you choose to
-              save results to a project.
-            </li>
-            <li>
-              - <span className="font-medium text-slate-900">Contact data:</span> name, email, subject, and message
-              content submitted via the contact form.
-            </li>
-            <li>
-              - <span className="font-medium text-slate-900">Technical data:</span> browser/device diagnostics, page
-              requests, and local preferences (for example selected unit system and active tool/project selections in
-              local browser storage).
-            </li>
-          </ul>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">3. How We Use Data</h2>
-          <ul className="space-y-1">
-            <li>- To create and secure accounts.</li>
-            <li>- To provide tool functionality and save user project/borehole records.</li>
-            <li>- To respond to contact requests and support messages.</li>
-            <li>- To maintain platform security, stability, and misuse prevention.</li>
-            <li>- To improve product quality and reliability.</li>
-          </ul>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">4. Legal Bases (KVKK and International Practice)</h2>
-          <p>
-            Under KVKK, processing may rely on conditions such as: establishment or performance of a contract, legal
-            obligation, legitimate interest (where not overridden by your interests), explicit consent where
-            required, or other bases set out in the law. Where GDPR or other regimes apply to certain users, comparable
-            concepts (contract, legitimate interests, consent, legal obligation) may apply in parallel.
-          </p>
-          <ul className="space-y-1">
-            <li>- Contract: to provide account and platform features you request.</li>
-            <li>- Legitimate interests: to secure, operate, and improve the website.</li>
-            <li>- Consent: where required for optional communications or specific processing.</li>
-            <li>- Legal obligation: where disclosure is required by law.</li>
-          </ul>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">5. Cookies and Local Storage</h2>
-          <p>
-            Authentication and essential security/session mechanisms may use cookies or equivalent browser storage.
-            Some functional preferences (such as selected units or active tool selection) are stored locally on your
-            device for usability.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">6. Service Providers and Data Sharing</h2>
-          <p>
-            We use trusted third-party processors to operate the service. Typical providers include:
-          </p>
-          <ul className="space-y-1">
-            <li>- Supabase (authentication and database infrastructure).</li>
-            <li>- Vercel (hosting and deployment infrastructure).</li>
-            <li>- Resend (transactional email delivery, if enabled).</li>
-            <li>
-              - Google (Gemini API), only when you choose an &quot;Analyse with AI&quot; or AI report feature: the
-              report table, profile figures, method text, project and borehole labels you entered are sent for
-              processing. Account details such as your name and e-mail address are not included.
-            </li>
-          </ul>
-          <p>We do not sell personal data.</p>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">7. International Transfers</h2>
-          <p>
-            Infrastructure providers may process data in the European Economic Area, the United States, or other
-            regions. Where personal data is transferred outside Türkiye, we rely on appropriate safeguards permitted
-            under KVKK (such as the data importer&apos;s commitment to adequate protection, standard contractual clauses,
-            or other mechanisms required by law) and contractual security requirements.
-          </p>
-          <p>
-            AI features are optional. When you start one, the related data is transferred to Google&apos;s Gemini API,
-            which may process it outside Türkiye. Do not use AI features for confidential, personal, or client-restricted
-            information.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">8. Data Retention</h2>
-          <p>
-            We retain data only as long as needed for account services, support, security, legal compliance, and
-            legitimate business records. You can request deletion of your account from the account privacy section.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">9. Your Privacy Rights</h2>
-          <p>
-            If you are located in Türkiye or your data is processed under KVKK, you may exercise rights under Law No.
-            6698, including (where applicable) the right to learn whether your personal data is processed, to request
-            information, to obtain a copy, to request correction or deletion, to object to outcomes exclusively produced
-            by automated processing, to request data portability, to claim compensation for unlawful processing, and to
-            lodge a complaint with the Turkish Personal Data Protection Authority (Kişisel Verileri Koruma Kurulu).
-          </p>
-          <p>Users in other jurisdictions may have comparable rights under local law.</p>
-          <ul className="space-y-1">
-            <li>- Access, correct, or delete personal data.</li>
-            <li>- Restrict or object to processing in certain cases.</li>
-            <li>- Data portability where applicable.</li>
-            <li>- Withdraw consent where processing is consent-based.</li>
-            <li>- Lodge a complaint with the competent supervisory authority.</li>
-          </ul>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">10. Security</h2>
-          <p>
-            We apply reasonable technical and organisational measures appropriate to the nature of the Service (for
-            example access controls, encryption in transit where supported by providers, and least-privilege
-            practices). Because the Service is not intended for highly confidential engineering files or bulk uploads,
-            you should not treat it as a classified or secure document repository. No internet transmission or storage
-            system can be guaranteed 100% secure.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">11. Children&apos;s Privacy</h2>
-          <p>
-            The Service is intended for professional and educational use by adults and supervised learners. It is not
-            directed at young children for independent account registration. If you are a parent or guardian in
-            Türkiye, please supervise minors&apos; use of online services in line with applicable law.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">12. Policy Updates</h2>
-          <p>
-            We may update this policy from time to time. Material changes will be reflected by updating the date below.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-slate-900">13. Related Legal Pages</h2>
-          <p>
-            Governing law and jurisdiction for use of the Service are set out in the{" "}
-            <Link href="/terms" className="font-semibold underline underline-offset-4">
-              Terms of Use
-            </Link>
-            . Please also review our{" "}
-            <Link href="/disclaimer" className="font-semibold underline underline-offset-4">
-              Disclaimer
-            </Link>
-            .
-          </p>
-        </div>
-
-        <p className="text-xs text-slate-500">
-          Last updated: 18 November 2026. This page is general information and is not legal advice.
-        </p>
-      </section>
-    </div>
+      }
+      sections={sections}
+    />
   );
 }

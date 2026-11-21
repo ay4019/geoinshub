@@ -117,7 +117,9 @@ export function drawResponsibilitySection(
       doc.addPage();
       y = 48;
     }
-    doc.text(lines, marginX, y, { baseline: "top" });
+    // Draw line by line: jsPDF's multi-line text uses its own (tighter) line height, which made these
+    // paragraphs look denser than the rest of the report.
+    (lines as string[]).forEach((line, i) => doc.text(line, marginX, y + i * 12.5, { baseline: "top" }));
     y += lines.length * 12.5 + 7;
   }
   doc.setTextColor(15, 23, 42);

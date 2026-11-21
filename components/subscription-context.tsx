@@ -127,3 +127,22 @@ export function useSubscription(): SubscriptionContextValue {
   }
   return ctx;
 }
+
+/**
+ * Fixed membership for `/guide-capture/*` screenshots only: renders its children as if the viewer held `tier`.
+ * Never used on public routes.
+ */
+export function SubscriptionOverride({ tier, children }: { tier: SubscriptionTier; children: React.ReactNode }) {
+  const value = useMemo<SubscriptionContextValue>(
+    () => ({
+      tier,
+      isAdmin: false,
+      effectiveTier: tier,
+      effectiveTierLabel: effectiveTierDisplayLabel(tier, false),
+      loading: false,
+      refresh: async () => {},
+    }),
+    [tier],
+  );
+  return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;
+}

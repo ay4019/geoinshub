@@ -1,5 +1,6 @@
 "use client";
 
+import { ExcelExportButton } from "@/components/calculation/excel-export-button";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { DepthProfilePlot } from "@/components/charts/depth-profile-plot";
@@ -915,9 +916,9 @@ export function SptProfileTab({
                 </td>
                 <td colSpan={9} />
                 <td className="px-2 py-3 text-right align-top">
-                  <button type="button" className={profileTableFooterButtonClass} onClick={handleExportExcel}>
+                  <ExcelExportButton type="button" className={profileTableFooterButtonClass} onClick={handleExportExcel}>
                     Export Excel
-                  </button>
+                  </ExcelExportButton>
                 </td>
               </tr>
             </tfoot>

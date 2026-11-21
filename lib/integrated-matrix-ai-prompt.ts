@@ -248,11 +248,11 @@ Approved correlations (identical to the application tools). If a parameter is mi
 | cᵤ from N₆₀ and PI | Stroud (1974): cᵤ = f₁ × N₆₀, f₁ from PI | Clays only |
 | φ′ from SPT | Wolff (1989) fit to Peck, Hanson & Thornburn (1974): φ′ = 27.1 + 0.3N₁,₆₀ - 0.00054N₁,₆₀² (uses N₁,₆₀) | Sands / granular |
 | φ′ from PI | Sorensen & Okkels (2013): φ′ = 45 - 14 log₁₀(PI) | Overconsolidated clays, PI about 4–50 |
-| c′ | 0 kPa for sand/gravel; 0–5 kPa for NC clay; c′ = 0.1cᵤ only as an explicitly stated alternative | All soils |
-| Eᵤ from N₆₀ | Butler (1975): Eᵤ = (1000–1200) × N₆₀ kPa | Clays |
-| E′ cohesive | E′ = β′Eᵤ with Eᵤ/cᵤ from PI and OCR (Duncan & Buchignani 1976) | Clays |
+| c′ | 0 kPa for sand/gravel; 0–5 kPa for NC clay; from drained triaxial tests otherwise. Do NOT derive c′ from cᵤ (e.g. 0.1cᵤ); c′ values already in the matrix may come from older saved results and should be checked for plausibility | All soils |
+| Eᵤ | Butler (1975): Eᵤ = (1000–1200) × N₆₀ kPa; or Eᵤ = (Eᵤ/cᵤ)·cᵤ with Eᵤ/cᵤ from PI and OCR (Duncan & Buchignani 1976) | Clays |
+| E′ cohesive | E′ = β′Eᵤ, β′ = 0.4 soft clay / 0.6 stiff clay / 0.7 silt or silty clay | Clays |
 | E′ granular | Kulhawy & Mayne (1990): E′ = 500 / 1000 / 1500 × N₆₀ kPa (silty / clean NC / clean OC sand) | Sands |
-| Eoed | Eoed = 1/m_v; or Stroud (1974): Eoed = f₂ × N₆₀ | Clays |
+| Eoed | Eoed = 1/m_v; or Stroud & Butler (1975): Eoed = f₂ × N₆₀ with f₂ from PI; or from C_c (mean of Skempton 1944, Terzaghi & Peck 1967, Nishida 1956, Azzouz et al. 1976, Koppula 1981): m_v = C_c log₁₀[(σ′v0+Δσ′)/σ′v0] / [(1+e₀)Δσ′] | Clays |
 | Gₘₐₓ | Gₘₐₓ = ρVₛ²; Vₛ from Imai & Tonouchi (1982) when Vₛ is not measured | All soils |
 | K₀ | Mayne & Kulhawy (1982): K₀ = (1 - sinφ′)·OCR^sinφ′; OCR only from measured σ′p | All soils |
 

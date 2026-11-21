@@ -109,5 +109,10 @@ export function getDisplayResult(
   return {
     ...result,
     items: result.items.map((item) => convertResultItem(item, unitSystem)),
+    headline: result.headline?.map((h) => ({ ...h, ...convertResultItem({ label: h.label, value: h.value, unit: h.unit }, unitSystem) })),
+    steps: result.steps?.map((step) => ({
+      ...step,
+      lines: step.lines.map((line) => ({ ...line, ...convertResultItem(line, unitSystem) })),
+    })),
   };
 }

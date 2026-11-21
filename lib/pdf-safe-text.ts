@@ -24,6 +24,8 @@ const REPLACEMENTS: Array<[RegExp, string]> = [
   [/\u{1F534}/gu, "LOW"],
   [/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]️?/gu, ""], // remaining pictographs / dingbats
   [/️/g, ""],
+  // Invisible joiners/zero-width spaces from HTML-to-text conversion render as visible gaps in jsPDF.
+  [/[⁠​‌‍﻿]/g, ""],
 ];
 
 export function toPdfSafeText(text: string): string {

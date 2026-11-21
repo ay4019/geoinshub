@@ -40,14 +40,14 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   const blocks = article.blocks ?? article.content.map((paragraph) => ({ type: "paragraph" as const, text: paragraph }));
 
   return (
-    <article className="mx-auto max-w-5xl space-y-4 sm:space-y-6">
+    <article className="mx-auto max-w-[48rem] space-y-4 sm:space-y-6">
       <ArticleReadTracker slug={article.slug} />
 
       <Link
         href="/blog"
         className="inline-flex text-sm font-medium text-slate-700 transition-colors hover:text-slate-900 sm:text-lg"
       >
-        {"<-"} Back to blog
+        ← Back to blog
       </Link>
 
       <header className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-8 sm:py-6">
@@ -55,7 +55,8 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
       </header>
 
       <section className="rounded-xl border border-slate-200 bg-white px-4 py-5 shadow-sm sm:px-8 sm:py-8">
-        <div className="space-y-5 text-sm leading-7 text-slate-700 sm:space-y-6 sm:text-[16px] sm:leading-8">
+        {/* Relative line height: the root font size grows on large screens, so rem-based leading would over-space the text. */}
+        <div className="space-y-5 text-[15px] leading-[1.75] text-slate-700 sm:text-[17px]">
           {blocks.map((block, index) => {
             if (block.type === "paragraph") {
               return <p key={`${block.type}-${index}`}>{block.text}</p>;
@@ -63,7 +64,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
 
             if (block.type === "note") {
               return (
-                <p key={`${block.type}-${index}`} className="text-xs italic leading-6 text-slate-600 sm:text-sm sm:leading-7">
+                <p key={`${block.type}-${index}`} className="text-[13px] italic leading-[1.65] text-slate-600 sm:text-[15px]">
                   {block.text}
                 </p>
               );
@@ -121,7 +122,12 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
 
             if (block.type === "author") {
               return (
-                <p key={`${block.type}-${index}`} className="text-sm font-medium text-slate-800 sm:text-base">
+                <p
+                  key={`${block.type}-${index}`}
+                  className={`font-medium text-slate-800 ${
+                    blocks[index - 1]?.type === "author" ? "!mt-0 text-slate-600" : "!mt-8 border-t border-slate-200 pt-5"
+                  }`}
+                >
                   {block.text}
                 </p>
               );
@@ -129,7 +135,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
 
             if (block.type === "bibliography") {
               return (
-                <ul key={`${block.type}-${index}`} className="space-y-2 text-sm leading-7 text-slate-700 sm:text-base sm:leading-8">
+                <ul key={`${block.type}-${index}`} className="space-y-2 text-[14px] leading-[1.65] text-slate-700 sm:text-[15px]">
                   {block.items.map((item) => (
                     <li key={item}>{item}</li>
                   ))}

@@ -1,15 +1,120 @@
 "use client";
 
+import { splitSubscripts, type ScriptSegment } from "@/lib/charts/depth-profile";
+import { REPORT_RESPONSIBILITY_PARAGRAPHS } from "@/lib/legal/report-disclaimer";
 import { toPdfSafeText } from "@/lib/pdf-safe-text";
-import {
-  drawAiNotice,
-  drawReportTitleBlock,
-  drawResponsibilitySection,
-  stampReportFooters,
-} from "@/lib/reports/pdf-chrome";
-import type { ReportDocument } from "@/lib/reports/standard-report-document";
+import { drawAiNotice, drawReportTitleBlock, stampReportFooters } from "@/lib/reports/pdf-chrome";
+import type { ReportBlock, ReportDocument } from "@/lib/reports/standard-report-document";
+import type { CellHookData } from "jspdf-autotable";
 
 type Doc = import("jspdf").jsPDF;
+type Style = "normal" | "bold" | "italic";
+type Rgb = [number, number, number];
+
+const INK: Rgb = [31, 35, 40];
+const MUTED: Rgb = [85, 84, 79];
+const SUB_SCALE = 0.7;
+
+/**
+ * Rich text: normal runs and real subscripts (from Unicode subscript glyphs or the C_E notation), drawn
+ * run by run so subscripts are smaller and lowered — the same rendering as the on-screen report.
+ */
+type RichLine = ScriptSegment[];
+
+function setRun(doc: Doc, size: number, style: Style, sub: boolean) {
+  doc.setFont("NotoSans", style);
+  doc.setFontSize(sub ? size * SUB_SCALE : size);
+}
+
+function segWidth(doc: Doc, seg: ScriptSegment, size: number, style: Style): number {
+  setRun(doc, size, style, seg.sub);
+  return doc.getTextWidth(seg.text);
+}
+
+function richWidth(doc: Doc, line: RichLine, size: number, style: Style): number {
+  return line.reduce((sum, seg) => sum + segWidth(doc, seg, size, style), 0);
+}
+
+/** Greedy word wrap over rich segments. */
+function wrapRich(doc: Doc, value: string, size: number, style: Style, maxWidth: number): RichLine[] {
+  const segs = splitSubscripts(toPdfSafeText(value));
+  // Split into words while keeping sub/normal runs; spaces live only in normal runs.
+  const words: RichLine[] = [[]];
+  for (const seg of segs) {
+    const parts = seg.text.split(/( )/);
+    for (const part of parts) {
+      if (part === " ") {
+        words.push([]);
+      } else if (part) {
+        words[words.length - 1].push({ text: part, sub: seg.sub });
+      }
+    }
+  }
+  const space = (setRun(doc, size, style, false), doc.getTextWidth(" "));
+  const lines: RichLine[] = [];
+  let current: RichLine = [];
+  let width = 0;
+  for (const word of words.filter((w) => w.length)) {
+    const w = richWidth(doc, word, size, style);
+    if (current.length && width + space + w > maxWidth) {
+      lines.push(current);
+      current = [];
+      width = 0;
+    }
+    if (current.length) {
+      current.push({ text: " ", sub: false });
+      width += space;
+    }
+    current.push(...word);
+    width += w;
+  }
+  if (current.length) lines.push(current);
+  return lines.length ? lines : [[{ text: "", sub: false }]];
+}
+
+function drawRich(doc: Doc, line: RichLine, x: number, y: number, size: number, style: Style, color: Rgb) {
+  doc.setTextColor(...color);
+  let cx = x;
+  for (const seg of line) {
+    setRun(doc, size, style, seg.sub);
+    doc.text(seg.text, cx, seg.sub ? y + size * 0.42 : y, { baseline: "top" });
+    cx += doc.getTextWidth(seg.text);
+  }
+}
+
+/** True when a table cell needs rich drawing (contains subscripts). */
+function needsRich(value: string): boolean {
+  return splitSubscripts(value).some((s) => s.sub);
+}
+
+/** autoTable hooks that redraw single-line cells containing subscripts with drawRich. */
+function richCellHooks(doc: Doc) {
+  const pending = new WeakMap<object, string>();
+  return {
+    willDrawCell: (data: CellHookData) => {
+      const raw = data.cell.raw;
+      if (typeof raw === "string" && needsRich(raw)) {
+        pending.set(data.cell, raw);
+        data.cell.text = [];
+      }
+    },
+    didDrawCell: (data: CellHookData) => {
+      const raw = pending.get(data.cell);
+      if (!raw) return;
+      const size = data.cell.styles.fontSize;
+      const style = (data.cell.styles.fontStyle as Style) || "normal";
+      const line = wrapRich(doc, raw, size, style, Number.POSITIVE_INFINITY)[0];
+      const w = richWidth(doc, line, size, style);
+      const x =
+        data.cell.styles.halign === "center"
+          ? data.cell.x + (data.cell.width - w) / 2
+          : data.cell.x + data.cell.padding("left");
+      const y = data.cell.y + (data.cell.height - size * 1.15) / 2;
+      const color = data.cell.styles.textColor;
+      drawRich(doc, line, x, y, size, style, Array.isArray(color) ? (color as Rgb) : INK);
+    },
+  };
+}
 
 let fontCache: { regular: string; bold: string; italic: string } | null = null;
 
@@ -65,16 +170,41 @@ export async function createStandardReportPdf(report: ReportDocument, fileSlug: 
       y = 48;
     }
   };
-  const text = (value: string, opts: { size: number; style?: "normal" | "bold" | "italic"; color?: [number, number, number]; lineH?: number; indent?: number }) => {
-    doc.setFont("NotoSans", opts.style ?? "normal");
-    doc.setFontSize(opts.size);
-    doc.setTextColor(...(opts.color ?? [15, 23, 42]));
+  const text = (
+    value: string,
+    opts: { size: number; style?: Style; color?: Rgb; lineH?: number; indent?: number; align?: "left" | "center" },
+  ) => {
     const lineH = opts.lineH ?? opts.size * 1.45;
-    const lines: string[] = doc.splitTextToSize(toPdfSafeText(value), contentW - (opts.indent ?? 0));
+    const indent = opts.indent ?? 0;
+    const lines = wrapRich(doc, value, opts.size, opts.style ?? "normal", contentW - indent);
     for (const line of lines) {
       ensure(lineH);
-      doc.text(line, marginX + (opts.indent ?? 0), y, { baseline: "top" });
+      const x =
+        opts.align === "center"
+          ? marginX + indent + (contentW - indent - richWidth(doc, line, opts.size, opts.style ?? "normal")) / 2
+          : marginX + indent;
+      drawRich(doc, line, x, y, opts.size, opts.style ?? "normal", opts.color ?? INK);
       y += lineH;
+    }
+  };
+  /** Rough height of the first part of a block, so a heading is never left alone at the foot of a page. */
+  const leadHeight = (next: ReportBlock | undefined): number => {
+    switch (next?.kind) {
+      case "table":
+        return 110;
+      case "figure":
+        return 300;
+      case "keyValue":
+        return 70;
+      case "equation":
+        return 40;
+      case "responsibility":
+        return 120;
+      case "references":
+      case "bullets":
+        return 40;
+      default:
+        return 45;
     }
   };
 
@@ -86,14 +216,14 @@ export async function createStandardReportPdf(report: ReportDocument, fileSlug: 
     unitSystem: report.unitSystem,
   });
 
-  for (const block of report.blocks) {
+  for (const [index, block] of report.blocks.entries()) {
     switch (block.kind) {
       case "heading": {
-        ensure(block.level === 1 ? 60 : 40);
+        ensure((block.level === 1 ? 40 : 28) + leadHeight(report.blocks[index + 1]));
         y += block.level === 1 ? 10 : 4;
-        text(block.text, { size: block.level === 1 ? 13.5 : 11, style: "bold", color: block.level === 1 ? [22, 61, 107] : [15, 23, 42] });
+        text(block.text, { size: block.level === 1 ? 13.5 : 11, style: "bold", color: INK });
         if (block.level === 1) {
-          doc.setDrawColor(203, 213, 225);
+          doc.setDrawColor(217, 211, 197);
           doc.setLineWidth(0.6);
           doc.line(marginX, y + 1, marginX + contentW, y + 1);
           y += 6;
@@ -106,23 +236,21 @@ export async function createStandardReportPdf(report: ReportDocument, fileSlug: 
         y += 6;
         break;
       case "equation": {
-        ensure(34);
-        doc.setFont("NotoSans", "italic");
-        doc.setFontSize(11.5);
-        doc.setTextColor(15, 23, 42);
-        const eqLines: string[] = doc.splitTextToSize(toPdfSafeText(block.text), contentW - 60);
+        ensure(block.where ? 46 : 30);
+        y += 2;
+        const eqLines = wrapRich(doc, block.text, 11.5, "normal", contentW - 60);
         for (const line of eqLines) {
-          ensure(17);
-          const w = doc.getTextWidth(line);
-          doc.text(line, marginX + (contentW - 40 - w) / 2, y, { baseline: "top" });
-          y += 17;
+          ensure(18);
+          const w = richWidth(doc, line, 11.5, "normal");
+          drawRich(doc, line, marginX + (contentW - w) / 2, y, 11.5, "normal", INK);
+          y += 18;
         }
         doc.setFont("NotoSans", "normal");
         doc.setFontSize(10);
-        doc.setTextColor(71, 85, 105);
-        doc.text(block.label, marginX + contentW - doc.getTextWidth(block.label), y - 17, { baseline: "top" });
+        doc.setTextColor(...MUTED);
+        doc.text(block.label, marginX + contentW - doc.getTextWidth(block.label), y - 18, { baseline: "top" });
         if (block.where) {
-          text(`where ${block.where}`, { size: 8.5, color: [100, 116, 139], lineH: 12, indent: 30 });
+          text(`where ${block.where}`, { size: 8.5, color: MUTED, lineH: 12, align: "center" });
         }
         y += 6;
         break;
@@ -141,29 +269,32 @@ export async function createStandardReportPdf(report: ReportDocument, fileSlug: 
         break;
       case "keyValue": {
         ensure(40);
-        text(block.title, { size: 9.5, style: "bold", color: [51, 65, 85] });
+        text(block.title, { size: 9.5, style: "bold", color: MUTED });
         autoTable(doc, {
           startY: y + 2,
           margin: { left: marginX, right: marginX, bottom: 50 },
           theme: "grid",
-          styles: { font: "NotoSans", fontSize: 9, cellPadding: 4, lineColor: [203, 213, 225], lineWidth: 0.5, textColor: [15, 23, 42] },
-          columnStyles: { 0: { cellWidth: contentW * 0.42, fontStyle: "bold", fillColor: [248, 250, 252] } },
+          styles: { font: "NotoSans", fontSize: 9, cellPadding: 4, lineColor: [217, 211, 197], lineWidth: 0.5, textColor: INK },
+          columnStyles: { 0: { cellWidth: contentW * 0.42, fontStyle: "bold", fillColor: [247, 245, 240] } },
           body: block.rows.map((r) => [toPdfSafeText(r.label), toPdfSafeText(r.value)]),
+          ...richCellHooks(doc),
         });
         y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? y) + 14;
         break;
       }
       case "table": {
         ensure(60);
-        text(block.title, { size: 9.5, style: "bold", color: [51, 65, 85] });
+        text(block.title, { size: 9.5, style: "bold", color: MUTED });
         autoTable(doc, {
           startY: y + 2,
           margin: { left: marginX, right: marginX, bottom: 50 },
-          styles: { font: "NotoSans", fontSize: block.columns.length > 9 ? 7 : 8.5, cellPadding: 3.5, lineColor: [203, 213, 225], lineWidth: 0.5, textColor: [15, 23, 42], halign: "center" },
-          headStyles: { fillColor: [241, 245, 249], textColor: [30, 41, 59], fontStyle: "bold" },
+          styles: { font: "NotoSans", fontSize: block.columns.length > 9 ? 7.5 : 8.5, cellPadding: 3.5, lineColor: [217, 211, 197], lineWidth: 0.5, textColor: INK, halign: "center" },
+          headStyles: { fillColor: [240, 236, 227], textColor: INK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [250, 249, 246] },
           showHead: "everyPage",
           head: [block.columns.map((c) => toPdfSafeText(c.header))],
           body: block.rows.map((r) => block.columns.map((c) => toPdfSafeText(String(r[c.key] ?? "—")))),
+          ...richCellHooks(doc),
         });
         y = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? y) + 16;
         break;
@@ -201,7 +332,10 @@ export async function createStandardReportPdf(report: ReportDocument, fileSlug: 
         }
         break;
       case "responsibility":
-        y = drawResponsibilitySection(doc, marginX, contentW, y, pageH, "");
+        for (const para of REPORT_RESPONSIBILITY_PARAGRAPHS) {
+          text(para, { size: 9, lineH: 13, color: MUTED });
+          y += 5;
+        }
         break;
     }
   }

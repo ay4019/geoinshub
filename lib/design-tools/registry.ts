@@ -9,6 +9,7 @@ import { deepMixingCalculator } from "@/lib/design-tools/deep-mixing";
 import { dynamicCompactionCalculator } from "@/lib/design-tools/dynamic-compaction";
 import { pileAxialCapacityCalculator } from "@/lib/design-tools/pile-axial-capacity";
 import { vs30Calculator, vsFromSptCalculator } from "@/lib/design-tools/shear-wave-velocity";
+import { retainingWallCalculator } from "@/lib/design-tools/retaining-wall";
 import { slopeStabilityCalculator } from "@/lib/design-tools/slope-stability";
 import {
   compressionIndexCalculator,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/design-tools/soil-index-correlations";
 import { soilNailingCalculator } from "@/lib/design-tools/soil-nailing";
 import { stoneColumnsCalculator } from "@/lib/design-tools/stone-columns";
+import { subgradeReactionCalculator } from "@/lib/design-tools/subgrade-reaction";
 import { verticalDrainsCalculator } from "@/lib/design-tools/vertical-drains";
 
 export const designToolCalculators: Record<string, DesignCalculator> = {
@@ -29,7 +31,9 @@ export const designToolCalculators: Record<string, DesignCalculator> = {
   "undrained-strength-stress-history": undrainedStrengthRatioCalculator,
   // Geotechnical analysis / design
   "pile-axial-capacity-fhwa": pileAxialCapacityCalculator,
+  "subgrade-reaction-foundations": subgradeReactionCalculator,
   "slope-stability-bishop": slopeStabilityCalculator,
+  "retaining-wall-stability": retainingWallCalculator,
   "deep-mixing-columns-fhwa": deepMixingCalculator,
   "stone-columns-fhwa": stoneColumnsCalculator,
   "prefabricated-vertical-drains": verticalDrainsCalculator,

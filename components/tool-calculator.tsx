@@ -6,9 +6,25 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { incrementToolUseAction } from "@/app/actions/analytics";
 import { useSubscription } from "@/components/subscription-context";
+import { gateDesignCode } from "@/lib/design-tools/pile-strata";
+import { tierAllowsPremiumDesignCodes, type SubscriptionTier } from "@/lib/subscription";
 import { BearingCapacityVisual } from "@/components/bearing-capacity-visual";
+import { DetailedCalculations, ResultHeadline, TierGate, detailLevelFor } from "@/components/calculation/result-panels";
+import { RetainingWallVisual } from "@/components/visuals/retaining-wall-visual";
+import { inputGroup } from "@/lib/tool-input-groups";
+import { ExpandableProfilePlot } from "@/components/expandable-profile-plot";
+import { SlopeSectionVisual } from "@/components/visuals/slope-section-visual";
+import { SubgradeVisual } from "@/components/visuals/subgrade-visual";
+import { Vs30ProfileVisual } from "@/components/visuals/vs30-profile-visual";
 import { CprimeFromCuProfileTab, type CprimeFromCuReportPayload } from "@/components/cprime-from-cu-profile-tab";
-import { CuProfileReportTab, type CuProfileReportPoint } from "@/components/cu-profile-report-tab";
+import type { CuProfileReportPoint } from "@/components/cu-profile-report-tab";
+import {
+  cprimeFromCuToStandard,
+  cuFromPiSptToStandard,
+  eoedToStandard,
+  frictionAngleFromPiToStandard,
+  sptCorrectionsToStandard,
+} from "@/lib/reports/legacy-report-adapters";
 import { ReportGuestPanel } from "@/components/report-guest-panel";
 import { StandardToolReport } from "@/components/report/standard-tool-report";
 import { getStandardReportContent } from "@/lib/reports/standard-report-content";
@@ -35,6 +51,10 @@ import { OcrProfileTab } from "@/components/ocr-profile-tab";
 import { PostLiquefactionSettlementProfileTab } from "@/components/post-liquefaction-settlement-profile-tab";
 import { SptProfileTab, type SptCorrectionsReportPayload } from "@/components/spt-profile-tab";
 import { StressDistributionVisual } from "@/components/stress-distribution-visual";
+import { buildPileReportPayload } from "@/lib/reports/pile-report";
+import { PileCapacityTab } from "@/components/pile/pile-capacity-tab";
+import { PileStrataTab } from "@/components/pile/pile-strata-tab";
+import { usePileModel } from "@/components/pile/use-pile-model";
 import { Tabs } from "@/components/tabs";
 import { useToolUnitSystem } from "@/components/tool-unit-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -60,6 +80,8 @@ import {
 
 interface ToolCalculatorProps {
   tool: ToolDefinition;
+  /** User-guide screenshots only (/guide-capture): render as a viewer of this membership tier. */
+  captureTier?: SubscriptionTier;
 }
 
 type FormErrors = Record<string, string>;
@@ -386,20 +408,28 @@ function EquationBlock({ html }: { html: string }) {
   );
 }
 
-export function ToolCalculator({ tool }: ToolCalculatorProps) {
+export function ToolCalculator({ tool, captureTier }: ToolCalculatorProps) {
   const { unitSystem, setUnitSystem } = useToolUnitSystem();
   const { effectiveTier, loading: subscriptionLoading } = useSubscription();
   const supabaseReady = useMemo(() => isSupabaseConfigured(), []);
   const hasProfileTab = PROFILE_FIRST_TOOL_SLUGS.has(tool.slug);
-  const hideCalculationTab = tool.category === "Settlement";
-  const defaultTab = hideCalculationTab
-    ? hasProfileTab
-      ? "profile"
-      : "information"
-    : hasProfileTab
-      ? "profile"
-      : "calculation";
+  const isPileAxialCapacity = tool.slug === "pile-axial-capacity-fhwa";
+  // The pile tool runs from its Soil Strata / Pile Capacity tabs; the generic form would be a second, simpler model.
+  const hideCalculationTab = tool.category === "Settlement" || isPileAxialCapacity;
+  const defaultTab = isPileAxialCapacity
+    ? "strata"
+    : hideCalculationTab
+      ? hasProfileTab
+        ? "profile"
+        : "information"
+      : hasProfileTab
+        ? "profile"
+        : "calculation";
   const [activeTab, setActiveTab] = useState(defaultTab);
+  const [storedPileModel, setPileModel] = usePileModel(isPileAxialCapacity);
+  const premiumCodesUnlocked = !subscriptionLoading && tierAllowsPremiumDesignCodes(effectiveTier);
+  /** AASHTO / TBDY need Gold: other viewers may pick them in the Pile Capacity tab, but the results there are blurred and the report falls back to EC7. */
+  const pileModel = useMemo(() => gateDesignCode(storedPileModel, premiumCodesUnlocked), [storedPileModel, premiumCodesUnlocked]);
   const [formValues, setFormValues] = useState<Record<string, string>>(() => toInitialValues(tool));
   const [errors, setErrors] = useState<FormErrors>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -419,7 +449,6 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
   /** Data for the standard two-part report used by every tool without a bespoke report tab. */
   const [standardReportData, setStandardReportData] = useState<StandardReportPayload | null>(null);
   const [eoedProfileReportData, setEoedProfileReportData] = useState<EoedProfileReportPayload | null>(null);
-  const [reportSessionUserId, setReportSessionUserId] = useState<string | null>(null);
   const [genericProfileReportData, setGenericProfileReportData] = useState<{
     columns: Array<{ header: string; key: string }>;
     rows: Array<Record<string, string>>;
@@ -497,7 +526,10 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         .replace(/(^|[^A-Za-z])sigma'/g, "$1σ′")
         .replace(/(^|[^A-Za-z])sigma/g, "$1σ")
         .replace(/->|→/g, " to ");
-    const inputRows = tool.inputs.map((input) => {
+    const isEc7Method = formValues.method === "eurocode-7";
+    const inputRows = tool.inputs
+      .filter((input) => !(input.name === "designApproach" && !isEc7Method) && !(input.name === "factorOfSafety" && isEc7Method))
+      .map((input) => {
       const raw = formValues[input.name] ?? "";
       const value =
         input.type === "select" ? (input.options?.find((o) => o.value === raw)?.label ?? raw) : raw;
@@ -525,6 +557,37 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
       ],
     };
   }, [displayResult, formValues, isCalculationReportTool, tool.inputs, unitSystem]);
+  /** Standard report data for the active tool; older profile tabs are converted by lib/reports/legacy-report-adapters. */
+  const pileReportPayload = useMemo(
+    () => (isPileAxialCapacity ? buildPileReportPayload(pileModel) : null),
+    [isPileAxialCapacity, pileModel],
+  );
+  const reportPayload = useMemo<StandardReportPayload | null>(() => {
+    if (isPileAxialCapacity) return pileReportPayload;
+    if (isCalculationReportTool) return calculationReportPayload;
+    if (isSptCorrections) return sptCorrectionsToStandard(sptProfileReportData);
+    if (isCuFromPiAndSpt) return cuFromPiSptToStandard(cuProfileReportData);
+    if (isCprimeFromCu) return cprimeFromCuToStandard(cprimeProfileReportData);
+    if (isFrictionAngleFromPi) return frictionAngleFromPiToStandard(frictionAngleFromPiProfileReportData);
+    if (isEoedFromMv) return eoedToStandard(eoedProfileReportData);
+    return standardReportData;
+  }, [
+    calculationReportPayload,
+    cprimeProfileReportData,
+    cuProfileReportData,
+    eoedProfileReportData,
+    frictionAngleFromPiProfileReportData,
+    isCalculationReportTool,
+    isCprimeFromCu,
+    isCuFromPiAndSpt,
+    isEoedFromMv,
+    isFrictionAngleFromPi,
+    isPileAxialCapacity,
+    isSptCorrections,
+    pileReportPayload,
+    sptProfileReportData,
+    standardReportData,
+  ]);
   const equationDescriptions = useMemo(
     () =>
       getEquationDescriptions(
@@ -548,10 +611,49 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
       (inputName === "soilType" && values.cprimeMethod === "cu-factor") ||
       (inputName === "ncClayCprime" &&
         (values.cprimeMethod === "cu-factor" || values.soilType === "sand-gravel")));
-  const isEoedInputInactive = (inputName: string, values: Record<string, string> = formValues) =>
-    isEoedFromMv &&
-    ((inputName === "mv" && values.eoedInputMode === "pi-f2") ||
-      ((inputName === "plasticityIndex" || inputName === "n60") && values.eoedInputMode !== "pi-f2"));
+  const EOED_MODE_INPUTS: Record<string, string[]> = {
+    mv: ["mv"],
+    "pi-f2": ["plasticityIndex", "n60"],
+    cc: ["ll", "e0", "wn", "sigmaV0", "deltaSigma"],
+  };
+  /** Combined bearing tool: design approach only for EC7, global FS only for the classical methods. */
+  const isBearingInputInactive = (inputName: string, values: Record<string, string> = formValues) =>
+    tool.slug === "traditional-bearing-capacity-methods" &&
+    ((inputName === "designApproach" && values.method !== "eurocode-7") ||
+      (inputName === "factorOfSafety" && values.method === "eurocode-7"));
+  /** Inputs that do not apply to the current mode are hidden (and skipped in validation), not just disabled. */
+  const isInputHidden = (inputName: string, values: Record<string, string> = formValues) => {
+    if (tool.slug === "traditional-bearing-capacity-methods") {
+      if (inputName === "designApproach") return values.method !== "eurocode-7";
+      if (inputName === "factorOfSafety") return values.method === "eurocode-7";
+      return false;
+    }
+    if (tool.slug === "retaining-wall-stability") {
+      if (["kh", "kv"].includes(inputName)) return values.seismic !== "mononobe-okabe";
+      if (inputName === "passiveFactor") return values.passive !== "include";
+      return false;
+    }
+    if (tool.slug !== "slope-stability-bishop") return false;
+    const infinite = values.analysisMode === "infinite";
+    if (infinite) {
+      return ["height", "stratification", "interfaceElevation", "gamma2", "c2", "phi2", "waterMode", "phreaticElevation", "ru", "surcharge", "maxDepthBelowToe"].includes(inputName);
+    }
+    if (["slipDepth", "seepageRatio"].includes(inputName)) return true;
+    if (values.stratification !== "two" && ["interfaceElevation", "gamma2", "c2", "phi2"].includes(inputName)) return true;
+    if (inputName === "phreaticElevation") return values.waterMode !== "phreatic";
+    if (inputName === "ru") return values.waterMode !== "ru";
+    return false;
+  };
+  /** Report template follows the selected bearing method (classical or EC7). */
+  const reportToolSlug =
+    tool.slug === "traditional-bearing-capacity-methods" && formValues.method === "eurocode-7"
+      ? "eurocode-7-bearing-resistance"
+      : tool.slug;
+  const isEoedInputInactive = (inputName: string, values: Record<string, string> = formValues) => {
+    if (!isEoedFromMv || inputName === "eoedInputMode") return false;
+    const mode = values.eoedInputMode in EOED_MODE_INPUTS ? values.eoedInputMode : "mv";
+    return !EOED_MODE_INPUTS[mode].includes(inputName);
+  };
 
   const getControlValue = (control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) => {
     if (control instanceof HTMLInputElement) {
@@ -1082,10 +1184,8 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         clearActiveProjectBorehole();
         setActiveProjectBorehole(null);
         setIsAuthenticated(false);
-        setReportSessionUserId(null);
         return;
       }
-      setReportSessionUserId(user.id);
       setIsAuthenticated(true);
       setActiveProjectBorehole(readActiveProjectBorehole());
     };
@@ -1286,7 +1386,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     const nextErrors: FormErrors = {};
 
     for (const input of tool.inputs) {
-      if (isCprimeInputInactive(input.name) || isEoedInputInactive(input.name)) {
+      if (isCprimeInputInactive(input.name) || isEoedInputInactive(input.name) || isBearingInputInactive(input.name) || isInputHidden(input.name)) {
         continue;
       }
       const raw =
@@ -1360,6 +1460,24 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     }
   };
 
+  /** What the viewer may see of the detailed calculation (guest: blurred; Bronze: values; Silver/Gold: formulas). */
+  const viewerSignedIn = captureTier ? captureTier !== "none" : isAuthenticated;
+  const detailLevel = detailLevelFor(viewerSignedIn, effectiveTier);
+  /** Live drawing shown beside the inputs (sticky right column) for tools that have one. */
+  const sideVisual = showBearingVisual ? (
+    <BearingCapacityVisual values={formValues} unitSystem={unitSystem} title={tool.title} />
+  ) : tool.slug === "vs30-site-class" ? (
+    <Vs30ProfileVisual values={formValues} unitSystem={unitSystem} />
+  ) : tool.slug === "subgrade-reaction-foundations" ? (
+    <SubgradeVisual values={formValues} unitSystem={unitSystem} />
+  ) : tool.slug === "slope-stability-bishop" ? (
+    <ExpandableProfilePlot>
+      <SlopeSectionVisual values={formValues} unitSystem={unitSystem} result={displayResult} />
+    </ExpandableProfilePlot>
+  ) : tool.slug === "retaining-wall-stability" ? (
+    <RetainingWallVisual values={formValues} unitSystem={unitSystem} />
+  ) : null;
+
   const handleTabChange = (nextTab: string) => {
     if (nextTab === "report" && isSiteCharacterizationTool && !isCuFromPiAndSpt && activeTab === "profile") {
       void captureGenericProfileReportData();
@@ -1371,6 +1489,12 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
     <div className="space-y-5">
       <Tabs
         tabs={[
+          ...(isPileAxialCapacity
+            ? [
+                { id: "strata", label: "Soil Strata" },
+                { id: "pile", label: "Pile Capacity" },
+              ]
+            : []),
           ...(hideCalculationTab ? [] : [{ id: "calculation", label: "Calculation" }]),
           ...(isModulusFromCu ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
           ...(isSptCorrections ? [{ id: "profile", label: "Soil Profile Plot" }] : []),
@@ -1408,11 +1532,32 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         </div>
       ) : null}
 
-      {activeTab === "calculation" && !hideCalculationTab ? (
+      {activeTab === "strata" && isPileAxialCapacity ? (
+        <PileStrataTab
+          model={storedPileModel}
+          onChange={setPileModel}
+          unitSystem={unitSystem}
+          onContinue={() => {
+            setActiveTab("pile");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+      ) : activeTab === "pile" && isPileAxialCapacity ? (
+        <PileCapacityTab
+          model={storedPileModel}
+          onChange={setPileModel}
+          unitSystem={unitSystem}
+          onEditStrata={() => setActiveTab("strata")}
+          premiumCodesUnlocked={premiumCodesUnlocked}
+          membershipLoading={subscriptionLoading}
+          isSignedIn={viewerSignedIn}
+          detailLevel={detailLevel}
+        />
+      ) : activeTab === "calculation" && !hideCalculationTab ? (
         <section className="space-y-5">
           <div
             className={`grid gap-5 ${
-              showBearingVisual ? "lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+              showBearingVisual ? "lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)]" : sideVisual ? "lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
             }`}
           >
             <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -1426,7 +1571,11 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                     : "mt-4 space-y-4"
                 }
               >
-                {tool.inputs.map((input) => {
+                {tool.inputs.filter((input) => !isInputHidden(input.name)).map((input, inputIndex, visibleInputs) => {
+                  const groupHeader =
+                    inputGroup(tool.slug, input) && inputGroup(tool.slug, input) !== (visibleInputs[inputIndex - 1] ? inputGroup(tool.slug, visibleInputs[inputIndex - 1]) : undefined) ? (
+                      <p className={`${inputIndex ? "pt-3" : ""} mb-3 border-b border-slate-200 pb-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500`}>{inputGroup(tool.slug, input)}</p>
+                    ) : null;
                   const id = `input-${input.name}`;
                   const isAutoRatioField = isModulusFromCu && input.name === "ratio" && isAutoRatioMode;
                   const isInactiveGmaxField =
@@ -1434,7 +1583,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                     ((formValues.densityInputMode === "unit-weight" && input.name === "density") ||
                       (formValues.densityInputMode === "mass-density" && input.name === "unitWeight"));
                   const isInactiveCprimeField = isCprimeInputInactive(input.name);
-                  const isInactiveEoedField = isEoedInputInactive(input.name);
+                  const isInactiveEoedField = isEoedInputInactive(input.name) || isBearingInputInactive(input.name);
                   const isBearingFullSpan =
                     showBearingVisual &&
                     (input.name === "method" ||
@@ -1450,6 +1599,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                       : input.label;
                   return (
                     <div key={input.name} className={showBearingVisual && isBearingFullSpan ? "sm:col-span-2" : undefined}>
+                      {groupHeader}
                       <label
                         htmlFor={id}
                         className="mb-1 flex max-w-full items-baseline gap-1 overflow-x-auto whitespace-nowrap text-sm font-medium text-slate-700"
@@ -1538,7 +1688,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                       ) : null}
                       {isInactiveEoedField ? (
                         <p className="mt-1 text-xs text-slate-500">
-                          Disabled by the selected Eoed input method.
+                          Not used by the selected input method.
                         </p>
                       ) : null}
                     </div>
@@ -1546,124 +1696,40 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
                 })}
 
               </div>
-              <button type="button" onClick={handleCalculate} className="btn-base btn-md mt-6" disabled={isPending}>
-                {isPending ? "Calculating..." : "Calculate"}
-              </button>
-              {globalError ? <p className="mt-3 text-sm text-red-700">{globalError}</p> : null}
+              <div className="sticky bottom-0 z-10 -mx-4 mt-5 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5">
+                <button type="button" onClick={handleCalculate} className="btn-base btn-md w-full sm:w-auto" disabled={isPending}>
+                  {isPending ? "Calculating..." : "Calculate"}
+                </button>
+                {globalError ? <p className="mt-2 text-sm text-red-700">{globalError}</p> : null}
+              </div>
             </div>
 
-            {showBearingVisual ? (
-              <div className="min-w-0 lg:sticky lg:top-32 lg:max-h-[calc(100vh-8rem)] lg:overflow-auto lg:pr-1">
-                <div className="min-w-0 space-y-4">
-                  <BearingCapacityVisual values={formValues} unitSystem={unitSystem} title={tool.title} />
-
-                  <aside className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                    <h2 className="text-base font-semibold text-slate-900 sm:text-lg">Results</h2>
-                    {!displayResult ? (
-                      <p className="mt-3 text-sm text-slate-600">Run the calculation to view results.</p>
-                    ) : (
-                      <div className="mt-3 space-y-4">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">{displayResult.title}</p>
-                          {displayResult.summary ? (
-                            <p className="mt-1 text-sm text-slate-600">
-                              <EngineeringText text={displayResult.summary} />
-                            </p>
-                          ) : null}
-                        </div>
-
-                        <dl className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                          {displayResult.items.map((item, index) => (
-                            <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 text-sm">
-                              <dt className="text-slate-700">
-                                <EngineeringText text={item.label} />
-                              </dt>
-                              <dd className="font-semibold text-slate-900">
-                                {item.value}
-                                {item.unit ? ` ${item.unit}` : ""}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Notes</p>
-                          <p className="mt-2 text-sm text-slate-600">
-                            Detailed calculation steps are available in the Information tab.
-                          </p>
-                        </div>
-
-                        {visibleWarnings.length ? (
-                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                            <p className="font-semibold">Important caveat</p>
-                            <ul className="mt-1 space-y-1">
-                              {visibleWarnings.map((warning, index) => (
-                                <li key={`${warning}-${index}`}>
-                                  <EngineeringText text={warning} />
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </aside>
+            <div className="min-w-0 space-y-4 lg:sticky lg:top-28 lg:self-start">
+              <ResultHeadline result={displayResult} />
+              {sideVisual ? <div className="min-w-0 [&_svg]:max-h-[360px]">{sideVisual}</div> : null}
+              {displayResult && visibleWarnings.length ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <p className="font-semibold">Important caveat</p>
+                  <ul className="mt-1 space-y-1">
+                    {visibleWarnings.map((warning, index) => (
+                      <li key={`${warning}-${index}`}>
+                        <EngineeringText text={warning} />
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
-            ) : (
-              <aside className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                <h2 className="text-base font-semibold text-slate-900 sm:text-lg">Results</h2>
-                {!displayResult ? (
-                  <p className="mt-3 text-sm text-slate-600">Run the calculation to view results.</p>
-                ) : (
-                  <div className="mt-3 space-y-4">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{displayResult.title}</p>
-                      {displayResult.summary ? (
-                        <p className="mt-1 text-sm text-slate-600">
-                          <EngineeringText text={displayResult.summary} />
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <dl className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      {displayResult.items.map((item, index) => (
-                        <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 text-sm">
-                          <dt className="text-slate-700">
-                            <EngineeringText text={item.label} />
-                          </dt>
-                          <dd className="font-semibold text-slate-900">
-                            {item.value}
-                            {item.unit ? ` ${item.unit}` : ""}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Notes</p>
-                      <p className="mt-2 text-sm text-slate-600">
-                        Detailed calculation steps are available in the Information tab.
-                      </p>
-                    </div>
-
-                    {visibleWarnings.length ? (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        <p className="font-semibold">Important caveat</p>
-                        <ul className="mt-1 space-y-1">
-                          {visibleWarnings.map((warning, index) => (
-                            <li key={`${warning}-${index}`}>
-                              <EngineeringText text={warning} />
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-              </aside>
-            )}
+              ) : null}
+            </div>
           </div>
+
+          {displayResult ? (
+            <DetailedCalculations
+              result={displayResult}
+              level={detailLevel}
+              equations={effectiveInformation.equations}
+              onOpenReport={hasReportTab ? () => setActiveTab("report") : undefined}
+            />
+          ) : null}
 
           {showStressDistributionVisual ? <StressDistributionVisual values={formValues} unitSystem={unitSystem} /> : null}
           {isLiquefactionScreening ? (
@@ -1800,202 +1866,19 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         </div>
       ) : activeTab === "report" && hasReportTab ? (
         <section className="space-y-4">
-          {isCuFromPiAndSpt ? (
-            <CuProfileReportTab
-              toolSlug={tool.slug}
-              toolTitle={tool.title}
-              isAuthenticated={isAuthenticated}
-              authUserId={reportSessionUserId}
-              projectId={activeProjectBorehole?.projectId ?? null}
-              boreholeId={
-                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
-              }
-              unitSystem={unitSystem}
-              projectName={activeProjectBorehole?.projectName ?? null}
-              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
-              depthUnit={cuProfileReportData?.depthUnit}
-              stressUnit={cuProfileReportData?.stressUnit}
-              points={cuProfileReportData?.points ?? []}
-              rows={cuProfileReportData?.tableRows}
-              plotImageDataUrl={cuProfileReportData?.plotImageDataUrl ?? null}
-            />
-          ) : isCprimeFromCu ? (
-            <CuProfileReportTab
-              toolSlug={tool.slug}
-              toolTitle={tool.title}
-              isAuthenticated={isAuthenticated}
-              authUserId={reportSessionUserId}
-              projectId={activeProjectBorehole?.projectId ?? null}
-              boreholeId={
-                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
-              }
-              unitSystem={unitSystem}
-              projectName={activeProjectBorehole?.projectName ?? null}
-              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
-              depthUnit={cprimeProfileReportData?.depthUnit}
-              stressUnit={cprimeProfileReportData?.stressUnit}
-              points={[]}
-              rows={cprimeProfileReportData?.tableRows}
-              cprimeMethodNarrative={cprimeProfileReportData?.methodNarrative ?? null}
-              columns={
-                cprimeProfileReportData
-                  ? [
-                      { header: "Borehole", key: "Borehole" },
-                      {
-                        header: `Depth (${cprimeProfileReportData.depthUnit})`,
-                        key: `Depth (${cprimeProfileReportData.depthUnit})`,
-                      },
-                      { header: "Soil type", key: "Soil type" },
-                      { header: "c′ method", key: "c′ method" },
-                      {
-                        header: `cu (${cprimeProfileReportData.stressUnit})`,
-                        key: `cu (${cprimeProfileReportData.stressUnit})`,
-                      },
-                      {
-                        header: `c′ (${cprimeProfileReportData.stressUnit})`,
-                        key: `c′ (${cprimeProfileReportData.stressUnit})`,
-                      },
-                    ]
-                  : undefined
-              }
-              plotImageDataUrl={cprimeProfileReportData?.plotImageDataUrl ?? null}
-            />
-          ) : isFrictionAngleFromPi ? (
-            <CuProfileReportTab
-              toolSlug={tool.slug}
-              toolTitle={tool.title}
-              isAuthenticated={isAuthenticated}
-              authUserId={reportSessionUserId}
-              projectId={activeProjectBorehole?.projectId ?? null}
-              boreholeId={
-                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
-              }
-              unitSystem={unitSystem}
-              projectName={activeProjectBorehole?.projectName ?? null}
-              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
-              depthUnit={frictionAngleFromPiProfileReportData?.depthUnit}
-              stressUnit={frictionAngleFromPiProfileReportData?.stressUnit ?? "deg"}
-              points={[]}
-              rows={frictionAngleFromPiProfileReportData?.tableRows}
-              columns={
-                frictionAngleFromPiProfileReportData
-                  ? [
-                      { header: "Borehole", key: "Borehole" },
-                      {
-                        header: `Depth (${frictionAngleFromPiProfileReportData.depthUnit})`,
-                        key: `Depth (${frictionAngleFromPiProfileReportData.depthUnit})`,
-                      },
-                      { header: "PI (%)", key: "PI (%)" },
-                      {
-                        header: `φ′ (${frictionAngleFromPiProfileReportData.stressUnit})`,
-                        key: `φ′ (${frictionAngleFromPiProfileReportData.stressUnit})`,
-                      },
-                    ]
-                  : undefined
-              }
-              plotImageDataUrl={frictionAngleFromPiProfileReportData?.plotImageDataUrl ?? null}
-            />
-          ) : isSptCorrections ? (
-            <CuProfileReportTab
-              toolSlug={tool.slug}
-              toolTitle={tool.title}
-              isAuthenticated={isAuthenticated}
-              authUserId={reportSessionUserId}
-              projectId={activeProjectBorehole?.projectId ?? null}
-              boreholeId={
-                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
-              }
-              unitSystem={unitSystem}
-              projectName={activeProjectBorehole?.projectName ?? null}
-              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
-              depthUnit={sptProfileReportData?.depthUnit}
-              stressUnit={sptProfileReportData?.stressUnit}
-              points={[]}
-              rows={sptProfileReportData?.tableRows}
-              columns={
-                sptProfileReportData
-                  ? [
-                      { header: "Borehole", key: "boreholeId" },
-                      {
-                        header: `Depth (${sptProfileReportData.depthUnit})`,
-                        key: "sampleDepth",
-                      },
-                      { header: "N", key: "nField" },
-                      {
-                        header: `σ′v0 (${sptProfileReportData.stressUnit})`,
-                        key: "sigmaV0",
-                      },
-                      { header: "C_E", key: "ce" },
-                      { header: "C_b", key: "cb" },
-                      { header: "C_r", key: "cr" },
-                      { header: "C_s", key: "cs" },
-                      { header: "N60", key: "n60" },
-                      { header: "C_N", key: "cn" },
-                      { header: "(N1)60", key: "n160" },
-                    ]
-                  : undefined
-              }
-              plotImageDataUrl={sptProfileReportData?.plotImageDataUrlN60 ?? null}
-              plotImageDataUrl2={sptProfileReportData?.plotImageDataUrlN160 ?? null}
-              sptReportEquipment={sptProfileReportData?.sptEquipment ?? null}
-            />
-          ) : isEoedFromMv ? (
-            <CuProfileReportTab
-              toolSlug={tool.slug}
-              toolTitle={tool.title}
-              isAuthenticated={isAuthenticated}
-              authUserId={reportSessionUserId}
-              projectId={activeProjectBorehole?.projectId ?? null}
-              boreholeId={
-                activeProjectBorehole?.selectedBoreholes?.[0]?.boreholeId ?? activeProjectBorehole?.boreholeId ?? null
-              }
-              unitSystem={unitSystem}
-              projectName={activeProjectBorehole?.projectName ?? null}
-              boreholeIds={activeImportBoreholes.map((item) => item.boreholeLabel)}
-              depthUnit={eoedProfileReportData?.depthUnit}
-              stressUnit={eoedProfileReportData?.eoedUnit}
-              points={[]}
-              rows={eoedProfileReportData?.tableRows}
-              columns={
-                eoedProfileReportData
-                  ? [
-                      { header: "Borehole", key: "Borehole" },
-                      {
-                        header: `Depth (${eoedProfileReportData.depthUnit})`,
-                        key: `Depth (${eoedProfileReportData.depthUnit})`,
-                      },
-                      { header: "Input method", key: "Input method" },
-                      {
-                        header: `mv (${eoedProfileReportData.mvUnit})`,
-                        key: `mv (${eoedProfileReportData.mvUnit})`,
-                      },
-                      { header: "PI (%)", key: "PI (%)" },
-                      { header: "N60", key: "N60" },
-                      { header: "f2 (kN/m2)", key: "f2 (kN/m2)" },
-                      {
-                        header: `Eoed (${eoedProfileReportData.eoedUnit})`,
-                        key: `Eoed (${eoedProfileReportData.eoedUnit})`,
-                      },
-                    ]
-                  : undefined
-              }
-              plotImageDataUrl={eoedProfileReportData?.plotImageDataUrl ?? null}
-              plotImageDataUrl2={eoedProfileReportData?.plotImageDataUrl2 ?? null}
-              eoedMethodNarrative={eoedProfileReportData?.methodNarrative ?? null}
-            />
-          ) : !isAuthenticated ? (
+          {!viewerSignedIn ? (
             <ReportGuestPanel />
           ) : hasStandardReport ? (
             <StandardToolReport
-              toolSlug={tool.slug}
+              toolSlug={reportToolSlug}
               toolTitle={tool.title}
               assumptions={tool.information.assumptions}
               limitations={tool.information.limitations}
               unitSystem={unitSystem}
               projectName={isCalculationReportTool ? null : (activeProjectBorehole?.projectName ?? null)}
               boreholeIds={isCalculationReportTool ? [] : activeImportBoreholes.map((item) => item.boreholeLabel).filter(Boolean)}
-              payload={isCalculationReportTool ? calculationReportPayload : standardReportData}
-              sourceTabLabel={isCalculationReportTool ? "Calculation" : isIntegratedSettlement ? "Soil Profile" : isLiquefactionScreening ? "Layered Samples Plot" : "Soil Profile Plot"}
+              payload={reportPayload}
+              sourceTabLabel={isPileAxialCapacity ? "Soil Strata and Pile Capacity" : isCalculationReportTool ? "Calculation" : isIntegratedSettlement ? "Soil Profile" : isLiquefactionScreening ? "Layered Samples Plot" : "Soil Profile Plot"}
             />
           ) : (
             <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -2051,6 +1934,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             importRows={activeImportBoreholes}
             soilPolicyToolSlug={tool.slug}
             initialMethod={liquefactionMethod}
+            detailLevel={detailLevel}
           />
           {renderProfileSavePanel()}
         </div>
@@ -2066,9 +1950,15 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
         </div>
       ) : activeTab === "profile" && isIntegratedSettlement ? (
         <div ref={profileContainerRef} className="space-y-4">
-          <IntegratedSettlementProfileTab unitSystem={unitSystem} onReportDataChange={setStandardReportData} />
+          <IntegratedSettlementProfileTab unitSystem={unitSystem} onReportDataChange={setStandardReportData} detailLevel={detailLevel} />
         </div>
       ) : (
+        <TierGate
+          level={detailLevel}
+          minHeight={420}
+          title="Tool information is for members"
+          message="Create a free Bronze account to read the method, equations, assumptions and references behind this tool."
+        >
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           {isLiquefactionScreening ? (
             <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -2255,6 +2145,7 @@ export function ToolCalculator({ tool }: ToolCalculatorProps) {
             </p>
           </div>
         </section>
+        </TierGate>
       )}
 
       <div className="rounded-md border border-amber-100/90 bg-amber-50/60 px-2.5 py-2 text-[11px] leading-snug text-amber-950/85 sm:text-xs sm:leading-relaxed">

@@ -1,5 +1,6 @@
 "use client";
 
+import { ExcelExportButton } from "@/components/calculation/excel-export-button";
 import { Fragment } from "react";
 import { useEffect, useRef, useState } from "react";
 
@@ -324,7 +325,7 @@ export function PostLiquefactionSettlementProfileTab({
             <button type="button" className="btn-base btn-md" onClick={addRow}>
               Add Layer
             </button>
-            <button
+            <ExcelExportButton
               type="button"
               className="btn-base btn-md"
               onClick={(event) => {
@@ -332,7 +333,7 @@ export function PostLiquefactionSettlementProfileTab({
               }}
             >
               Export Excel
-            </button>
+            </ExcelExportButton>
           </div>
         </div>
 

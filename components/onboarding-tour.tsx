@@ -100,7 +100,7 @@ export function OnboardingTour() {
                 router.push("/signup");
               }}
             >
-              Register now and become a free Gold member
+              Register free to see the detailed calculations
             </button>
           </div>
         ),

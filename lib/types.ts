@@ -38,6 +38,8 @@ export interface ToolInput {
   step?: number;
   defaultValue: number | string;
   options?: ToolInputOption[];
+  /** Optional heading the Calculation form groups consecutive inputs under. */
+  group?: string;
 }
 
 export interface ToolInformation {
@@ -150,10 +152,38 @@ export interface CalculationResultItem {
   unit?: string;
 }
 
+/** Headline result shown to everyone (also guests) right under the Calculate button. */
+export interface CalculationHeadline {
+  label: string;
+  value: number | string;
+  unit?: string;
+  /** pass / fail checks get a green or red badge. */
+  status?: "pass" | "fail";
+  note?: string;
+}
+
+/**
+ * One line of the detailed calculation. Bronze sees label = value; Silver and Gold also see the general formula and
+ * the formula with the numbers substituted.
+ */
+export interface CalculationStepLine extends CalculationResultItem {
+  formula?: string;
+  substituted?: string;
+}
+
+export interface CalculationStep {
+  title: string;
+  lines: CalculationStepLine[];
+}
+
 export interface CalculationResult {
   title: string;
   summary?: string;
   items: CalculationResultItem[];
   notes: string[];
   warnings: string[];
+  /** Key results; when absent the first item is used. */
+  headline?: CalculationHeadline[];
+  /** Step-by-step calculation; when absent the items are shown as a single step. */
+  steps?: CalculationStep[];
 }

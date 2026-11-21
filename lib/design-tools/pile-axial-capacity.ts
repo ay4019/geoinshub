@@ -41,6 +41,8 @@ export interface PileLayer {
   cu: number; // kPa (clay)
   phi: number; // deg (sand)
   n60: number; // blows/0.3 m (sand)
+  /** GEC-10 sigma'_p exponent per layer (silty sand m = 0.8); falls back to PileInput.siltySand. */
+  siltySand?: boolean;
 }
 
 export interface PileInput {
@@ -78,7 +80,17 @@ export interface PileResult {
   allowable: number;
   toeSoil: LayerSoil;
   sigmaVToe: number;
+  /** Side-resistance distribution along the shaft, one point per integration step. */
+  profile: PileProfilePoint[];
   notes: string[];
+}
+
+export interface PileProfilePoint {
+  z: number; // m
+  sigmaV: number; // kPa
+  coefficient: number; // alpha or beta
+  unitSide: number; // kPa
+  layerIndex: number;
 }
 
 const DELTA_RATIO: Record<PileMaterial, number> = { concrete: 0.9, steel: 0.8, timber: 0.85 };
@@ -149,6 +161,7 @@ export function computePileAxialCapacity(input: PileInput): PileResult {
   const coefSum = new Array(layers.length).fill(0);
   const sigmaSum = new Array(layers.length).fill(0);
   const lengthSum = new Array(layers.length).fill(0);
+  const profile: PileProfilePoint[] = [];
 
   for (let z = dz / 2; z < L; z += dz) {
     const seg = Math.min(dz, L - (z - dz / 2));
@@ -174,7 +187,7 @@ export function computePileAxialCapacity(input: PileInput): PileResult {
         fs = coefficient * layer.cu;
       } else {
         const phi = deg2rad(layer.phi);
-        const m = input.siltySand ? 0.8 : 0.6;
+        const m = (layer.siltySand ?? input.siltySand) ? 0.8 : 0.6;
         const sigmaP = 0.47 * Math.max(layer.n60, 1) ** m * PA;
         const ocr = Math.max(sigmaP / sigmaV, 1);
         const kp = Math.tan(Math.PI / 4 + phi / 2) ** 2;
@@ -187,6 +200,7 @@ export function computePileAxialCapacity(input: PileInput): PileResult {
     sigmaSum[index] += sigmaV * seg;
     lengthSum[index] += seg;
     layerResults[index].sideResistance += fs * perimeter * seg;
+    profile.push({ z, sigmaV, coefficient, unitSide: fs, layerIndex: index });
   }
 
   layerResults.forEach((result, index) => {
@@ -241,6 +255,7 @@ export function computePileAxialCapacity(input: PileInput): PileResult {
     allowable: ultimate / input.factorOfSafety,
     toeSoil: toeLayer.soil,
     sigmaVToe,
+    profile,
     notes,
   };
 }

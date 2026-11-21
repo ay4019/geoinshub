@@ -19,6 +19,9 @@
     "This relationship computes the one-dimensional constrained modulus as the inverse of the coefficient of volume compressibility.",
     "This step reads the empirical f2 factor from the digitised PI-f2 chart using the plasticity index.",
     "This alternative estimates the oedometer constrained modulus by multiplying the PI-based f2 factor by corrected SPT resistance.",
+    "These five classical correlations (Skempton 1944, Terzaghi and Peck 1967, Nishida 1956, Azzouz et al. 1976, Koppula 1981) estimate the compression index from liquid limit, initial void ratio or natural water content; the tool reports their mean and range.",
+    "This converts the compression index to a coefficient of volume compressibility over the stress range from the current effective stress to the final effective stress, for normally consolidated clay.",
+    "These ranges give the recompression index for overconsolidated clay and the secondary compression index for creep settlement (Mesri and Godlewski 1977).",
   ],
   "ocr-calculator": [
     "This ratio shows how much larger the maximum past effective stress is than the current vertical effective stress.",

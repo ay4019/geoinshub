@@ -1,7 +1,6 @@
 import {
   BRONZE_MAX_BOREHOLES_PER_PROJECT,
   BRONZE_MAX_PROJECTS,
-  BRONZE_MAX_REPORTS_PER_DAY,
   BRONZE_MAX_SAMPLES_PER_BOREHOLE,
   type SubscriptionTier,
 } from "@/lib/subscription";
@@ -56,26 +55,26 @@ function SubscriptionPlanColumn({
 }
 
 const bronzeFeatures = [
-  `Up to ${BRONZE_MAX_PROJECTS} projects`,
-  `Up to ${BRONZE_MAX_BOREHOLES_PER_PROJECT} borehole IDs per project`,
-  `Up to ${BRONZE_MAX_SAMPLES_PER_BOREHOLE} samples per borehole`,
-  `Tools - Report tab: Create report -> Download PDF up to ${BRONZE_MAX_REPORTS_PER_DAY} times per day (Europe/Istanbul)`,
+  "Free — every new account starts here",
+  "Calculation steps with every intermediate value (e.g. Nq, CSR, CRR)",
+  "Tool Information tab: method, equations, assumptions and references",
   "Save analyses and project data to the cloud",
-  "AI profile interpretation - not included",
-  "Further questions in blog research articles - Silver or Gold only",
+  `Up to ${BRONZE_MAX_PROJECTS} projects, ${BRONZE_MAX_BOREHOLES_PER_PROJECT} boreholes per project, ${BRONZE_MAX_SAMPLES_PER_BOREHOLE} samples per borehole`,
 ] as const;
 
 const silverFeatures = [
-  "Unlimited projects and boreholes",
-  "Unlimited Create report -> Download PDF use in tools",
+  "Full derivations: every formula with your numbers substituted",
+  "Unlimited projects, boreholes and samples",
   "Further questions in blog research articles (guided follow-ups)",
   "All Bronze features included",
 ] as const;
 
 const goldFeatures = [
-  "Unlimited AI analysis in profile tools (Analyse with AI)",
-  "Projects - parameter matrix Generate report (AI engineering report): Gold only; weekly quota may apply",
-  "Unlimited projects, tool PDFs, and exports; priority access to new features",
+  "Tool reports: Create report and Download PDF",
+  "Excel export of profile tables and the project parameter matrix",
+  "AI analysis in profile tools and the AI engineering report for projects (weekly quota may apply)",
+  "AASHTO and TBDY design codes in the pile capacity tool",
+  "Priority access to new features",
   "All Silver features included",
 ] as const;
 
@@ -95,7 +94,7 @@ export function MembershipTierColumns({
         tierId="bronze"
         currentTier={effectiveTier}
         title="Bronze"
-        subtitle="Default membership — copper tier"
+        subtitle="Free membership — step values"
         className="border-[#6B4423] bg-gradient-to-b from-[#f6ece3] via-[#e9d4c0] to-[#d4b896] text-[#2a1810] ring-[#8B5A2B]/35"
         titleClass="text-[#3d2314]"
         features={[...bronzeFeatures]}
@@ -104,7 +103,7 @@ export function MembershipTierColumns({
         tierId="silver"
         currentTier={effectiveTier}
         title="Silver"
-        subtitle="Full analysis capacity"
+        subtitle="Full calculation derivations"
         className="border-slate-400/70 bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200/70 text-slate-900 ring-slate-500/30"
         titleClass="text-slate-900"
         features={[...silverFeatures]}
@@ -113,7 +112,7 @@ export function MembershipTierColumns({
         tierId="gold"
         currentTier={effectiveTier}
         title="Gold"
-        subtitle="No limits"
+        subtitle="Reports, exports, AI and premium codes"
         className="border-amber-400/80 bg-gradient-to-b from-amber-50 via-yellow-50 to-amber-100/80 text-amber-950 ring-amber-500/35"
         titleClass="text-amber-950"
         features={[...goldFeatures]}

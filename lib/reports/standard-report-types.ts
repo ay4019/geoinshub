@@ -43,6 +43,22 @@ export interface StandardReportPayload {
   keyResults?: Array<{ label: string; value: string }>;
   /** Rows excluded from the analysis and why (e.g. above GWT, (N1)60 > 30). */
   exclusions?: string[];
+  /** Step-by-step calculation narrative for design tools, rendered as a "Calculation Steps" section. */
+  steps?: StandardReportStep[];
+  /** Replaces the generated data-source sentence of the Input Data section. */
+  dataSentence?: string;
+  /** Skip the automatic statistical summary of plotted series (not meaningful for design curves). */
+  skipSeriesSummary?: boolean;
+}
+
+export interface StandardReportStep {
+  title: string;
+  paragraphs: string[];
+  equations?: StandardReportEquation[];
+  bullets?: string[];
+  table?: { title: string; columns: StandardReportColumn[]; rows: Array<Record<string, string>> };
+  /** Closing sentences after equations/table (e.g. the numerical result). */
+  after?: string[];
 }
 
 export interface StandardReportEquation {
@@ -55,10 +71,12 @@ export interface StandardReportEquation {
 export interface StandardReportContent {
   /** Short name of the assessment, used in headings ("Small-Strain Shear Modulus"). */
   subject: string;
-  /** Part 1 paragraphs (general, project-independent). */
+  /** "Introduction": what the parameter is and why it matters — one or two short paragraphs. */
   introduction: string[];
+  /** "Method": how it is obtained, in plain words, before the equations — one short paragraph. */
+  method: string;
   equations: StandardReportEquation[];
-  /** Additional general paragraphs after the equations (interpretation guidance). */
+  /** "Notes on use": how to read and apply the result — one short paragraph. */
   guidance?: string[];
   references: string[];
   tableTitle: string;

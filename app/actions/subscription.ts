@@ -3,13 +3,11 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  BRONZE_MAX_REPORTS_PER_DAY,
   effectiveSubscriptionTier,
   MATRIX_AI_REPORTS_PER_WEEK,
   normaliseSubscriptionTier,
   type SubscriptionTier,
   tierAllowsAiAnalysis,
-  usageDateKeyEuropeIstanbul,
   usageWeekMondayKeyEuropeIstanbul,
 } from "@/lib/subscription";
 
@@ -63,63 +61,17 @@ export async function getSubscriptionProfileAction(): Promise<SubscriptionProfil
   };
 }
 
-/** Consume one slot when the user completes a tool Report PDF (Create report → Download PDF). Bronze: daily cap; Silver/Gold: unlimited. Not used for Projects → parameter matrix Generate report. */
+/** Tool reports (Create report → Download PDF) are a Gold feature; admins evaluate as Gold. Not used for the Projects parameter matrix Generate report (separate weekly quota). */
 export async function consumeReportGenerationAction(): Promise<QuotaResult> {
   const auth = await requireUserId();
   if ("error" in auth) {
     return { ok: false, message: auth.error };
   }
   const tier = await loadEffectiveTierForGating(auth.userId);
-  if (tier === "none") {
-    return { ok: false, message: "Reports require an active membership (Bronze or higher)." };
+  if (tier !== "gold") {
+    return { ok: false, message: "Tool reports are available to Gold members." };
   }
-  if (tier === "silver" || tier === "gold") {
-    return { ok: true, message: "ok" };
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const today = usageDateKeyEuropeIstanbul();
-  const { data: row, error: selErr } = await supabase
-    .from("usage_daily")
-    .select("id, reports_generated")
-    .eq("user_id", auth.userId)
-    .eq("usage_date", today)
-    .maybeSingle();
-
-  if (selErr) {
-    return { ok: false, message: selErr.message };
-  }
-
-  const current = (row as { id?: string; reports_generated?: number } | null)?.reports_generated ?? 0;
-  if (current >= BRONZE_MAX_REPORTS_PER_DAY) {
-    return {
-      ok: false,
-      message: `Daily report limit reached (${BRONZE_MAX_REPORTS_PER_DAY} per day on Bronze). Ask the site admin to assign Silver or Gold for higher limits.`,
-    };
-  }
-
-  if (!row) {
-    const { error: insErr } = await supabase.from("usage_daily").insert({
-      user_id: auth.userId,
-      usage_date: today,
-      reports_generated: 1,
-      ai_analyses: 0,
-    });
-    if (insErr) {
-      return { ok: false, message: insErr.message };
-    }
-    return { ok: true, message: "ok", remaining: BRONZE_MAX_REPORTS_PER_DAY - 1 };
-  }
-
-  const { error: upErr } = await supabase
-    .from("usage_daily")
-    .update({ reports_generated: current + 1 })
-    .eq("id", (row as { id: string }).id);
-
-  if (upErr) {
-    return { ok: false, message: upErr.message };
-  }
-  return { ok: true, message: "ok", remaining: BRONZE_MAX_REPORTS_PER_DAY - current - 1 };
+  return { ok: true, message: "ok" };
 }
 
 /** Gold: unlimited AI analyses (tool “Analyse with AI”). Other tiers blocked before calling this. */

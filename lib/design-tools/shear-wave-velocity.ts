@@ -74,13 +74,21 @@ export const vs30Calculator: DesignCalculator = (values) => {
   if (!layers.length) throw new Error("Enter at least one layer with positive thickness and V_s.");
   const r = computeVs30(layers);
   const total = layers.reduce((s, l) => s + l.thickness, 0);
+  // TBDY 2018 Table 16.1: a soft clay layer thicker than 3 m (c_u < 25 kPa, PI > 20, w > 40%) puts the profile in ZE.
+  const softClay = readNumber(values, "softClayThickness", "Soft clay thickness", { min: 0, fallback: 0 });
+  const tbdy = softClay > 3 ? "ZE" : r.tbdy;
   return {
+    headline: [
+      { label: "V_s,30", value: round(r.vs30, 0), unit: "m/s" },
+      { label: "Site class", value: `TBDY ${tbdy} · EC8 ${r.ec8}` },
+    ],
     title: "V_s,30 and Site Class",
-    summary: `V_s,30 = ${round(r.vs30, 0)} m/s → TBDY 2018 class ${r.tbdy}, EN 1998-1 ground type ${r.ec8}.`,
+    summary: `V_s,30 = ${round(r.vs30, 0)} m/s → TBDY 2018 class ${tbdy}${tbdy !== r.tbdy ? " (soft clay layer > 3 m)" : ""}, EN 1998-1 ground type ${r.ec8}.`,
     items: [
       ...r.used.map((l, i) => ({ label: `Layer ${i + 1} used thickness / V_s`, value: `${round(l.thickness, 2)} m / ${round(l.vs, 0)} m/s` })),
       { label: "V_s,30", value: round(r.vs30, 1), unit: "m/s" },
-      { label: "TBDY 2018 local site class", value: r.tbdy },
+      ...(softClay > 3 ? [{ label: "TBDY class from V_s,30 alone", value: r.tbdy }] : []),
+      { label: "TBDY 2018 local site class", value: tbdy },
       { label: "EN 1998-1 ground type", value: r.ec8 },
     ],
     notes: [

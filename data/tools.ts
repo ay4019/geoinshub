@@ -244,39 +244,50 @@ const soilParameterTools: ToolDefinition[] = [
   {
     slug: "eoed-from-mv",
     status: "active",
-    title: "Oedometer Constrained Modulus (Eoed) from Coefficient of Volume Compressibility (mv)",
+    title: "Consolidation Parameters — Eoed, m_v and Compression Index (C_c)",
     category: "Rigidity / Deformation Tools",
     shortDescription:
-      "Oedometer constrained modulus is obtained from the standard one-dimensional compressibility relationship used in classical settlement interpretation.",
-    tags: ["compressibility", "oedometer"],
-    keywords: ["mv", "Eoed", "M", "PI", "f2", "N60"],
+      "Oedometer constrained modulus from m_v, from the PI-f2 chart and N60, or from C_c correlations on index properties, with C_r and C_α for consolidation settlement.",
+    tags: ["compressibility", "oedometer", "consolidation", "Cc"],
+    keywords: ["mv", "Eoed", "M", "PI", "f2", "N60", "Cc", "compression index", "Cr", "Calpha", "Skempton", "Terzaghi Peck", "Nishida"],
     featured: false,
     inputs: [
       select("eoedInputMode", "Input method", "mv", [
-        { label: "Use m_v directly", value: "mv" },
+        { label: "Use m_v directly (oedometer test)", value: "mv" },
         { label: "Estimate from PI-f2 chart and N60", value: "pi-f2" },
+        { label: "Estimate from index properties (C_c correlations)", value: "cc" },
       ]),
       num("mv", "Coefficient of volume compressibility, m_v", 0.4, "m2/MN", { min: 0.0001, step: 0.01 }),
       num("plasticityIndex", "Plasticity Index, PI", 30, "%", { min: 0, max: 100, step: 0.1 }),
       num("n60", "Corrected SPT resistance, N60", 15, undefined, { min: 0.1, step: 0.1 }),
+      num("ll", "Liquid limit, LL", 50, "%", { min: 10, max: 300, step: 1 }),
+      num("e0", "Initial void ratio, e0", 1.1, undefined, { min: 0.3, max: 6, step: 0.01 }),
+      num("wn", "Natural water content, w_n", 40, "%", { min: 5, max: 300, step: 1 }),
+      num("sigmaV0", "Current vertical effective stress, σ′v0", 100, "kPa", { min: 1, step: 1 }),
+      num("deltaSigma", "Stress increment, Δσ′", 100, "kPa", { min: 1, step: 1 }),
     ],
     information: info({
       methodology:
-        "Uses either the reciprocal relationship between constrained modulus and coefficient of volume compressibility, or an alternative PI-f2 chart interpretation where f2 is read from the plasticity index and Eoed is estimated as f2 × N60.",
+        "Three routes to the one-dimensional constrained modulus: (1) the reciprocal of m_v from oedometer tests; (2) the Stroud and Butler (1975) PI-f2 chart, Eoed = f2 × N60; (3) the compression index C_c from five classical correlations on LL, e0 and w_n, converted to m_v and Eoed over the stress range σ′v0 → σ′v0 + Δσ′ for normally consolidated clay. Route 3 also reports C_r and C_α ranges for consolidation and creep settlement.",
       assumptions: [
         "m_v is appropriate for the stress range under consideration when the direct m_v method is used.",
         "For the PI-f2 alternative, PI and corrected N60 are representative of the analysed layer.",
+        "For the C_c route the clay is inorganic and normally consolidated over the stress range considered.",
         "One-dimensional constrained deformation is the relevant idealisation.",
       ],
       limitations: [
         "The modulus is stress-level dependent.",
-        "The PI-f2 chart route is an empirical screening alternative and should not replace oedometer testing where project-specific data are available.",
+        "The PI-f2 and C_c routes are empirical screening alternatives (C_c correlations scatter by about ±30%) and should not replace oedometer testing where project-specific data are available.",
+        "For overconsolidated clay use C_r up to σ′p; the C_c route assumes normal consolidation.",
         "Do not extrapolate a single oedometer modulus too broadly.",
       ],
       equations: [
         "E<sub>oed</sub> = 1 / m<sub>v</sub>",
         "f<sub>2</sub> = f(PI)",
         "E<sub>oed</sub> = f<sub>2</sub>N<sub>60</sub>",
+        "C<sub>c</sub> = 0.007(LL − 7); 0.009(LL − 10); 1.15(e<sub>0</sub> − 0.35); 0.40(e<sub>0</sub> − 0.25); 0.01w<sub>n</sub>",
+        "m<sub>v</sub> = C<sub>c</sub> log<sub>10</sub>[(σ′<sub>v0</sub> + Δσ′)/σ′<sub>v0</sub>] / [(1 + e<sub>0</sub>)Δσ′]",
+        "C<sub>r</sub> ≈ C<sub>c</sub>/10 – C<sub>c</sub>/5;  C<sub>α</sub> ≈ 0.04C<sub>c</sub>",
       ],
       figures: [
         {
@@ -289,6 +300,13 @@ const soilParameterTools: ToolDefinition[] = [
         "Das, B.M. and Sobhan, K. (2021). Principles of Geotechnical Engineering, 10th ed. Cengage Learning.",
         "Tomlinson, M.J. (2001). Foundation Design and Construction, 7th ed. Pearson Education.",
         "Bowles, J.E. (1996). Foundation Analysis and Design, 5th ed. McGraw-Hill.",
+        "Stroud, M.A. and Butler, F.G. (1975). The standard penetration test and the engineering properties of glacial materials. Proc. Symposium on Engineering Behaviour of Glacial Materials, Birmingham, 117-128.",
+        "Skempton, A.W. (1944). Notes on the compressibility of clays. Quarterly Journal of the Geological Society, 100, 119-135.",
+        "Terzaghi, K. and Peck, R.B. (1967). Soil Mechanics in Engineering Practice, 2nd ed. Wiley.",
+        "Nishida, Y. (1956). A brief note on compression index of soil. Journal of the SMF Division, ASCE, 82(SM3), 1027.",
+        "Azzouz, A.S., Krizek, R.J. and Corotis, R.B. (1976). Regression analysis of soil compressibility. Soils and Foundations, 16(2), 19-29.",
+        "Koppula, S.D. (1981). Statistical estimation of compression index. Geotechnical Testing Journal, 4(2), 68-73.",
+        "Mesri, G. and Godlewski, P.M. (1977). Time- and stress-compressibility interrelationship. Journal of the Geotechnical Engineering Division, ASCE, 103(GT5), 417-430.",
       ],
     }),
   },
@@ -424,12 +442,12 @@ const bearingTools: ToolDefinition[] = [
   {
     slug: "traditional-bearing-capacity-methods",
     status: "active",
-    title: "Traditional Bearing Capacity Methods",
+    title: "Shallow Foundation Bearing Capacity — Classical Methods & Eurocode 7",
     category: "Bearing Capacity",
     shortDescription:
-      "Compare Terzaghi, Meyerhof, Hansen, and Vesic general shear methods within a single shallow foundation tool.",
-    tags: ["bearing capacity", "shallow foundation"],
-    keywords: ["Terzaghi", "Meyerhof", "Hansen", "Vesic", "Nc", "Nq", "Ngamma"],
+      "Bearing capacity of a rectangular footing by Terzaghi, Meyerhof, Hansen or Vesić with a global factor of safety, or as a Eurocode 7 (Annex D) bearing resistance with the selected Design Approach.",
+    tags: ["bearing capacity", "shallow foundation", "Eurocode 7"],
+    keywords: ["Terzaghi", "Meyerhof", "Hansen", "Vesic", "Nc", "Nq", "Ngamma", "EC7", "DA1", "DA2", "DA3", "partial factors", "bearing resistance"],
     featured: true,
     inputs: [
       select("method", "Bearing capacity method", "terzaghi", [
@@ -437,6 +455,13 @@ const bearingTools: ToolDefinition[] = [
         { label: "Meyerhof", value: "meyerhof" },
         { label: "Hansen", value: "hansen" },
         { label: "Vesic", value: "vesic" },
+        { label: "Eurocode 7 (EN 1997-1 Annex D)", value: "eurocode-7" },
+      ]),
+      select("designApproach", "Eurocode 7 design approach", "da1-combination-1", [
+        { label: "DA1 Combination 1", value: "da1-combination-1" },
+        { label: "DA1 Combination 2", value: "da1-combination-2" },
+        { label: "DA2", value: "da2" },
+        { label: "DA3", value: "da3" },
       ]),
       num("cohesion", "Effective cohesion, c'", 10, "kPa", { min: 0 }),
       num("frictionAngle", "Effective friction angle, φ′", 30, "deg", { min: 0, max: 50 }),
@@ -449,17 +474,19 @@ const bearingTools: ToolDefinition[] = [
     ],
     information: info({
       methodology:
-        "This tool compares four commonly cited general shear bearing-capacity methods for shallow rectangular footings. Nq and Nc are calculated from the classical friction-angle expressions, while the N-gamma term follows the selected traditional method formulation.",
+        "Classical methods (Terzaghi, Meyerhof, Hansen, Vesić) give the ultimate bearing capacity of a shallow rectangular footing in general shear, with N_q and N_c from the friction-angle expressions and N_γ, shape and depth factors from the selected method; the allowable pressure is q_ult / FS. The Eurocode 7 option instead applies the partial factors of the selected Design Approach to φ′ and c′, uses the Annex D drained bearing resistance (no depth factors) and divides by the resistance factor γ_R,v.",
       assumptions: [
         "General shear failure and drained parameter use are assumed.",
         "Shape and depth factors follow the selected method (Terzaghi: shape only; Meyerhof: K<sub>p</sub>-based; Hansen/Vesic: N<sub>q</sub>/N<sub>c</sub>-based shape and k-based depth factors).",
         "Groundwater influence is handled in a simplified way using gamma' = gamma - gamma_w below the GWT (no capillary rise or seepage).",
         "Load inclination and eccentric loading are not handled in this tool.",
+        "Eurocode 7 option: Annex D drained factors N<sub>&gamma;</sub> = 2(N<sub>q</sub> - 1)tan&phi;'<sub>d</sub>, s<sub>q</sub> = 1 + (B/L)sin&phi;'<sub>d</sub>, s<sub>&gamma;</sub> = 1 - 0.3B/L, s<sub>c</sub> = (s<sub>q</sub>N<sub>q</sub> - 1)/(N<sub>q</sub> - 1); only the resistance side is checked.",
       ],
       limitations: [
         "Do not treat the result as a code-compliant foundation design.",
         "Settlement may govern well before ultimate bearing failure.",
         "Method differences are only one part of the uncertainty; parameter selection remains critical.",
+        "Eurocode 7 option: National Annex factors, action combinations and the full GEO/STR verification are not included.",
       ],
       equations: [
         "N<sub>q</sub> = e<sup>&pi;tan&phi;'</sup> tan<sup>2</sup>(45 + &phi;'/2)",
@@ -472,13 +499,28 @@ const bearingTools: ToolDefinition[] = [
         "q<sub>ult</sub> = c'N<sub>c</sub>s<sub>c</sub>d<sub>c</sub> + qN<sub>q</sub>s<sub>q</sub>d<sub>q</sub> + 0.5&gamma;BN<sub>&gamma;</sub>s<sub>&gamma;</sub>d<sub>&gamma;</sub>",
         "q = &sigma;'<sub>v0</sub>(z = D<sub>f</sub>)",
         "q<sub>all</sub> = q<sub>ult</sub> / FS",
+        "EC7: tan&phi;'<sub>d</sub> = tan&phi;' / &gamma;<sub>M,&phi;</sub>, c'<sub>d</sub> = c' / &gamma;<sub>M,c</sub>, N<sub>&gamma;</sub> = 2(N<sub>q</sub> - 1)tan&phi;'<sub>d</sub>",
+        "EC7: q<sub>Rd</sub> = q<sub>ult,d</sub> / &gamma;<sub>R,v</sub>",
       ],
       references: bearingRefs,
+      tables: [
+        {
+          title: "Eurocode 7 Design Approach Factors Used In This Tool",
+          columns: ["Design Approach", "Action Set", "gamma_M,phi", "gamma_M,c", "gamma_R,v"],
+          rows: [
+            ["DA1 Combination 1", "A1 + M1 + R1", "1.00", "1.00", "1.00"],
+            ["DA1 Combination 2", "A2 + M2 + R1", "1.25", "1.25", "1.00"],
+            ["DA2", "A1 + M1 + R2", "1.00", "1.00", "1.40"],
+            ["DA3", "(A1 or A2) + M2 + R3", "1.25", "1.25", "1.00"],
+          ],
+          note: "Recommended values of EN 1997-1 Annex A; National Annex choices still govern actual design.",
+        },
+      ],
     }),
   },
   {
     slug: "eurocode-7-bearing-resistance",
-    status: "active",
+    status: "archived",
     title: "Eurocode 7 Bearing Resistance Screening",
     category: "Bearing Capacity",
     shortDescription:
@@ -1822,7 +1864,7 @@ const fieldAndEmpiricalTools: ToolDefinition[] = [
   },
   {
     slug: "cprime-from-cu",
-    status: "active",
+    status: "archived",
     title: "Effective Cohesion (c') from Undrained Shear Strength (cu)",
     category: "Shear Strength Tools",
     shortDescription:

@@ -1,18 +1,14 @@
 import { ArticleCard } from "@/components/article-card";
-import { FieldBlogIndex } from "@/components/field/field-blog-index";
 import { getAllArticles } from "@/lib/data-layer";
-import { isFieldDesign } from "@/lib/site-design";
 
 export default function BlogPage() {
   const articles = getAllArticles();
-
-  if (isFieldDesign()) return <FieldBlogIndex articles={articles} />;
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-5xl">Blog</h1>
-        <p className="mt-2 text-xs leading-5 text-slate-600 sm:mt-3 sm:text-base sm:leading-6">
+        <p className="mt-2 max-w-4xl text-sm leading-[1.6] text-slate-600 sm:mt-3 sm:text-base">
           Geotechnical and railway engineering insights are presented through technically grounded articles, where
           design code comparisons, underlying calculation principles, and the integration of academic knowledge with
           field practice are systematically explored. Practical observations, construction methodologies, and selected

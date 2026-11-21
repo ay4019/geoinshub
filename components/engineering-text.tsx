@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 
+import { splitSubscripts } from "@/lib/charts/depth-profile";
+
 /** React text nodes do not decode HTML entities; decode common math/science entities before rendering. */
 function decodeHtmlEntities(input: string): string {
   const named: Array<[string, string]> = [
@@ -142,14 +144,15 @@ function renderSegment(segment: string, keyBase: string): ReactNode[] {
   }
 
   const genericParts: ReactNode[] = [];
-  const pattern = /([A-Za-z\u0370-\u03FF]+)'?_([A-Za-z0-9.]+)/g;
+  // Base letters, optional prime (' or ′), "_" and the subscript; a comma joins two-part subscripts (γ_M,φ, q_ult,d).
+  const pattern = /([A-Za-zͰ-Ͽ]+)(['′]?)_([A-Za-z0-9.Ͱ-Ͽ]+(?:,[A-Za-zͰ-Ͽ]+)?)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(cleaned)) !== null) {
-    const [fullMatch, base, sub] = match;
+    const [fullMatch, base, prime, sub] = match;
     const start = match.index;
-    const hasPrime = fullMatch.includes("'");
+    const hasPrime = Boolean(prime);
 
     if (start > lastIndex) {
       genericParts.push(cleaned.slice(lastIndex, start));
@@ -173,8 +176,18 @@ function renderSegment(segment: string, keyBase: string): ReactNode[] {
   return genericParts;
 }
 
+/**
+ * Unicode subscript glyphs (N₆₀, (N₁)₆₀) are missing from the UI font and render tiny in a fallback font;
+ * turn each run into a <sub> so it uses the page font like HTML subscripts.
+ */
+function unicodeSubscriptsToTags(input: string): string {
+  return input.replace(/[₀-ₜᵢ-ᵪⱼ]+/g, (run) =>
+    `<sub>${splitSubscripts(run).map((s) => s.text).join("")}</sub>`,
+  );
+}
+
 export function EngineeringText({ text }: { text: string }) {
-  const decoded = decodeHtmlEntities(text);
+  const decoded = unicodeSubscriptsToTags(decodeHtmlEntities(text));
   const segments = decoded.split(/(<sub>.*?<\/sub>|<sup>.*?<\/sup>)/g);
   const output: ReactNode[] = [];
 

@@ -155,10 +155,10 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
       {mode === "signup" ? (
         <div className="mt-4 rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50 via-white to-amber-50/90 px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:px-5">
           <p className="text-center text-[13px] font-semibold leading-snug tracking-tight text-amber-950 sm:text-sm">
-            Register now — become a <span className="whitespace-nowrap text-amber-900">free Gold</span> member
+            Register free — unlock the <span className="whitespace-nowrap text-amber-900">detailed calculations</span>
           </p>
           <p className="mt-1.5 text-center text-xs leading-relaxed text-amber-900/85">
-            New sign-ups currently receive full Gold access at no extra cost.
+            New accounts start as Bronze: every calculation step and the tool Information pages, free.
           </p>
         </div>
       ) : null}
@@ -281,8 +281,8 @@ export function AccountAuthPanel({ initialMode = "login" }: AccountAuthPanelProp
         {mode === "signup" ? (
           <div className="space-y-3 border-t border-slate-200 pt-5">
             <p className="text-sm leading-relaxed text-slate-600">
-              Compare what each tier includes. New accounts currently start as Gold; the site admin can still adjust
-              tiers when needed.
+              Compare what each tier includes. Every new account starts as Bronze, free. Without an account you can enter
+              inputs and see the headline result only.
             </p>
             <MembershipTierColumns effectiveTier="none" tierLoading={false} />
           </div>
